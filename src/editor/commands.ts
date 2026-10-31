@@ -478,13 +478,15 @@ export function notesToDiagnostics(notes: Note[], text: string): Diagnostic[] {
       const exact = symbol ? symbolIn(text, at, end, symbol) : null;
       const from = exact?.from ?? at;
       const to = exact?.to ?? end;
+      // An undefined function is only a style warning to SBCL, and the commonest typo.
+      const severity = n.severity === "error" || n.severity === "read-error" ? "error" : n.severity === "warning" || n.severity === "style-warning" ? "warning" : "info";
       return {
         from,
         to,
-        // An undefined function is only a style warning to SBCL, and the commonest typo.
-        severity: n.severity === "error" || n.severity === "read-error" ? "error" : n.severity === "warning" || n.severity === "style-warning" ? "warning" : "info",
+        severity,
         message: briefMessage(n.message),
-        source: "SBCL",
+        // The box's color is not the only sign of how serious a note is.
+        source: `SBCL ${severity === "info" ? "note" : severity}`,
         actions: [
           ...n.fixes.map((f) => ({ name: f.label[0].toUpperCase() + f.label.slice(1), apply: (view: EditorView, at: number) => applyFix(view, at + f.offset - from, f) })),
           { name: "Copy", apply: () => void navigator.clipboard.writeText(n.message) },

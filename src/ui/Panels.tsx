@@ -295,8 +295,8 @@ export function StatusBar() {
             : status.state === "exited"
               ? "Lisp stopped"
               : status.state === "starting"
-                ? "Starting Lisp…"
-                : "Lisp is not running"}
+                ? "Lisp starting…"
+                : "Lisp stopped"}
       </span>
     </footer>
   );

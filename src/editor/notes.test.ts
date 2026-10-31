@@ -20,6 +20,12 @@ describe("compiler notes in the editor", () => {
     expect(text.slice(d.from, d.to)).toBe("missing-arg");
   });
 
+  it("names the severity in words, not only in color", () => {
+    const text = "(f)";
+    const at = (severity: string) => notesToDiagnostics([{ ...note("x", 0), severity }], text)[0].source;
+    expect(["error", "read-error", "warning", "style-warning", "note"].map(at)).toEqual(["SBCL error", "SBCL error", "SBCL warning", "SBCL warning", "SBCL note"]);
+  });
+
   it("keeps the whole form when the symbol is not in it", () => {
     const text = "(defun f () (g 1))";
     const at = text.indexOf("(g 1)");

@@ -300,14 +300,14 @@ impl Session {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         let how = match status {
-            Some(s) if s.code().is_some() => format!("Lisp exited with code {}.", s.code().unwrap_or_default()),
+            Some(s) if s.code().is_some() => format!("Exit code {}.", s.code().unwrap_or_default()),
             Some(s) => {
                 use std::os::unix::process::ExitStatusExt;
                 match s.signal() {
-                    Some(9) => "Lisp was killed (signal 9), often because the system ran out of memory.".to_string(),
-                    Some(11) => "Lisp crashed (signal 11).".to_string(),
-                    Some(n) => format!("Lisp ended on signal {n}."),
-                    None => "Lisp ended.".to_string(),
+                    Some(9) => "Killed (signal 9), often because the system ran out of memory.".to_string(),
+                    Some(11) => "Crashed (signal 11).".to_string(),
+                    Some(n) => format!("Ended on signal {n}."),
+                    None => "Ended.".to_string(),
                 }
             }
             None => "Lisp closed its connection.".to_string(),

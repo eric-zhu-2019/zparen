@@ -362,7 +362,7 @@ function Lisp() {
       <StartupImage />
       <div className="settings-apply">
         <span className="setting-hint">
-          {startedWith.state === "ready" ? "Changes apply the next time Lisp starts." : "Lisp is not running."}
+          {startedWith.state === "ready" ? "Changes apply the next time Lisp starts." : "Lisp stopped."}
         </span>
         <button className="btn" disabled={!ready} onClick={actions.restartSession}>
           Restart Lisp
@@ -400,7 +400,7 @@ function StartupImage() {
         >
           <div className="path-input">
             <button className="btn" disabled={saving || systems.length === 0} onClick={() => actions.saveImage(systems)}>
-              {saving ? "Saving…" : image ? "Save again" : "Save an image"}
+              {saving ? "Saving…" : image ? "Save again" : "Save startup image"}
             </button>
             {image && (
               <button className="btn danger" disabled={saving} onClick={() => actions.request({ type: "deleteImage" }).then(actions.refreshImage)}>
@@ -410,10 +410,10 @@ function StartupImage() {
           </div>
         </Row>
       )}
-      <Row label="Keep images" hint="After a load, a missing or old startup image is saved again in a separate SBCL. Loading the project there runs its load-time code a second time.">
+      <Row label="Keep up to date" hint="After a load, a missing or old startup image is saved again in a separate SBCL. Loading the project there runs its load-time code a second time.">
         <Toggle label="Keep a startup image up to date" checked={auto} onChange={(autoImage) => updateSettings({ autoImage })} />
         <button className="btn danger" disabled={saving} onClick={clean}>
-          Clean images
+          Delete all startup images…
         </button>
       </Row>
     </>

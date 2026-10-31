@@ -190,7 +190,7 @@ async fn a_dying_lisp_says_why_and_a_saved_image_starts_with_the_project_loaded(
     let exit = Op::Eval { form: r#"(progn (format sb-sys:*stderr* "about to go~%") (finish-output sb-sys:*stderr*) (sb-ext:exit :code 3 :abort t))"#.into(), package: "CL-USER".into() };
     let _ = wb.handle(Request::Lisp { op: exit }).await;
     let SessionState::Exited { message } = status_until(&wb, |s| matches!(s, SessionState::Exited { .. })).await else { unreachable!() };
-    assert!(message.starts_with("Lisp exited with code 3."), "{message}");
+    assert!(message.starts_with("Exit code 3."), "{message}");
     assert!(message.contains("about to go"), "the report has SBCL's last output: {message}");
 
     let main = parent.join("imaged-zen/src/main.lisp");

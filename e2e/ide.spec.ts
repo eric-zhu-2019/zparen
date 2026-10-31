@@ -931,7 +931,7 @@ test("settings change the editor at once and Lisp when it restarts", async ({ pa
 
   await replEval(page, '(progn (format sb-sys:*stderr* "going down~%") (finish-output sb-sys:*stderr*) (sb-ext:exit :code 7 :abort t))');
   const banner = page.getByTestId("session-banner");
-  await expect(banner.locator(".session-banner-why")).toHaveText("Lisp exited with code 7.");
+  await expect(banner.locator(".session-banner-why")).toHaveText("Exit code 7.");
   await banner.getByRole("button", { name: "Show output" }).click();
   await expect(banner.locator(".session-banner-output")).toContainText("going down");
   await shots(page, "25-lisp-stopped");
@@ -1669,7 +1669,7 @@ test("the title bar says when a project has no startup image or an old one, and 
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
   const chip = page.getByTestId("image-chip");
-  await expect(chip, "a new project has no image").toHaveText("No image");
+  await expect(chip, "a new project has no image").toHaveText("Save startup image");
 
   await page.keyboard.press("Meta+,");
   const settings = page.getByTestId("settings");
@@ -1682,12 +1682,12 @@ test("the title bar says when a project has no startup image or an old one, and 
 
   const main = join(parent, "zen-image", "src", "main.lisp");
   writeFileSync(main, readFileSync(main, "utf8") + "\n(defun later () 2)\n");
-  await expect(chip, "a changed file makes it old").toHaveText("Image old", { timeout: 15_000 });
+  await expect(chip, "a changed file makes it old").toHaveText("Startup image out of date", { timeout: 15_000 });
   await expect(chip).toHaveAttribute("title", /main\.lisp changed since it was saved/);
   await chip.click();
   await expect(chip, "a click saves it again").toHaveCount(0, { timeout: 60_000 });
   await page.locator(".status-pill").click();
-  await expect(page.locator(".status-pill"), "Lisp starts from it").toContainText("SBCL · image", { timeout: 60_000 });
+  await expect(page.locator(".status-pill"), "Lisp starts from it").toContainText("Lisp running · startup image", { timeout: 60_000 });
 });
 
 test("the sidebar and the right panel resize by their edges, and keep their widths", async ({ page }) => {

@@ -28,7 +28,15 @@ export function TitleBar() {
         onClick={actions.restartSession}
       >
         <span className={`dot ${state === "exited" ? "failed" : state}`} />
-        {state === "ready" ? (status.session.image ? "SBCL · image" : "SBCL") : state === "starting" ? "Starting…" : state === "failed" ? "Failed" : state === "exited" ? "Exited" : "Stopped"}
+        {state === "ready"
+          ? status.session.image
+            ? "Lisp running · startup image"
+            : "Lisp running"
+          : state === "starting"
+            ? "Lisp starting…"
+            : state === "failed"
+              ? "Lisp failed to start"
+              : "Lisp stopped"}
       </button>
       {status.project && <ImageChip />}
       <span className="spacer" data-tauri-drag-region />
@@ -68,14 +76,14 @@ function ImageChip() {
   const image = useStore((s) => s.image);
   const saving = useStore((s) => s.tasks["save startup image"]?.running ?? false);
   const systems = useStore((s) => s.systems);
-  if (saving) return <span className="image-chip" data-testid="image-chip">Saving image…</span>;
+  if (saving) return <span className="image-chip" data-testid="image-chip">Saving startup image…</span>;
   if (image === undefined || (image && !image.stale) || systems.length === 0) return null;
   const why = image
     ? `${image.stale} ${image.used ? "Lisp still starts from it, then compiles what changed." : "Lisp starts without it."} Click to save it again.`
     : "Lisp starts without the project's systems and loads them after it starts. Click to save an image with them loaded.";
   return (
     <button className={`image-chip ${image ? "old" : ""}`} data-testid="image-chip" title={why} onClick={() => void actions.saveImage(actions.imageSystems())}>
-      {image ? "Image old" : "No image"}
+      {image ? "Startup image out of date" : "Save startup image"}
     </button>
   );
 }
