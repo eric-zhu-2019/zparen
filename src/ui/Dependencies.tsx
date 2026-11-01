@@ -4,6 +4,8 @@ import type { AvailableSystem } from "../protocol/AvailableSystem";
 import type { SystemInfo } from "../protocol/SystemInfo";
 import { useReturnFocus } from "./focus";
 
+const where = (s: AvailableSystem) => (s.source === "local" ? "on this Mac" : s.installed ? "Quicklisp, installed" : "Quicklisp");
+
 /** Finds a system to depend on, in Quicklisp's dists and among systems ASDF knows. */
 export function DependencyPicker({ system, onClose }: { system: SystemInfo; onClose: () => void }) {
   const [query, setQuery] = useState("");
@@ -32,10 +34,11 @@ export function DependencyPicker({ system, onClose }: { system: SystemInfo; onCl
 
   return (
     <div className="overlay" onMouseDown={onClose}>
-      <div className="palette" role="dialog" aria-label={`Add a dependency to ${system.name}`} onMouseDown={(e) => e.stopPropagation()}>
+      <div className="palette dependency-picker" role="dialog" aria-label={`Add a dependency to ${system.name}`} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="palette-title">Add a dependency to {system.name}</div>
         <input
           autoFocus
-          placeholder={`Add a dependency to ${system.name}…`}
+          placeholder="Search Quicklisp and this Mac…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -54,8 +57,12 @@ export function DependencyPicker({ system, onClose }: { system: SystemInfo; onCl
           {items?.length === 0 && <div className="item sub">No system matches. ↩ adds “{typed}” as written.</div>}
           {options.map((s, i) => (
             <div key={s.name} className={`item ${i === index ? "selected" : ""}`} onMouseEnter={() => setIndex(i)} onMouseDown={() => choose(s.name)}>
-              <span className="label">{s.name}</span>
-              <span className="sub">{s.source === "local" ? "on this Mac" : s.installed ? "Quicklisp, installed" : "Quicklisp"}</span>
+              <span className="label" title={s.name}>
+                {s.name}
+              </span>
+              <span className="sub" title={where(s)}>
+                {where(s)}
+              </span>
             </div>
           ))}
         </div>

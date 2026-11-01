@@ -183,14 +183,14 @@ export function BottomPanel() {
     <div className="bottom">
       <div className="panel-tabs">
         <button className={`panel-tab ${bottom === "repl" ? "active" : ""}`} onClick={() => set({ bottom: "repl" })}>
-          <Icon name="terminal" size={12} /> REPL
+          REPL
           {dbg && <span className="badge">{dbg.level}</span>}
         </button>
         <button className={`panel-tab ${bottom === "problems" ? "active" : ""}`} onClick={() => set({ bottom: "problems" })}>
           Problems {problemCount > 0 && <span className="count-badge">{problemCount}</span>}
         </button>
         <button className={`panel-tab ${bottom === "output" ? "active" : ""}`} onClick={() => set({ bottom: "output" })}>
-          <Icon name="hammer" size={12} /> Output {running && <span className="dot starting" />}
+          Output {running && <span className="dot starting" />}
         </button>
         <button className={`panel-tab ${bottom === "tests" ? "active" : ""}`} onClick={() => set({ bottom: "tests" })}>
           Tests {testing ? <span className="dot starting" /> : failedTests > 0 && <span className="count-badge failed">{failedTests}</span>}
@@ -272,7 +272,7 @@ export function StatusBar() {
       {vimOn && editing && <span className={`mode ${vimMode.startsWith("insert") ? "insert" : ""}`}>{vimMode}</span>}
       {parinferOn && editing && pi && (
         <span title={pi.error ?? "Parinfer is keeping parens balanced"} style={{ color: pi.error ? "var(--danger)" : undefined }}>
-          parinfer {pi.mode}
+          Parinfer: {pi.mode}
           {pi.error ? ` · ${pi.error}` : ""}
         </span>
       )}

@@ -442,7 +442,7 @@ export function Welcome({ onNew }: { onNew: () => void }) {
             Open Project…
           </button>
           <button className="btn" onClick={onNew}>
-            <Icon name="plus" size={12} /> New Project
+            <Icon name="plus" size={12} /> New Project…
           </button>
         </div>
         {recent.length > 0 && (

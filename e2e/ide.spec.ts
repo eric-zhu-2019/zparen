@@ -846,7 +846,7 @@ test("add and remove a dependency from the systems list", async ({ page }) => {
   const system = page.locator(".system", { has: page.locator(".name", { hasText: /^zen-deps$/ }) });
 
   await system.getByTitle("Add a dependency to zen-deps").click();
-  await page.getByPlaceholder("Add a dependency to zen-deps…").fill("split-seq");
+  await page.getByRole("dialog", { name: "Add a dependency to zen-deps" }).getByRole("textbox").fill("split-seq");
   const results = page.getByTestId("dependency-results");
   await expect(results.locator(".item").first()).toContainText("split-sequence");
   await shots(page, "23-add-dependency");
@@ -1625,7 +1625,7 @@ test("the Packages tab lists, adds and removes the project's dependencies", asyn
   await expect(panel).toContainText("No dependencies yet");
 
   await panel.getByRole("button", { name: "Add" }).click();
-  await page.getByPlaceholder("Add a dependency to zen-pkgs…").fill("split-seq");
+  await page.getByRole("dialog", { name: "Add a dependency to zen-pkgs" }).getByRole("textbox").fill("split-seq");
   await expect(page.getByTestId("dependency-results").locator(".item").first()).toContainText("split-sequence");
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("output")).toContainText("fetch split-sequence · finished", { timeout: 60_000 });

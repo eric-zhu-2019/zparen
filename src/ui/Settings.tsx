@@ -12,6 +12,7 @@ import { pickFile, revealInFinder } from "../platform";
 import { allThemes, readThemeFiles, type ThemeKind, useThemes } from "../themes";
 import { type PluginSetting, reloadPlugins, setPluginSetting, usePlugins } from "../plugins";
 import { useReturnFocus } from "./focus";
+import { modelName } from "./modelName";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -443,8 +444,8 @@ function ModelPicker({ label, value, models, onChange }: { label: string; value:
         }}
       >
         {models.map((m) => (
-          <option key={m} value={m}>
-            {m}
+          <option key={m} value={m} title={m}>
+            {modelName(m)}
           </option>
         ))}
         <option value={OTHER}>Other…</option>

@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as actions from "../actions";
+import { modelName } from "./modelName";
+import { toolInput } from "./toolInput";
 import { editorContext, insertAtCursor } from "../editor/commands";
 import type { AssistantStatus } from "../protocol/AssistantStatus";
 import type { McpInfo } from "../protocol/McpInfo";
@@ -102,7 +104,7 @@ function ToolChip({ item }: { item: Extract<ChatItem, { role: "tool" }> }) {
       {open && (
         <div className="chat-tool-body">
           <div className="label">Input</div>
-          <pre>{item.input}</pre>
+          <pre>{toolInput(item.input)}</pre>
           {item.output !== null && (
             <>
               <div className="label">Result</div>
@@ -161,8 +163,8 @@ function ModelMenu({ status, onChange }: { status: AssistantStatus; onChange: (s
       {(["claude", "openai"] as const).map((p) => (
         <optgroup key={p} label={NAMES[p]}>
           {models(p).map((m) => (
-            <option key={m} value={`${p}:${m}`}>
-              {m}
+            <option key={m} value={`${p}:${m}`} title={m}>
+              {modelName(m)}
             </option>
           ))}
         </optgroup>
@@ -367,7 +369,7 @@ export function Chat() {
         />
         <div className="chat-input-bar">
           <label className="toggle" title="Send the current file and the form at the cursor">
-            <input type="checkbox" checked={withContext} onChange={(e) => setWithContext(e.target.checked)} /> Include current form
+            <input type="checkbox" checked={withContext} onChange={(e) => setWithContext(e.target.checked)} /> Include form
           </label>
           <span className="grow" />
           {status && <ModelMenu status={status} onChange={setStatus} />}

@@ -322,7 +322,7 @@ export function Sidebar() {
                   </span>
                 ))}
                 <button className="dep add" title={`Add a dependency to ${s.name}`} onClick={() => setAdding(s)}>
-                  <Icon name="plus" size={9} /> dependency
+                  <Icon name="plus" size={9} /> Add dependency…
                 </button>
               </div>
               <div className="actions">
@@ -341,7 +341,7 @@ export function Sidebar() {
                   <Icon name="hammer" size={11} /> Build
                 </button>
                 <button className="btn" onClick={() => actions.openFile(s.file)} title={s.file}>
-                  .asd
+                  Open .asd
                 </button>
               </div>
             </div>
