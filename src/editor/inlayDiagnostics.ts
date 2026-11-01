@@ -15,10 +15,14 @@ export function inlayText(message: string): string {
   return line.length > 120 ? `${line.slice(0, 119)}…` : line;
 }
 
-/** For each line where a problem starts: the most severe one, and how many more start there. */
+/**
+ * For each line where an error or warning starts: the most severe one, and how
+ * many more start there. SBCL's notes keep their marks but add no text.
+ */
 export function inlays(state: EditorState): { line: number; diagnostic: Diagnostic; more: number }[] {
   const byLine = new Map<number, Diagnostic[]>();
   forEachDiagnostic(state, (d, from, to) => {
+    if (d.severity !== "error" && d.severity !== "warning") return;
     const line = state.doc.lineAt(from).number;
     byLine.set(line, [...(byLine.get(line) ?? []), { ...d, from, to }]);
   });

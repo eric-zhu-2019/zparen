@@ -3507,26 +3507,28 @@ body.resizing * {
 /* A problem's message at the end of its line. */
 .cm-inlay-diagnostic {
   margin-left: 16px;
-  padding: 0 6px;
-  border-radius: 4px;
   font-family: var(--sans);
-  font-size: 0.88em;
+  font-size: 0.85em;
+  font-weight: 400;
+  opacity: 0.7;
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
 }
 .cm-inlay-error {
   color: var(--danger);
-  background: var(--danger-bg);
 }
 .cm-inlay-warning {
   color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 10%, transparent);
 }
 .cm-inlay-info,
 .cm-inlay-hint {
   color: var(--text-faint);
 }
 .cm-inlay-diagnostic:hover {
-  text-decoration: underline;
+  opacity: 1;
+}
+/* A hover box left with nothing the open box does not already show. */
+.cm-tooltip-lint:empty {
+  display: none;
 }

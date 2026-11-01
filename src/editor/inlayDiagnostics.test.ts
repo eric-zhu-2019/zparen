@@ -21,16 +21,17 @@ describe("problems at the end of their lines", () => {
     expect(inlayText("x".repeat(200))).toHaveLength(120);
   });
 
-  it("show the most severe problem on the line where it starts, and count the rest", () => {
+  it("show the most severe problem on the line where it starts, and count the rest, leaving notes out", () => {
     const state = withProblems([
       { from: at("x y"), to: at("x y") + 1, severity: "warning", message: "undefined variable: X" },
       { from: at("(defun"), to: doc.length - 1, severity: "info", message: "a note" },
       { from: at("y)"), to: at("y)") + 1, severity: "error", message: "bad Y" },
       { from: 0, to: at("\n\n"), severity: "error", message: "(:CL) does not designate a package" },
+      { from: at("  (:use"), to: at("  (:use") + 3, severity: "info", message: "deleting unused function" },
     ]);
     expect(inlays(state).map(({ line, diagnostic, more }) => `${line} ${diagnostic.message} +${more}`)).toEqual([
       "1 (:CL) does not designate a package +0",
-      "4 bad Y +2",
+      "4 bad Y +1",
     ]);
   });
 });

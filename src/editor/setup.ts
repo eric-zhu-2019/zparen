@@ -2,7 +2,7 @@ import { acceptCompletion, autocompletion, closeBrackets, completionKeymap, comp
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { lintGutter, lintKeymap } from "@codemirror/lint";
-import { boxAtCursor, cursorDiagnostic } from "./cursorDiagnostic";
+import { boxAtCursor, cursorDiagnostic, oneProblemBox } from "./cursorDiagnostic";
 import { inlayDiagnostics } from "./inlayDiagnostics";
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { Annotation, Compartment, EditorState, Prec, type Extension } from "@codemirror/state";
@@ -157,6 +157,8 @@ export function editorExtensions(opts: {
       },
     }),
     cursorDiagnostic,
+    // Lowest, as setDiagnostics would add it, so a mark wraps the syntax colors rather than splitting at each one.
+    Prec.lowest(oneProblemBox),
     problemsCompartment.of(problemsExtension(opts.problems ?? "inline")),
     lisp(),
     lispIndentation(() => useStore.getState().indentSpecs),

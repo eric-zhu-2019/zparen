@@ -1365,6 +1365,21 @@ test("a file that uses a package from an unloaded file is still checked, and a c
   await shots(page, "30-cursor-diagnostic");
   await page.keyboard.type("w");
   await expect(atCursor, "and moving the cursor closes it").toHaveCount(0);
+  const boxes = page.locator(".cm-tooltip-lint:visible");
+  const mark = editor.locator(".cm-lintRange-warning");
+  await page.mouse.move(5, 5);
+  await mark.hover();
+  await expect(boxes, "hovering the mark shows its box").toHaveCount(1);
+  await inlay.click();
+  await expect(atCursor).toBeVisible();
+  await expect(boxes, "clicking its message then shows one box, not two").toHaveCount(1);
+  await page.mouse.move(5, 5);
+  await mark.hover();
+  await page.waitForTimeout(1000);
+  await expect(boxes, "and hovering the mark with the box open adds none").toHaveCount(1);
+  await page.mouse.move(5, 5);
+  await page.keyboard.type("w");
+  await expect(boxes).toHaveCount(0);
 
   await page.keyboard.press("Meta+,");
   await page.getByTestId("settings").getByRole("button", { name: "General" }).click();

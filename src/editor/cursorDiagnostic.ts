@@ -3,7 +3,7 @@
 // check that marks code runs as typing pauses and a box would chase the cursor.
 // With problems shown at the end of their lines, it opens only when one is clicked.
 
-import { type Diagnostic, forEachDiagnostic } from "@codemirror/lint";
+import { type Diagnostic, forEachDiagnostic, linter } from "@codemirror/lint";
 import { type EditorState, Facet, StateEffect, StateField } from "@codemirror/state";
 import { showTooltip, type Tooltip } from "@codemirror/view";
 
@@ -14,8 +14,8 @@ export const boxAtCursor = Facet.define<boolean, boolean>({ combine: (v) => (v.l
 export const openProblem = StateEffect.define<number>();
 
 /** `pinned` is where a click opened the box; it stays until the cursor moves or the text changes. */
-type Shown = { armed: boolean; tooltip: Tooltip | null; key: string; pinned: number | null };
-const none = { tooltip: null, key: "" };
+type Shown = { armed: boolean; tooltip: Tooltip | null; key: string; diagnostics: Diagnostic[]; pinned: number | null };
+const none = { tooltip: null, key: "", diagnostics: [] };
 
 /** The diagnostics covering `pos`, most severe first. */
 export function diagnosticsAt(state: EditorState, pos: number): Diagnostic[] {
@@ -27,7 +27,7 @@ export function diagnosticsAt(state: EditorState, pos: number): Diagnostic[] {
   return found.sort((a, b) => rank[a.severity] - rank[b.severity]);
 }
 
-function tooltipAt(state: EditorState, pos: number | null): { tooltip: Tooltip | null; key: string } {
+function tooltipAt(state: EditorState, pos: number | null): { tooltip: Tooltip | null; key: string; diagnostics: Diagnostic[] } {
   const sel = state.selection.main;
   const at = pos ?? sel.head;
   const found = pos !== null || sel.empty ? diagnosticsAt(state, at) : [];
@@ -70,7 +70,7 @@ function tooltipAt(state: EditorState, pos: number | null): { tooltip: Tooltip |
       return { dom };
     },
   };
-  return { tooltip, key };
+  return { tooltip, key, diagnostics: found };
 }
 
 export const cursorDiagnostic = StateField.define<Shown>({
@@ -89,4 +89,21 @@ export const cursorDiagnostic = StateField.define<Shown>({
     return { armed, ...next, pinned: null };
   },
   provide: (f) => [showTooltip.compute([f], (state) => state.field(f).tooltip)],
+});
+
+const same = (a: Diagnostic, b: Diagnostic) => a.message === b.message && a.severity === b.severity;
+
+/**
+ * One box per problem. Hovering a mark leaves out what this box already
+ * shows, and this box opening closes the hover's box.
+ */
+export const oneProblemBox = linter(null, {
+  tooltipFilter: (found, state) => {
+    const open = state.field(cursorDiagnostic, false)?.diagnostics ?? [];
+    return found.filter((d) => !open.some((o) => same(o, d)));
+  },
+  hideOn: (tr) => {
+    const after = tr.state.field(cursorDiagnostic, false)?.tooltip;
+    return after && after !== tr.startState.field(cursorDiagnostic, false)?.tooltip ? true : null;
+  },
 });
