@@ -63,7 +63,8 @@ undo, and redo pass through untouched.
 `tools.rs` is one table of tools with LLM-facing descriptions and typed
 parameters. `mcp.rs` serves it over MCP Streamable HTTP with rmcp. It listens
 only on loopback, needs a bearer token, and rejects foreign `Origin` headers.
-`assistant.rs` offers the same table to Claude through the Messages API.
+`assistant.rs` offers the same table to Claude through the Messages API, and
+to OpenAI models through the Responses API.
 
 Rust has no official Anthropic SDK, so the assistant uses raw HTTP with
 server-sent events. Its history only grows: each response is appended whole,
