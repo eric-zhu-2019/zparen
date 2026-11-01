@@ -440,6 +440,16 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await page.keyboard.press("Meta+Alt+l");
   await expect.poll(() => activeLineText(page), { message: "reindent pulls the body back under when" }).toBe("  (print 1))");
 
+  await page.keyboard.type("Go");
+  await page.keyboard.type("(skip-down-all x y");
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("0llcie");
+  await page.keyboard.type("go");
+  await page.keyboard.press("Escape");
+  await expect.poll(() => activeLineText(page), { message: "cie changes the whole hyphenated symbol" }).toBe("(go x y)");
+  await page.keyboard.type("$hdae");
+  await expect.poll(() => activeLineText(page), { message: "dae deletes the symbol and the space before it" }).toBe("(go x)");
+
   await page.locator(".editor-host .cm-line", { hasText: "(defun greet (name)" }).click();
   await page.keyboard.press("Escape");
   await page.keyboard.type(",e");

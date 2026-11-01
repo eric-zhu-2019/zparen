@@ -337,7 +337,9 @@ Parinfer keeps parentheses balanced as you type, and typing `(` or `"` over
 a selection wraps it. The structural commands move code by whole forms:
 slurp, barf, raise, splice, kill, transpose, split, and join. In Vim,
 `af`, `if`, `aF`, and `iF` select a form, its inside, or the whole top-level
-form, so `daf` and `cif` work as you would expect.
+form, so `daf` and `cif` work as you would expect. `ie` selects the symbol,
+string or list at the cursor, hyphens included, and `ae` adds the space
+next to it, so `cie` renames `skip-down-all` and `dae` removes it.
 
 The file tree creates, renames, and moves files to the Trash. When another
 program changes an open file, ZParen reloads it if you have no unsaved

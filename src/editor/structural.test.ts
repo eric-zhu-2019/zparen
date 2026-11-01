@@ -11,6 +11,8 @@ import {
   barfBackward,
   barfForward,
   downList,
+  elementObject,
+  elementObjectMotion,
   expandSelection,
   formObject,
   formObjectMotion,
@@ -375,6 +377,65 @@ describe("Vim form text objects", () => {
       { line: 1, ch: 5 },
     ]);
     expect(motion("|abc", A_FORM, null)).toBeNull();
+  });
+});
+
+describe("Vim element text objects", () => {
+  // "|" marks the character under Vim's block cursor; true is ae, false is ie.
+  const objects: [string, boolean, string | null][] = [
+    ["(skip-|down x)", false, "skip-down"],
+    ["(skip-|down x)", true, "skip-down "],
+    ["(a |b)", true, " b"],
+    ["(a (b |c) d)", false, "c"],
+    ["(a |(b c) d)", false, "(b c)"],
+    ["(a (b c|) d)", false, "(b c)"],
+    ["(f |#'car)", false, "#'car"],
+    ["(f '|(a))", false, "'(a)"],
+    ['(f "a |b")', false, '"a b"'],
+    ["(f #|\\a)", false, "#\\a"],
+    ["(a | b)", false, "b"],
+    ["(a b| )", false, "b"],
+    ["(a b\n c)", false, "(a b\n c)"],
+    ["|(a)\n\n(b)", false, "(a)"],
+    ["(a)\n|\n(b)", false, "(b)"],
+    ["(a ; no|te\n b)", false, null],
+    ["(| )", false, null],
+  ];
+
+  it.each(objects)("%j with around=%j selects %j", (fixture, around, expected) => {
+    const state = load(fixture);
+    const at = state.selection.main.head;
+    const r = elementObject(state, { from: at, to: at + 1 }, around);
+    expect(r && state.sliceDoc(r.from, r.to)).toBe(expected);
+  });
+
+  it("deletes with the spaces around it so the list stays tidy", () => {
+    const dae = (fixture: string) => {
+      const state = load(fixture);
+      const at = state.selection.main.head;
+      const r = elementObject(state, { from: at, to: at + 1 }, true)!;
+      return state.sliceDoc(0, r.from) + state.sliceDoc(r.to);
+    };
+    expect(dae("(|a b c)")).toBe("(b c)");
+    expect(dae("(a b |c)")).toBe("(a b)");
+    expect(dae("(a |b\n c)")).toBe("(a\n c)");
+  });
+
+  it("grows a selection that already covers the element to the enclosing list", () => {
+    const state = load("(a (bb c) d)");
+    expect(elementObject(state, { from: 4, to: 6 }, false)).toEqual({ from: 3, to: 9 });
+    expect(elementObject(state, { from: 3, to: 9 }, false)).toEqual({ from: 0, to: 12 });
+    expect(elementObject(state, { from: 0, to: 12 }, false)).toBeNull();
+  });
+
+  it("hands Vim an exclusive range for operators and an inclusive one in Visual mode", () => {
+    const state = load("(f\n skip-|down)");
+    const cm = { cm6: { state } } as unknown as CodeMirrorV;
+    const pos = { line: 1, ch: 6 };
+    const at = (visual: vimState["sel"] | null) =>
+      elementObjectMotion(false)(cm, pos, { repeat: 1 } as MotionArgs, { visualMode: !!visual, sel: visual } as unknown as vimState, {} as InputStateInterface);
+    expect(at(null)).toEqual([{ line: 1, ch: 1 }, { line: 1, ch: 10 }]);
+    expect(at({ anchor: pos, head: pos })).toEqual([{ line: 1, ch: 1 }, { line: 1, ch: 9 }]);
   });
 });
 

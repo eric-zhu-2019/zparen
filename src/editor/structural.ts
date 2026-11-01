@@ -378,6 +378,52 @@ export function formObject(state: EditorState, range: Range, kind: FormObject): 
   return null;
 }
 
+/**
+ * vim-sexp's element objects over `range`, a selection whose `to` is exclusive. "inner element"
+ * is the form under the cursor: a symbol, number, string, character, or a whole list with its
+ * prefix. On space between forms it is the next form in the list, or else the previous one.
+ * "an element" adds the spaces after it, or those before it when none follow, as Vim's aw does.
+ * A selection already covering the element grows to the enclosing list.
+ */
+export function elementObject(state: EditorState, range: Range, around: boolean): Range | null {
+  const text = state.doc.toString();
+  const chars = { from: range.from, to: Math.max(range.to, range.from + 1) };
+  const covers = (n: Node) => n.from <= chars.from && chars.to <= n.to;
+  const path: Node[] = [];
+  let level = parse(text);
+  for (;;) {
+    const hit = level.find(covers);
+    if (!hit) break;
+    if (hit.kind === "comment" || hit.kind === "blockComment") return null;
+    path.unshift(hit);
+    if (hit.kind !== "list") break;
+    level = hit.children;
+  }
+  const pad = (r: Range): Range => {
+    if (!around) return r;
+    let to = r.to;
+    while (to < text.length && /[ \t]/.test(text[to])) to++;
+    if (to > r.to) return { from: r.from, to };
+    let from = r.from;
+    while (from > 0 && /[ \t]/.test(text[from - 1])) from--;
+    return { from, to: r.to };
+  };
+  if (range.to - range.from > 1) {
+    for (const n of path) {
+      const r = pad({ from: n.from, to: n.to });
+      if (r.from <= range.from && range.to <= r.to && (r.from < range.from || range.to < r.to)) return r;
+    }
+    return null;
+  }
+  const inner = path[0];
+  if (inner && (inner.kind !== "list" || chars.from < bodyStart(text, inner) || chars.from >= bodyEnd(inner))) {
+    return pad({ from: inner.from, to: inner.to });
+  }
+  const code = forms(level);
+  const near = code.find((n) => n.from >= chars.from) ?? last(code, (n) => n.to <= chars.from);
+  return near ? pad({ from: near.from, to: near.to }) : null;
+}
+
 function run(view: EditorView, command: StructuralCommand): boolean {
   const spec = command(view.state);
   if (!spec) return false;
@@ -437,6 +483,8 @@ export const structuralCommands: StructuralBinding[] = [
   { name: "Inner form", keys: [], vim: ["if"], description: "Text object: the enclosing list's contents, as in cif" },
   { name: "A top-level form", keys: [], vim: ["aF"], description: "Text object: the top-level form, as in yaF" },
   { name: "Inner top-level form", keys: [], vim: ["iF"], description: "Text object: the top-level form's contents" },
+  { name: "An element", keys: [], vim: ["ae"], description: "Text object: the symbol, string or list at the cursor and the space after it, as in dae" },
+  { name: "Inner element", keys: [], vim: ["ie"], description: "Text object: the symbol, string or list at the cursor, as in cie" },
   {
     name: "To list edge",
     keys: [],
@@ -545,6 +593,15 @@ export function atVimCursor(state: EditorState): EditorState {
 
 /** The Vim motion behind a form text object. */
 export function formObjectMotion(kind: FormObject): Motion {
+  return objectMotion((state, range) => formObject(state, range, kind));
+}
+
+/** The Vim motion behind an element text object. */
+export function elementObjectMotion(around: boolean): Motion {
+  return objectMotion((state, range) => elementObject(state, range, around));
+}
+
+function objectMotion(find: (state: EditorState, range: Range) => Range | null): Motion {
   return (cm, head, _args, vim) => {
     const state = viewOf(cm).state;
     let range: Range;
@@ -556,7 +613,7 @@ export function formObjectMotion(kind: FormObject): Motion {
       const at = offsetOf(state, head);
       range = { from: at, to: at + 1 };
     }
-    const r = formObject(state, range, kind);
+    const r = find(state, range);
     if (!r) return null;
     // Visual selections include the character under the head; operator ranges end before it.
     const end = vim.visualMode ? Math.max(r.from, r.to - 1) : r.to;
@@ -622,6 +679,11 @@ export function configureStructuralVim(vim: VimApi): void {
   for (const [keys, kind] of objects) {
     const name = `zlFormObject_${keys}`;
     vim.defineMotion(name, formObjectMotion(kind) as never);
+    for (const context of ["operatorPending", "visual"]) vim.mapCommand(keys, "motion", name, {}, { context });
+  }
+  for (const [keys, around] of [["ie", false], ["ae", true]] as const) {
+    const name = `zlElementObject_${keys}`;
+    vim.defineMotion(name, elementObjectMotion(around) as never);
     for (const context of ["operatorPending", "visual"]) vim.mapCommand(keys, "motion", name, {}, { context });
   }
 }
