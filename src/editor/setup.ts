@@ -28,6 +28,7 @@ import { lisp } from "./lisp";
 import { debugSpot } from "./debugSpot";
 import { type Breakpoint, breakpointGutter, breakpointList, breakpoints, isToggle } from "./breakpoints";
 import { gitGutter } from "./gitGutter";
+import { renameBoxField } from "./rename";
 
 export const vimCompartment = new Compartment();
 export const wrapCompartment = new Compartment();
@@ -148,6 +149,7 @@ export function editorExtensions(opts: {
     debugSpot,
     lispHover,
     docTips,
+    renameBoxField,
     followDocs,
     gitGutter((view) => {
       const path = viewPath.get(view);

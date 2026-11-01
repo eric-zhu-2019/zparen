@@ -19,6 +19,7 @@ These are the ones you use most:
 | Slurp, barf | ⌃), ⌃} | `>)`, `<)` |
 | Select a form | ⌃⇧⌘→ | `vaf` |
 | Change the symbol at the cursor | | `cie` |
+| Rename a local variable or function | F2 | `,r` |
 | Search in project | ⇧⌘F | |
 | Command palette | ⇧⌘P | |
 
@@ -58,6 +59,29 @@ and in Visual mode:
 
 Pressing `ie`, `af` or `if` again in Visual mode grows the selection to the
 next list out.
+
+## Rename
+
+F2, or `,r` in Vim, renames the local variable or local function at the
+cursor. A box opens on the symbol with its name selected. Type the new name
+and press Return, or press Escape to cancel. ZParen renames the binding and
+every use of it, and one undo takes the whole rename back.
+
+It reads the code as text, the way `gd` does, so it works before the code is
+loaded. It knows which binding each use means. An inner `let` that binds the
+same name keeps its own uses, and `'x`, `:x` and `"x"` stay as they are.
+
+ZParen refuses, and says why, when a rename could change what the code
+does:
+
+- The new name is already used in the form, so a binding could capture it.
+- The symbol is a plain `&key` parameter. Its name is also the keyword
+  callers pass.
+- The symbol is a slot name in `with-slots`.
+- The name is both a local function and a variable in the same form.
+
+Renaming a global function, macro or variable across the project is not
+built yet.
 
 ## Checking as you type
 

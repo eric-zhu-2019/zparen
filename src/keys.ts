@@ -28,6 +28,7 @@ import {
 import { showDocTip } from "./editor/hover";
 import { isMarkdown } from "./ui/MarkdownPreview";
 import { reindentForm } from "./editor/indent";
+import { renameAtCursor } from "./editor/rename";
 import { structuralCommands } from "./editor/structural";
 import { useSettings } from "./settings";
 import { activeDebugger, get, set } from "./store";
@@ -93,6 +94,7 @@ export const bindings: Binding[] = [
   { id: "files", label: "Go to file", category: "Navigation", key: "Mod-p", scope: "window", run: () => get().status.project && set({ palette: "files" }) },
   { id: "symbols", label: "Go to definition in file", category: "Navigation", key: "Mod-Shift-o", scope: "window", run: () => get().activeTab && set({ palette: "symbols" }) },
   { id: "search", label: "Search in project", category: "Navigation", key: "Mod-Shift-f", scope: "window", run: () => get().status.project && set({ sidebar: "search" }) },
+  { id: "rename", label: "Rename the local variable or function", category: "Editing", key: "F2", vim: ",r", note: "its binding and every use", scope: "editor", run: renameAtCursor },
   { id: "reindent", label: "Reindent the top-level form", category: "Editing", key: "Mod-Alt-l", note: "Vim: =aF, or == for a line", scope: "editor", run: (v) => reindentForm(v) },
   { id: "save", label: "Save", category: "Editing", key: "Mod-s", vim: ":w", scope: "editor", run: save },
   { id: "split", label: "Split the editor, or go to the other pane", category: "Window", key: "Mod-\\", scope: "window", run: () => actions.splitEditor() },

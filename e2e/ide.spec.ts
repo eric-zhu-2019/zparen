@@ -452,6 +452,27 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await page.keyboard.type("$hdae");
   await expect.poll(() => activeLineText(page), { message: "dae deletes the symbol and the space before it" }).toBe("(go x)");
 
+  await page.keyboard.type("Go");
+  await page.keyboard.type("(defun area (w h) (* w h");
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("0fw,r");
+  const renameBox = page.locator(".cm-rename input");
+  await expect(renameBox, ",r opens the rename box on the parameter").toHaveValue("w");
+  await renameBox.fill("h");
+  await renameBox.press("Enter");
+  await expect(page.locator(".cm-rename-error"), "a name already used in the form is refused").toContainText("h is already used");
+  await renameBox.fill("width");
+  await renameBox.press("Enter");
+  await expect(renameBox).toBeHidden();
+  await expect.poll(() => activeLineText(page), { message: "the parameter and its use are renamed" }).toBe("(defun area (width h) (* width h))");
+  await expect(page.locator(".statusbar .mode")).toHaveText("normal");
+  await page.keyboard.type("u");
+  await expect.poll(() => activeLineText(page), { message: "one undo takes the rename back" }).toBe("(defun area (w h) (* w h))");
+  await page.keyboard.type("0ww,r");
+  await expect(page.locator(".editor-host .cm-inline-error"), "a global function is not renamed").toContainText("area is not a local variable");
+  await page.keyboard.press("F2");
+  await expect(renameBox).toBeHidden();
+
   await page.locator(".editor-host .cm-line", { hasText: "(defun greet (name)" }).click();
   await page.keyboard.press("Escape");
   await page.keyboard.type(",e");

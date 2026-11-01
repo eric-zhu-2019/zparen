@@ -32,6 +32,20 @@ describe("local bindings for gd", () => {
     expect(bindingOf("(defmethod area ((s square) unit) (* (side |s) unit))")).toBe("s square) un");
   });
 
+  it("reads an initial value or a list form outside the variables it is about to bind", () => {
+    expect(bindingOf("(let ((x 1)) (let ((x (+ |x 1))) x))")).toBe("x 1)) (let (");
+    expect(bindingOf("(defun f (x) (let ((x (1+ |x))) x))")).toBe("x) (let ((x ");
+    expect(bindingOf("(let* ((a 1) (a (1+ |a))) a)")).toBe("a 1) (a (1+ ");
+    expect(bindingOf("(defun f (items) (dolist (items |items) items))")).toBe("items) (doli");
+    expect(bindingOf("(defun f (v) (multiple-value-bind (v w) (g |v) w))")).toBe("v) (multiple");
+    expect(bindingOf("(defun f (i) (do ((i (1+ |i) (1+ i))) (t)))")).toBe("i) (do ((i (");
+    expect(bindingOf("(do ((i 0 (1+ |i))) (t))")).toBe("i 0 (1+ i)))");
+  });
+
+  it("keeps a local function's parameters inside that function", () => {
+    expect(bindingOf("(defun f (n) (flet ((g (n) n)) (g |n)))")).toBe("n) (flet ((g");
+  });
+
   it("finds nothing for a free symbol, a keyword or a global function", () => {
     expect(bindingOf("(defun f (x) (+ x |y))")).toBeNull();
     expect(bindingOf("(defun f (x) (list |:x x))")).toBeNull();
