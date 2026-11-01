@@ -309,6 +309,7 @@ These are the ones you use most:
 | Go back, go forward | ⌃O, ⌃⇧O | same in Vim |
 | Slurp, barf | ⌃), ⌃} | `>)`, `<)` |
 | Select a form | ⌃⇧⌘→ | `vaf` |
+| Change the symbol at the cursor | | `cie` |
 | Search in project | ⇧⌘F | |
 | Command palette | ⇧⌘P | |
 
@@ -335,11 +336,21 @@ Settings (⌘,).
 
 Parinfer keeps parentheses balanced as you type, and typing `(` or `"` over
 a selection wraps it. The structural commands move code by whole forms:
-slurp, barf, raise, splice, kill, transpose, split, and join. In Vim,
-`af`, `if`, `aF`, and `iF` select a form, its inside, or the whole top-level
-form, so `daf` and `cif` work as you would expect. `ie` selects the symbol,
-string or list at the cursor, hyphens included, and `ae` adds the space
-next to it, so `cie` renames `skip-down-all` and `dae` removes it.
+slurp, barf, raise, splice, kill, transpose, split, and join.
+
+In Vim, these text objects work after an operator such as `d`, `c` or `y`,
+and in Visual mode:
+
+| Keys | Selects | Example |
+| --- | --- | --- |
+| `ie` | The symbol, string or list at the cursor, hyphens included | `cie` renames `skip-down-all` |
+| `ae` | The same, with the space next to it | `dae` removes an argument and its space |
+| `if` | Everything inside the enclosing list's parentheses | `cif` rewrites the whole call |
+| `af` | The enclosing list, with its parentheses | `daf` deletes the call |
+| `iF`, `aF` | The same for the top-level form | `yaF` copies the whole `defun` |
+
+Pressing `ie`, `af` or `if` again in Visual mode grows the selection to the
+next list out.
 
 The file tree creates, renames, and moves files to the Trash. When another
 program changes an open file, ZParen reloads it if you have no unsaved
