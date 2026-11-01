@@ -319,6 +319,36 @@ async fn checking_text_reports_notes_without_defining_anything() {
     s.stop().await;
 }
 
+/// A system load stopped in the debugger keeps SBCL's compiler lock, which
+/// ASDF holds for the whole load, so a check would wait until a restart is
+/// chosen. It returns at once instead, and runs as before once the debugger closes.
+#[tokio::test]
+async fn a_check_does_not_wait_for_a_load_stopped_in_the_debugger() {
+    let s = start().await;
+    let c = &s.conn;
+    let dir = std::env::temp_dir().join(format!("zparen-stopped-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("zparen-stops.asd"), "(defsystem \"zparen-stops\" :components ((:file \"stops\")))\n").unwrap();
+    std::fs::write(dir.join("stops.lisp"), "(eval-when (:compile-toplevel) (error \"stop here\"))\n").unwrap();
+    let mut events = c.subscribe();
+    let input = format!("(progn (asdf:load-asd {:?}) (asdf:load-system \"zparen-stops\"))", dir.join("zparen-stops.asd").to_string_lossy());
+    let conn = c.clone();
+    let pending = tokio::spawn(async move { cl(|package| Op::ReplEval { input, package }).run(&conn).await });
+    let d = next_debugger(&mut events).await;
+    assert!(d.condition.contains("stop here"), "{}", d.condition);
+
+    let check = || cl(|package| Op::CheckText { text: "(defun g () undefined-thing)".into(), package, file: None });
+    let reply = tokio::time::timeout(Duration::from_secs(5), check().run(c)).await.expect("the check returns while the load is stopped").unwrap();
+    assert_eq!(reply, Reply::Text { text: "busy".into() });
+
+    let _ = Op::DebuggerAbort { thread: d.thread }.run(c).await;
+    let _ = pending.await;
+    let Reply::Compiled { notes, .. } = tokio::time::timeout(Duration::from_secs(20), check().run(c)).await.expect("then it checks").unwrap() else { panic!() };
+    assert!(notes.iter().any(|n| n.message.contains("UNDEFINED-THING")), "{notes:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+    s.stop().await;
+}
+
 #[tokio::test]
 async fn checking_a_loaded_file_does_not_report_it_redefining_itself() {
     let s = start().await;

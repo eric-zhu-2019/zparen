@@ -1291,6 +1291,30 @@ test("saving compiles only what changed, and gd goes to local bindings and back"
   await expect(page.locator(".presentation", { hasText: /^20$/ })).toBeVisible();
 });
 
+test("a load stopped in the debugger does not leave checks hanging, and they run once it closes", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-stopped");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  writeFileSync(join(parent, "zen-stopped/src/main.lisp"), '(in-package #:zen-stopped)\n\n(eval-when (:compile-toplevel) (error "stop the load"))\n');
+  writeFileSync(join(parent, "zen-stopped/src/other.lisp"), "(defun other () undefined-thing)\n");
+  await page.locator(".system").first().getByRole("button", { name: "Load" }).click();
+  await expect(page.getByTestId("debugger"), "the load stops in the debugger").toContainText("stop the load", { timeout: 60_000 });
+
+  await page.getByRole("button", { name: "Files" }).click();
+  await page.getByTestId("file-tree").getByText("src").click();
+  await page.getByTestId("file-tree").getByText("other.lisp").click();
+  await expect(page.getByTestId("checks-waiting"), "the status bar says why the file has no marks yet").toBeVisible({ timeout: 10_000 });
+  await page.locator(".restart", { hasText: "ABORT" }).first().click();
+  await expect(page.locator(".editor-host .cm-inlay-diagnostic"), "closing the debugger checks the file").toHaveText(["undefined variable: COMMON-LISP-USER::UNDEFINED-THING"], {
+    timeout: 15_000,
+  });
+  await expect(page.getByTestId("checks-waiting")).toHaveCount(0);
+});
+
 test("the box for a mark never covers the line the cursor is on", async ({ page }) => {
   const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
   await fresh(page);
@@ -1367,14 +1391,21 @@ test("a file that uses a package from an unloaded file is still checked, and a c
   await expect(atCursor, "and moving the cursor closes it").toHaveCount(0);
   const boxes = page.locator(".cm-tooltip-lint:visible");
   const mark = editor.locator(".cm-lintRange-warning");
-  await page.mouse.move(5, 5);
-  await mark.hover();
-  await expect(boxes, "hovering the mark shows its box").toHaveCount(1);
+  // The pointer rests on the mark, coming from outside the editor, as a hand moves it.
+  const hoverMark = async () => {
+    await page.mouse.move(5, 5);
+    const r = (await mark.boundingBox())!;
+    await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2, { steps: 8 });
+  };
+  // A check finishing meanwhile refreshes the marks, which closes a hover box; hovering again shows it.
+  await expect(async () => {
+    await hoverMark();
+    await expect(boxes, "hovering the mark shows its box").toHaveCount(1, { timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
   await inlay.click();
   await expect(atCursor).toBeVisible();
   await expect(boxes, "clicking its message then shows one box, not two").toHaveCount(1);
-  await page.mouse.move(5, 5);
-  await mark.hover();
+  await hoverMark();
   await page.waitForTimeout(1000);
   await expect(boxes, "and hovering the mark with the box open adds none").toHaveCount(1);
   await page.mouse.move(5, 5);

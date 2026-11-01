@@ -166,6 +166,8 @@ export interface State {
   sidebar: SidebarMode;
   help: boolean;
   settingsOpen: boolean;
+  /** A check was declined because a load or compile sits in the debugger. */
+  checksWaiting: boolean;
   /** The page Settings shows. */
   settingsSection: "general" | "lisp" | "plugins" | "assistant";
   /** The getting-started list, and the steps done from it. */
@@ -240,6 +242,7 @@ export const useStore = create<State>(() => ({
   sidebar: "files",
   help: false,
   settingsOpen: false,
+  checksWaiting: false,
   settingsSection: "general",
   tourOpen: false,
   tourDone: [],

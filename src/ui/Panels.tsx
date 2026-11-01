@@ -252,6 +252,7 @@ export function StatusBar() {
   const vimOn = useSettings((s) => s.vim);
   const editing = useStore((s) => s.activeTab !== null);
   const parinferOn = useSettings((s) => s.parinfer);
+  const checksWaiting = useStore((s) => s.checksWaiting);
 
   const hintView = hint && (
     <span className="hint" title={hint.text}>
@@ -286,6 +287,11 @@ export function StatusBar() {
         </span>
       ) : (
         (hintView ?? <span className="hint" />)
+      )}
+      {checksWaiting && (
+        <span className="checks-waiting" data-testid="checks-waiting" title="A load or compile is stopped in the debugger. Choose a restart there, and the open files are checked again.">
+          Checks wait for the debugger
+        </span>
       )}
       <span>
         {status.state === "ready"
