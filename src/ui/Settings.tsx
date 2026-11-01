@@ -1,9 +1,8 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as actions from "../actions";
 import { CODE_FONTS, installed, UI_FONTS } from "../fonts";
 import type { AssistantConfig } from "../protocol/AssistantConfig";
 import type { AssistantStatus } from "../protocol/AssistantStatus";
-import type { Provider } from "../protocol/Provider";
 import type { ProviderStatus } from "../protocol/ProviderStatus";
 import type { LispOptions } from "../protocol/LispOptions";
 import { type Settings as EditorSettings, updateSettings, useSettings } from "../settings";
@@ -13,7 +12,7 @@ import { allThemes, readThemeFiles, type ThemeKind, useThemes } from "../themes"
 import { type PluginSetting, reloadPlugins, setPluginSetting, usePlugins } from "../plugins";
 import { useReturnFocus } from "./focus";
 import { modelName } from "./modelName";
-import { MODEL_KEY, PROVIDER_NAMES } from "./providers";
+import { FAMILY_NAMES, type Family, familyOf, type Method, METHOD_HINTS, METHOD_NAMES, methodOf, MODEL_KEY, providerOf } from "./providers";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -422,9 +421,10 @@ function StartupImage() {
   );
 }
 
-const PROVIDERS: Record<"claude" | "openai", { name: string; env: string; placeholder: string }> = {
-  claude: { name: "Claude", env: "ANTHROPIC_API_KEY", placeholder: "sk-ant-…" },
-  openai: { name: "OpenAI", env: "OPENAI_API_KEY", placeholder: "sk-…" },
+/** Where an API key comes from. */
+const KEYS: Record<"claude" | "openai", { vendor: string; env: string; placeholder: string }> = {
+  claude: { vendor: "Anthropic", env: "ANTHROPIC_API_KEY", placeholder: "sk-ant-…" },
+  openai: { vendor: "OpenAI", env: "OPENAI_API_KEY", placeholder: "sk-…" },
 };
 
 /** One of a provider's models, or any other model name typed in. */
@@ -468,11 +468,11 @@ function ModelPicker({ label, value, models, onChange }: { label: string; value:
 
 function KeyRow({ provider, status, onSaved }: { provider: "claude" | "openai"; status: ProviderStatus; onSaved: () => void }) {
   const [key, setKey] = useState("");
-  const { name, env, placeholder } = PROVIDERS[provider];
+  const { vendor, env, placeholder } = KEYS[provider];
   const source = status.source;
   return (
     <Row
-      label={`${name} API key`}
+      label={`${vendor} API key`}
       hint={
         source === "environment"
           ? `Set by ${env} in the environment.`
@@ -480,11 +480,11 @@ function KeyRow({ provider, status, onSaved }: { provider: "claude" | "openai"; 
             ? "Taken from the ant command line tool's login."
             : status.configured
               ? "Saved in ZParen's data folder."
-              : `${name} models need an API key.`
+              : `Paste a key from your ${vendor} account.`
       }
     >
       <div className="path-input">
-        <input type="password" aria-label={`${name} API key`} placeholder={status.configured ? "•••••••• saved" : placeholder} value={key} onChange={(e) => setKey(e.target.value)} />
+        <input type="password" aria-label={`${vendor} API key`} placeholder={status.configured ? "•••••••• saved" : placeholder} value={key} onChange={(e) => setKey(e.target.value)} />
         <button
           className="btn"
           disabled={!key.trim()}
@@ -503,9 +503,8 @@ function KeyRow({ provider, status, onSaved }: { provider: "claude" | "openai"; 
 
 /** Whether Claude Code or Codex is ready, and what to do when it is not. */
 function LoginRow({ provider, status, onCheck }: { provider: "claudeCode" | "codex"; status: ProviderStatus; onCheck: () => void }) {
-  const name = PROVIDER_NAMES[provider];
   return (
-    <Row label={`${name} login`} hint={status.note ?? `Uses the login of the ${provider === "codex" ? "codex" : "claude"} command on this Mac.`}>
+    <Row label="Login" hint={status.note ?? `Ready. Uses the login of the ${provider === "codex" ? "codex" : "claude"} command on this Mac.`}>
       <button className="btn" onClick={onCheck}>
         Check Again
       </button>
@@ -513,45 +512,55 @@ function LoginRow({ provider, status, onCheck }: { provider: "claudeCode" | "cod
   );
 }
 
+/** Two choices, the assistant and how it signs in, then the model and the key or login for that pair. */
 function Assistant() {
   const [status, setStatus] = useState<AssistantStatus | null>(null);
   const refresh = () => actions.request({ type: "assistantStatus" }).then((r) => r.type === "assistant" && setStatus(r));
   useEffect(() => void refresh(), []);
   if (!status) return null;
-  const configure = (change: Partial<AssistantConfig>) =>
-    actions.request({ type: "assistantConfigure", config: { ...status.config, ...change } }).then((r) => r.type === "assistant" && setStatus(r));
+  // The choice shows at once, so a second change made before the reply builds on it.
+  const configure = (change: Partial<AssistantConfig>) => {
+    const config = { ...status.config, ...change };
+    setStatus({ ...status, config });
+    return actions.request({ type: "assistantConfigure", config }).then((r) => r.type === "assistant" && setStatus(r));
+  };
+  const provider = status.config.provider;
+  const family = familyOf(provider);
+  const method = methodOf(provider);
   return (
     <>
-      <Row label="Answered by" hint="The chat's model menu switches too.">
-        <select className="select" aria-label="Provider" value={status.config.provider} onChange={(e) => void configure({ provider: e.target.value as Provider })}>
-          {(Object.keys(PROVIDER_NAMES) as Provider[]).map((p) => (
-            <option key={p} value={p}>
-              {PROVIDER_NAMES[p]}
+      <Row label="Assistant" hint="The chat's model menu switches too.">
+        <select className="select" aria-label="Assistant" value={family} onChange={(e) => void configure({ provider: providerOf(e.target.value as Family, method) })}>
+          {(["claude", "codex"] as const).map((f) => (
+            <option key={f} value={f}>
+              {FAMILY_NAMES[f]}
             </option>
           ))}
         </select>
       </Row>
-      <Row label="Claude model">
-        <ModelPicker label="Claude model" value={status.config.claudeModel} models={status.claude.models} onChange={(claudeModel) => void configure({ claudeModel })} />
+      <Row label="Sign in with" hint={METHOD_HINTS[provider]}>
+        <select className="select" aria-label="Sign in with" value={method} onChange={(e) => void configure({ provider: providerOf(family, e.target.value as Method) })}>
+          {(["api", "login"] as const).map((m) => (
+            <option key={m} value={m}>
+              {METHOD_NAMES[m]}
+            </option>
+          ))}
+        </select>
       </Row>
-      <KeyRow provider="claude" status={status.claude} onSaved={refresh} />
-      <Row label="OpenAI model">
-        <ModelPicker label="OpenAI model" value={status.config.openaiModel} models={status.openai.models} onChange={(openaiModel) => void configure({ openaiModel })} />
+      <Row label="Model">
+        <ModelPicker
+          key={provider}
+          label={`${FAMILY_NAMES[family]} model`}
+          value={status.config[MODEL_KEY[provider]]}
+          models={status[provider].models}
+          onChange={(model) => void configure({ [MODEL_KEY[provider]]: model })}
+        />
       </Row>
-      <KeyRow provider="openai" status={status.openai} onSaved={refresh} />
-      {(["claudeCode", "codex"] as const).map((p) => (
-        <Fragment key={p}>
-          <Row label={`${PROVIDER_NAMES[p]} model`}>
-            <ModelPicker
-              label={`${PROVIDER_NAMES[p]} model`}
-              value={status.config[MODEL_KEY[p]]}
-              models={status[p].models}
-              onChange={(model) => void configure({ [MODEL_KEY[p]]: model })}
-            />
-          </Row>
-          <LoginRow provider={p} status={status[p]} onCheck={refresh} />
-        </Fragment>
-      ))}
+      {provider === "claude" || provider === "openai" ? (
+        <KeyRow provider={provider} status={status[provider]} onSaved={refresh} />
+      ) : (
+        <LoginRow provider={provider} status={status[provider]} onCheck={refresh} />
+      )}
     </>
   );
 }

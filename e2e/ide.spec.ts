@@ -254,10 +254,10 @@ test("assistant runs tools in the live image and its code can be inserted", asyn
   const model = page.getByRole("combobox", { name: "Model" });
   await expect(model).toHaveValue("claude:claude-opus-5-5");
   await model.selectOption("openai:gpt-6.1-sol");
-  await expect(page.getByRole("heading", { name: "Connect OpenAI" }), "OpenAI asks for its own key").toBeVisible();
+  await expect(page.getByRole("heading", { name: "Connect Codex with an API key" }), "Codex with an API key asks for an OpenAI key").toBeVisible();
   await page.getByPlaceholder("sk-…").fill("e2e");
   await page.getByRole("button", { name: "Save key" }).click();
-  await page.getByPlaceholder("Ask OpenAI…  ⏎ to send").fill("And with OpenAI?");
+  await page.getByPlaceholder("Ask Codex…  ⏎ to send").fill("And with OpenAI?");
   await page.keyboard.press("Enter");
   await expect(page.locator(".chat-assistant strong").last(), "OpenAI answers in the same conversation, through the same tools").toHaveText("42");
   await expect(page.locator(".chat-assistant").last()).toContainText("OpenAI says");
@@ -266,9 +266,13 @@ test("assistant runs tools in the live image and its code can be inserted", asyn
   await expect(page.getByPlaceholder("Ask Claude…  ⏎ to send")).toBeVisible();
   await page.keyboard.press("Meta+,");
   await page.getByTestId("settings").getByRole("button", { name: "Assistant" }).click();
-  await expect(page.getByRole("combobox", { name: "Provider" }), "Settings shows the chat's choice").toHaveValue("claude");
+  await expect(page.getByRole("combobox", { name: "Assistant" }), "Settings shows the chat's choice").toHaveValue("claude");
+  await expect(page.getByRole("combobox", { name: "Sign in with" })).toHaveValue("api");
   await expect(page.getByRole("combobox", { name: "Claude model" })).toHaveValue("claude-sonnet-5-5");
-  await expect(page.getByRole("combobox", { name: "OpenAI model" })).toHaveValue("gpt-6.1-sol");
+  await page.getByRole("combobox", { name: "Assistant" }).selectOption("codex");
+  await expect(page.getByRole("combobox", { name: "Codex model" }), "each pair keeps its own model").toHaveValue("gpt-6.1-sol");
+  await expect(page.getByRole("textbox", { name: "OpenAI API key" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Assistant" }).selectOption("claude");
   await page.getByRole("combobox", { name: "Claude model" }).selectOption("claude-opus-5-5");
   await page.getByRole("button", { name: "Done" }).click();
   await expect(model, "the chat follows a change made in Settings").toHaveValue("claude:claude-opus-5-5");
@@ -348,7 +352,7 @@ test("Claude Code and Codex answer with their own login, in the same conversatio
 
   await model.selectOption("claudeCode:default");
   await expect(page.getByRole("heading", { name: /Connect/ }), "a logged-in agent needs no key").toHaveCount(0);
-  await page.getByPlaceholder("Ask Claude Code…  ⏎ to send").fill("What is six times seven?");
+  await page.getByPlaceholder("Ask Claude…  ⏎ to send").fill("What is six times seven?");
   await page.keyboard.press("Enter");
   await expect(reply).toHaveText("Claude Code says 42 (new).");
   const tool = page.locator(".chat-tool").last();
@@ -356,7 +360,7 @@ test("Claude Code and Codex answer with their own login, in the same conversatio
   await tool.locator(".chat-tool-head").click();
   await expect(tool.locator(".chat-tool-body")).toContainText("Values:\n42");
 
-  await page.getByPlaceholder("Ask Claude Code…  ⏎ to send").fill("And again?");
+  await page.getByPlaceholder("Ask Claude…  ⏎ to send").fill("And again?");
   await page.keyboard.press("Enter");
   await expect(reply, "the next message continues the agent's own conversation").toHaveText("Claude Code says 42 (resumed).");
 
@@ -372,7 +376,7 @@ test("Claude Code and Codex answer with their own login, in the same conversatio
   await expect(page.locator(".chat-error")).toHaveCount(0);
 
   await model.selectOption("claudeCode:default");
-  await page.getByPlaceholder("Ask Claude Code…  ⏎ to send").fill("Sleep a while");
+  await page.getByPlaceholder("Ask Claude…  ⏎ to send").fill("Sleep a while");
   await page.keyboard.press("Enter");
   await expect(page.locator(".chat-tool").last()).toContainText("(sleep 30)");
   await page.waitForTimeout(1000);
@@ -384,11 +388,15 @@ test("Claude Code and Codex answer with their own login, in the same conversatio
 
   await page.keyboard.press("Meta+,");
   await page.getByTestId("settings").getByRole("button", { name: "Assistant" }).click();
-  await expect(page.getByRole("combobox", { name: "Provider" })).toHaveValue("claudeCode");
+  await expect(page.getByRole("combobox", { name: "Assistant" })).toHaveValue("claude");
+  await expect(page.getByRole("combobox", { name: "Sign in with" })).toHaveValue("login");
+  await expect(page.getByTestId("settings")).toContainText("Runs your claude command (Claude Code) with its login. Uses your Claude plan.");
+  await page.getByRole("combobox", { name: "Assistant" }).selectOption("codex");
   await expect(page.getByRole("combobox", { name: "Codex model" })).toHaveValue("default");
-  await expect(page.getByTestId("settings")).toContainText("Uses the login of the codex command on this Mac.");
+  await expect(page.getByTestId("settings")).toContainText("Ready. Uses the login of the codex command on this Mac.");
   // The tests after this one expect the API provider.
-  await page.getByRole("combobox", { name: "Provider" }).selectOption("claude");
+  await page.getByRole("combobox", { name: "Assistant" }).selectOption("claude");
+  await page.getByRole("combobox", { name: "Sign in with" }).selectOption("api");
   await page.getByRole("button", { name: "Done" }).click();
   await expect(model).toHaveValue("claude:claude-opus-5-5");
 });

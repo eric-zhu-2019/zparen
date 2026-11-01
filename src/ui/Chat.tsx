@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as actions from "../actions";
 import { modelName } from "./modelName";
-import { isAgent, MODEL_KEY, PROVIDER_NAMES } from "./providers";
+import { ALL_PROVIDERS, FAMILY_NAMES, familyOf, isAgent, METHOD_HINTS, MODEL_KEY, providerLabel } from "./providers";
 import { toolInput } from "./toolInput";
 import { editorContext, insertAtCursor } from "../editor/commands";
 import type { AssistantStatus } from "../protocol/AssistantStatus";
@@ -141,8 +141,6 @@ function Message({ item }: { item: ChatItem }) {
   }
 }
 
-const NAMES = PROVIDER_NAMES;
-
 /** The active provider's model, chosen among every provider's models. */
 function ModelMenu({ status, onChange }: { status: AssistantStatus; onChange: (s: AssistantStatus) => void }) {
   const { config } = status;
@@ -161,8 +159,8 @@ function ModelMenu({ status, onChange }: { status: AssistantStatus; onChange: (s
         actions.request({ type: "assistantConfigure", config: next }).then((r) => r.type === "assistant" && onChange(r));
       }}
     >
-      {(["claude", "openai", "claudeCode", "codex"] as const).map((p) => (
-        <optgroup key={p} label={NAMES[p]}>
+      {ALL_PROVIDERS.map((p) => (
+        <optgroup key={p} label={providerLabel(p)}>
           {models(p).map((m) => (
             <option key={m} value={`${p}:${m}`} title={m}>
               {modelName(m)}
@@ -182,17 +180,16 @@ function Setup({ status, onSaved }: { status: AssistantStatus | null; onSaved: (
     actions.request({ type: "mcpInfo" }).then((r) => r.type === "mcp" && setMcp(r.info));
   }, []);
   const provider = status?.config.provider ?? "claude";
+  const name = FAMILY_NAMES[familyOf(provider)];
   return (
     <div className="chat-setup">
       {status && !status[provider].configured && isAgent(provider) && (
         <div>
-          <h3>Connect {NAMES[provider]}</h3>
+          <h3>Connect {name} with your login</h3>
           <p>
             <Inline text={status[provider].note ?? ""} />
           </p>
-          <p>
-            ZParen runs your own {NAMES[provider]} with its login, and gives it the same tools as the other providers.
-          </p>
+          <p>{METHOD_HINTS[provider]} It gets the same tools in your Lisp as with an API key.</p>
           <button className="btn primary" onClick={onSaved}>
             Check Again
           </button>
@@ -207,7 +204,7 @@ function Setup({ status, onSaved }: { status: AssistantStatus | null; onSaved: (
             onSaved();
           }}
         >
-          <h3>Connect {NAMES[provider]}</h3>
+          <h3>Connect {name} with an API key</h3>
           {provider === "claude" ? (
             <p>
               Paste an Anthropic API key. ZParen also uses <code>ANTHROPIC_API_KEY</code> or an <code>ant auth login</code> profile
@@ -215,7 +212,7 @@ function Setup({ status, onSaved }: { status: AssistantStatus | null; onSaved: (
             </p>
           ) : (
             <p>
-              Paste an OpenAI API key. ZParen also uses <code>OPENAI_API_KEY</code> when present. The key is stored only on this Mac.
+              Codex with an API key calls the OpenAI API. Paste an OpenAI API key. ZParen also uses <code>OPENAI_API_KEY</code> when present. The key is stored only on this Mac.
             </p>
           )}
           <input type="password" placeholder={provider === "claude" ? "sk-ant-…" : "sk-…"} value={key} onChange={(e) => setKey(e.target.value)} />
@@ -326,7 +323,7 @@ export function Chat() {
   };
 
   const needsSetup = status !== null && !status[status.config.provider].configured;
-  const name = NAMES[status?.config.provider ?? "claude"];
+  const name = FAMILY_NAMES[familyOf(status?.config.provider ?? "claude")];
 
   return (
     <>
