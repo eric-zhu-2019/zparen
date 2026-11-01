@@ -247,9 +247,12 @@ test("assistant runs tools in the live image and its code can be inserted", asyn
   await page.locator(".chat-code").getByRole("button", { name: "Eval" }).click();
   await expect(page.locator(".repl-buffer .presentation", { hasText: "ANSWER" })).toBeVisible();
 
+  await page.locator(".chat-scroll").evaluate((e) => (e.scrollTop = e.scrollHeight));
   await page.getByTitle("Assistant settings").click();
-  await expect(page.locator(".chat-mcp pre")).toContainText("claude mcp add --transport http zparen");
-  await page.getByTitle("Assistant settings").click();
+  const settings = page.getByTestId("settings");
+  await expect(settings.getByRole("combobox", { name: "Assistant" }), "the gear opens the assistant's settings, wherever the chat is scrolled").toHaveValue("claude");
+  await expect(settings.locator(".setting-command pre")).toContainText("claude mcp add --transport http zparen");
+  await settings.getByRole("button", { name: "Done" }).click();
 
   const model = page.getByRole("combobox", { name: "Model" });
   await expect(model).toHaveValue("claude:claude-opus-5-5");

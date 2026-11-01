@@ -166,6 +166,8 @@ export interface State {
   sidebar: SidebarMode;
   help: boolean;
   settingsOpen: boolean;
+  /** The page Settings shows. */
+  settingsSection: "general" | "lisp" | "plugins" | "assistant";
   /** The getting-started list, and the steps done from it. */
   tourOpen: boolean;
   tourDone: string[];
@@ -238,6 +240,7 @@ export const useStore = create<State>(() => ({
   sidebar: "files",
   help: false,
   settingsOpen: false,
+  settingsSection: "general",
   tourOpen: false,
   tourDone: [],
   newProject: false,

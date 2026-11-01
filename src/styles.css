@@ -1461,8 +1461,7 @@ button.image-chip:hover {
   margin-right: 4px;
 }
 .chat-code pre,
-.chat-tool pre,
-.chat-mcp pre {
+.chat-tool pre {
   margin: 0;
   padding: 8px 10px;
   font-family: var(--mono);
@@ -1532,7 +1531,7 @@ button.image-chip:hover {
   line-height: 1.45;
 }
 .chat-setup form,
-.chat-mcp {
+.chat-setup > div {
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1547,15 +1546,23 @@ button.image-chip:hover {
   background: var(--bg);
   margin-bottom: 8px;
 }
-.chat-mcp pre {
-  background: var(--bg-panel);
+.setting-command {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.setting-command pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 8px;
   border-radius: 6px;
+  background: var(--bg-panel);
+  font-family: var(--mono);
+  font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
-  margin-bottom: 8px;
-}
-.chat-mcp .dim {
-  color: var(--text-faint);
+  user-select: text;
 }
 .chat-input {
   border-top: 1px solid var(--border);

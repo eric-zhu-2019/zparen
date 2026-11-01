@@ -5,7 +5,6 @@ import { ALL_PROVIDERS, FAMILY_NAMES, familyOf, isAgent, METHOD_HINTS, MODEL_KEY
 import { toolInput } from "./toolInput";
 import { editorContext, insertAtCursor } from "../editor/commands";
 import type { AssistantStatus } from "../protocol/AssistantStatus";
-import type { McpInfo } from "../protocol/McpInfo";
 import type { Provider } from "../protocol/Provider";
 import { set, useStore, type ChatItem } from "../store";
 import { Icon } from "./Icon";
@@ -174,11 +173,6 @@ function ModelMenu({ status, onChange }: { status: AssistantStatus; onChange: (s
 
 function Setup({ status, onSaved }: { status: AssistantStatus | null; onSaved: () => void }) {
   const [key, setKey] = useState("");
-  const [mcp, setMcp] = useState<McpInfo | null>(null);
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    actions.request({ type: "mcpInfo" }).then((r) => r.type === "mcp" && setMcp(r.info));
-  }, []);
   const provider = status?.config.provider ?? "claude";
   const name = FAMILY_NAMES[familyOf(provider)];
   return (
@@ -221,23 +215,6 @@ function Setup({ status, onSaved }: { status: AssistantStatus | null; onSaved: (
           </button>
         </form>
       )}
-      <div className="chat-mcp">
-        <h3>Use Claude Code with this image</h3>
-        <p>ZParen runs an MCP server, so an agent in your terminal can evaluate, compile and debug in this Lisp.</p>
-        {mcp ? (
-          <>
-            <pre>{mcp.claudeCommand}</pre>
-            <button
-              className="btn"
-              onClick={() => navigator.clipboard.writeText(mcp.claudeCommand).then(() => setCopied(true))}
-            >
-              {copied ? "Copied" : "Copy command"}
-            </button>
-          </>
-        ) : (
-          <p className="dim">The MCP server is not running.</p>
-        )}
-      </div>
     </div>
   );
 }
@@ -298,7 +275,6 @@ export function Chat() {
   const chat = useStore((s) => s.chat);
   const busy = useStore((s) => s.chatBusy);
   const [status, setStatus] = useState<AssistantStatus | null>(null);
-  const [showSetup, setShowSetup] = useState(false);
   const [text, setText] = useState("");
   const [withContext, setWithContext] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
@@ -336,7 +312,7 @@ export function Chat() {
         <button className="icon-btn" title="New conversation" onClick={() => (actions.request({ type: "assistantReset" }), set({ chat: [] }), setShowHistory(false))}>
           <Icon name="plus" size={12} />
         </button>
-        <button className="icon-btn" title="Assistant settings" onClick={() => setShowSetup(!showSetup)}>
+        <button className="icon-btn" title="Assistant settings" onClick={() => set({ settingsOpen: true, settingsSection: "assistant" })}>
           <Icon name="gear" size={13} />
         </button>
         <button className="icon-btn" title="Close" onClick={() => set({ right: null })}>
@@ -345,16 +321,8 @@ export function Chat() {
       </div>
       {showHistory && <SessionList onClose={() => setShowHistory(false)} />}
       <div className="chat-scroll" ref={scroller}>
-        {(needsSetup || showSetup) && (
-          <Setup
-            status={status}
-            onSaved={() => {
-              refresh();
-              setShowSetup(false);
-            }}
-          />
-        )}
-        {!needsSetup && chat.length === 0 && !showSetup && (
+        {needsSetup && <Setup status={status} onSaved={refresh} />}
+        {!needsSetup && chat.length === 0 && (
           <div className="chat-empty">
             Ask about your code. The assistant works in your live image: it can evaluate, compile, read files, run tests and
             drive the debugger.

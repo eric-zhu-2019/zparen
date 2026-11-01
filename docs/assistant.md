@@ -12,7 +12,7 @@ Codex, and how it signs in.
 | Codex | API key | Calls the OpenAI API with your key | Your API account, per token |
 | Codex | Login | Runs your `codex` command | Your ChatGPT plan |
 
-Settings ▸ Assistant has both choices, then the model and the key or login
+Settings ▸ Assistant, which the gear icon in the assistant panel opens, has both choices, then the model and the key or login
 for that pair. The model menu under the chat groups the models the same way,
 as **Claude · API key**, **Claude · Login**, **Codex · API key** and
 **Codex · Login**. It switches even mid-conversation. Each pair keeps its own
@@ -62,10 +62,10 @@ that reaches ZParen after Stop does not run.
 
 To let Claude Code work in your image, register ZParen's MCP server once:
 
-1. Open the assistant with ⌘L.
-2. Click the gear icon at the top of the assistant panel.
-3. Under **Use Claude Code with this image**, click **Copy command**.
-4. Paste the command in a terminal and run it.
+1. Open Settings ▸ Assistant. Press ⌘, and choose **Assistant**, or click
+   the gear icon at the top of the assistant panel.
+2. Next to **Claude Code in a terminal**, click **Copy Command**.
+3. Paste the command in a terminal and run it.
 
 The command looks like this, with your token in place of `<token>`:
 

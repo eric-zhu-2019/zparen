@@ -5,6 +5,7 @@ import type { AssistantConfig } from "../protocol/AssistantConfig";
 import type { AssistantStatus } from "../protocol/AssistantStatus";
 import type { ProviderStatus } from "../protocol/ProviderStatus";
 import type { LispOptions } from "../protocol/LispOptions";
+import type { McpInfo } from "../protocol/McpInfo";
 import { type Settings as EditorSettings, updateSettings, useSettings } from "../settings";
 import { set, useStore } from "../store";
 import { pickFile, revealInFinder } from "../platform";
@@ -512,6 +513,30 @@ function LoginRow({ provider, status, onCheck }: { provider: "claudeCode" | "cod
   );
 }
 
+/** The command that lets Claude Code in a terminal work in this image. */
+function McpRow() {
+  const [mcp, setMcp] = useState<McpInfo | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    actions.request({ type: "mcpInfo" }).then((r) => r.type === "mcp" && setMcp(r.info));
+  }, []);
+  return (
+    <Row
+      label="Claude Code in a terminal"
+      hint={mcp ? "Run this once in a terminal. Claude Code can then evaluate, compile and debug in this Lisp." : "The MCP server is not running."}
+    >
+      {mcp && (
+        <div className="setting-command">
+          <pre>{mcp.claudeCommand}</pre>
+          <button className="btn" onClick={() => navigator.clipboard.writeText(mcp.claudeCommand).then(() => setCopied(true))}>
+            {copied ? "Copied" : "Copy Command"}
+          </button>
+        </div>
+      )}
+    </Row>
+  );
+}
+
 /** Two choices, the assistant and how it signs in, then the model and the key or login for that pair. */
 function Assistant() {
   const [status, setStatus] = useState<AssistantStatus | null>(null);
@@ -561,6 +586,7 @@ function Assistant() {
       ) : (
         <LoginRow provider={provider} status={status[provider]} onCheck={refresh} />
       )}
+      <McpRow />
     </>
   );
 }
@@ -569,7 +595,8 @@ const SECTIONS = { general: "General", lisp: "Lisp", plugins: "Plugins", assista
 
 export function SettingsScreen() {
   const open = useStore((s) => s.settingsOpen);
-  const [section, setSection] = useState<keyof typeof SECTIONS>("general");
+  const section = useStore((s) => s.settingsSection);
+  const setSection = (settingsSection: keyof typeof SECTIONS) => set({ settingsSection });
   useReturnFocus(open);
   if (!open) return null;
   const close = () => set({ settingsOpen: false });
