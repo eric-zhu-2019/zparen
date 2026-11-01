@@ -13,6 +13,7 @@ import {
   keymap,
   lineNumbers,
   rectangularSelection,
+  tooltips,
 } from "@codemirror/view";
 import { getCM, Vim, vim } from "@replit/codemirror-vim";
 import * as actions from "../actions";
@@ -141,6 +142,14 @@ export function editorExtensions(opts: {
     highlightActiveLine(),
     highlightSelectionMatches(),
     lintGutter(),
+    // Boxes open above or below a line only where the editor's text shows,
+    // so the tab bar and title bar never hide them.
+    tooltips({
+      tooltipSpace: (view) => {
+        const r = view.scrollDOM.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, left: 0, right: window.innerWidth };
+      },
+    }),
     cursorDiagnostic,
     lisp(),
     lispIndentation(() => useStore.getState().indentSpecs),

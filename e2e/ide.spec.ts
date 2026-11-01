@@ -1291,6 +1291,36 @@ test("saving compiles only what changed, and gd goes to local bindings and back"
   await expect(page.locator(".presentation", { hasText: /^20$/ })).toBeVisible();
 });
 
+test("the box for a mark never covers the line the cursor is on", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-cover");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  writeFileSync(join(parent, "zen-cover/src/bad.lisp"), "(defpackage #:zen-cover-bad\n  (:use (:cl)))\n\n(defun f () 1)\n");
+  await page.getByRole("button", { name: "Files" }).click();
+  await page.getByTestId("file-tree").getByText("src").click();
+  await page.getByTestId("file-tree").getByText("bad.lisp").click();
+  const editor = page.locator(".editor-host");
+  const second = editor.locator(".cm-line", { hasText: "(:use" });
+  await second.click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("A ");
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Escape");
+  await expect(editor.locator(".cm-lintRange-error").first(), "the DEFPACKAGE on line 1 is marked").toBeVisible({ timeout: 10_000 });
+  await page.keyboard.type("k");
+  await page.keyboard.type("j");
+  const box = editor.locator(".cm-cursor-diagnostic");
+  await expect(box, "the cursor on line 2 is inside the marked form").toContainText("does not designate a package");
+  const [b, l] = [await box.boundingBox(), await second.boundingBox()];
+  expect(b && l && (b.y >= l.y + l.height || b.y + b.height <= l.y), `the box (${JSON.stringify(b)}) leaves line 2 (${JSON.stringify(l)}) visible`).toBe(true);
+  const text = await editor.locator(".cm-scroller").boundingBox();
+  expect(b && text && b.y >= text.y, "and the tab bar does not hide it").toBe(true);
+});
+
 test("a file that uses a package from an unloaded file is still checked, and a compile-time error is reported", async ({ page }) => {
   const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
   await fresh(page);

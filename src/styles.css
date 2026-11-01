@@ -3493,3 +3493,10 @@ body.resizing * {
   right: 14px;
   z-index: 4;
 }
+/* A gap between the cursor's line and the box for its mark, so the box never touches the line. */
+.cm-cursor-diagnostic.cm-tooltip-above {
+  margin-top: -4px;
+}
+.cm-cursor-diagnostic.cm-tooltip-below {
+  margin-top: 4px;
+}

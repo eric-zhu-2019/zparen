@@ -22,9 +22,13 @@ function tooltipAt(state: EditorState): { tooltip: Tooltip | null; key: string }
   const sel = state.selection.main;
   const found = sel.empty ? diagnosticsAt(state, sel.head) : [];
   if (!found.length) return { tooltip: null, key: "" };
-  const key = `${found[0].from}:${found.map((d) => d.message).join("\n")}`;
+  // The box sits on the cursor's line, above it or else below it, so it never
+  // covers that line: at the mark's start when the mark starts on that line,
+  // or else at the line's start. Pinned to an earlier line, it could cover it.
+  const line = state.doc.lineAt(sel.head);
+  const key = `${line.number}:${found[0].from}:${found.map((d) => d.message).join("\n")}`;
   const tooltip: Tooltip = {
-    pos: found[0].from,
+    pos: Math.max(line.from, found[0].from),
     above: true,
     create: (view) => {
       const dom = document.createElement("ul");
@@ -66,7 +70,7 @@ export const cursorDiagnostic = StateField.define<Shown>({
     // mouse hover, which shows the same box where the pointer already is.
     const armed = tr.docChanged || tr.isUserEvent("select.pointer") ? false : tr.selection ? true : shown.armed;
     const next = armed ? tooltipAt(tr.state) : { tooltip: null, key: "" };
-    // The same messages at the same place keep their box, so moving within a mark does not redraw it.
+    // The same messages on the same line keep their box, so moving along a line does not redraw it.
     if (armed === shown.armed && next.key === shown.key) return shown;
     return { armed, ...next };
   },
