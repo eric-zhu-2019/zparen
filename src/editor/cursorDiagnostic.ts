@@ -1,12 +1,21 @@
 // The warning or error under the cursor, shown as hovering it would show it.
 // It appears when the cursor moves onto a mark, not while typing, since the
 // check that marks code runs as typing pauses and a box would chase the cursor.
+// With problems shown at the end of their lines, it opens only when one is clicked.
 
 import { type Diagnostic, forEachDiagnostic } from "@codemirror/lint";
-import { type EditorState, StateField } from "@codemirror/state";
+import { type EditorState, Facet, StateEffect, StateField } from "@codemirror/state";
 import { showTooltip, type Tooltip } from "@codemirror/view";
 
-type Shown = { armed: boolean; tooltip: Tooltip | null; key: string };
+/** Whether moving the cursor onto a mark opens its box. */
+export const boxAtCursor = Facet.define<boolean, boolean>({ combine: (v) => (v.length ? v[v.length - 1] : true) });
+
+/** Opens the box for the problems at a position, as clicking a problem's message does. */
+export const openProblem = StateEffect.define<number>();
+
+/** `pinned` is where a click opened the box; it stays until the cursor moves or the text changes. */
+type Shown = { armed: boolean; tooltip: Tooltip | null; key: string; pinned: number | null };
+const none = { tooltip: null, key: "" };
 
 /** The diagnostics covering `pos`, most severe first. */
 export function diagnosticsAt(state: EditorState, pos: number): Diagnostic[] {
@@ -18,14 +27,15 @@ export function diagnosticsAt(state: EditorState, pos: number): Diagnostic[] {
   return found.sort((a, b) => rank[a.severity] - rank[b.severity]);
 }
 
-function tooltipAt(state: EditorState): { tooltip: Tooltip | null; key: string } {
+function tooltipAt(state: EditorState, pos: number | null): { tooltip: Tooltip | null; key: string } {
   const sel = state.selection.main;
-  const found = sel.empty ? diagnosticsAt(state, sel.head) : [];
-  if (!found.length) return { tooltip: null, key: "" };
+  const at = pos ?? sel.head;
+  const found = pos !== null || sel.empty ? diagnosticsAt(state, at) : [];
+  if (!found.length) return none;
   // The box sits on the cursor's line, above it or else below it, so it never
   // covers that line: at the mark's start when the mark starts on that line,
   // or else at the line's start. Pinned to an earlier line, it could cover it.
-  const line = state.doc.lineAt(sel.head);
+  const line = state.doc.lineAt(at);
   const key = `${line.number}:${found[0].from}:${found.map((d) => d.message).join("\n")}`;
   const tooltip: Tooltip = {
     pos: Math.max(line.from, found[0].from),
@@ -64,15 +74,19 @@ function tooltipAt(state: EditorState): { tooltip: Tooltip | null; key: string }
 }
 
 export const cursorDiagnostic = StateField.define<Shown>({
-  create: () => ({ armed: false, tooltip: null, key: "" }),
+  create: () => ({ armed: false, ...none, pinned: null }),
   update(shown, tr) {
+    const open = tr.effects.find((e) => e.is(openProblem));
+    if (open) return { armed: true, ...tooltipAt(tr.state, open.value), pinned: open.value };
+    if (shown.pinned !== null && !tr.docChanged && !tr.selection) return shown;
     // Typing disarms it until the cursor next moves. A click leaves it to the
     // mouse hover, which shows the same box where the pointer already is.
-    const armed = tr.docChanged || tr.isUserEvent("select.pointer") ? false : tr.selection ? true : shown.armed;
-    const next = armed ? tooltipAt(tr.state) : { tooltip: null, key: "" };
+    const auto = tr.state.facet(boxAtCursor);
+    const armed = !auto || tr.docChanged || tr.isUserEvent("select.pointer") ? false : tr.selection ? true : shown.armed && shown.pinned === null;
+    const next = armed ? tooltipAt(tr.state, null) : none;
     // The same messages on the same line keep their box, so moving along a line does not redraw it.
-    if (armed === shown.armed && next.key === shown.key) return shown;
-    return { armed, ...next };
+    if (armed === shown.armed && next.key === shown.key && shown.pinned === null) return shown;
+    return { armed, ...next, pinned: null };
   },
   provide: (f) => [showTooltip.compute([f], (state) => state.field(f).tooltip)],
 });

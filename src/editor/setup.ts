@@ -2,7 +2,8 @@ import { acceptCompletion, autocompletion, closeBrackets, completionKeymap, comp
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { lintGutter, lintKeymap } from "@codemirror/lint";
-import { cursorDiagnostic } from "./cursorDiagnostic";
+import { boxAtCursor, cursorDiagnostic } from "./cursorDiagnostic";
+import { inlayDiagnostics } from "./inlayDiagnostics";
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { Annotation, Compartment, EditorState, Prec, type Extension } from "@codemirror/state";
 import {
@@ -33,6 +34,10 @@ import { renameBoxField } from "./rename";
 
 export const vimCompartment = new Compartment();
 export const wrapCompartment = new Compartment();
+export const problemsCompartment = new Compartment();
+
+/** Problems at the end of their lines, or in a box when the cursor reaches them. */
+export const problemsExtension = (mode: "inline" | "box"): Extension => (mode === "inline" ? [inlayDiagnostics, boxAtCursor.of(false)] : boxAtCursor.of(true));
 export const structureCompartment = new Compartment();
 
 const lispKeymap = keymap.of(editorKeymap());
@@ -114,6 +119,7 @@ export function editorExtensions(opts: {
   onBreakpoints: (list: Breakpoint[], toggled: boolean) => void;
   readOnly?: boolean;
   wrap?: boolean;
+  problems?: "inline" | "box";
 }): Extension[] {
   configureVim();
   return [
@@ -151,6 +157,7 @@ export function editorExtensions(opts: {
       },
     }),
     cursorDiagnostic,
+    problemsCompartment.of(problemsExtension(opts.problems ?? "inline")),
     lisp(),
     lispIndentation(() => useStore.getState().indentSpecs),
     structureCompartment.of(opts.structure),

@@ -1302,6 +1302,10 @@ test("the box for a mark never covers the line the cursor is on", async ({ page 
   writeFileSync(join(parent, "zen-cover/src/bad.lisp"), "(defpackage #:zen-cover-bad\n  (:use (:cl)))\n\n(defun f () 1)\n");
   await page.getByRole("button", { name: "Files" }).click();
   await page.getByTestId("file-tree").getByText("src").click();
+  await page.keyboard.press("Meta+,");
+  await page.getByTestId("settings").getByRole("button", { name: "General" }).click();
+  await page.getByRole("combobox", { name: "Show problems" }).selectOption("box");
+  await page.getByRole("button", { name: "Done" }).click();
   await page.getByTestId("file-tree").getByText("bad.lisp").click();
   const editor = page.locator(".editor-host");
   const second = editor.locator(".cm-line", { hasText: "(:use" });
@@ -1319,6 +1323,11 @@ test("the box for a mark never covers the line the cursor is on", async ({ page 
   expect(b && l && (b.y >= l.y + l.height || b.y + b.height <= l.y), `the box (${JSON.stringify(b)}) leaves line 2 (${JSON.stringify(l)}) visible`).toBe(true);
   const text = await editor.locator(".cm-scroller").boundingBox();
   expect(b && text && b.y >= text.y, "and the tab bar does not hide it").toBe(true);
+  await page.keyboard.press("Meta+,");
+  await page.getByTestId("settings").getByRole("button", { name: "General" }).click();
+  await page.getByRole("combobox", { name: "Show problems" }).selectOption("inline");
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(editor.locator(".cm-line").first().locator(".cm-inlay-diagnostic"), "the error shows at the end of line 1").toHaveText("(:CL) does not designate a package");
 });
 
 test("a file that uses a package from an unloaded file is still checked, and a compile-time error is reported", async ({ page }) => {
@@ -1345,16 +1354,31 @@ test("a file that uses a package from an unloaded file is still checked, and a c
   const marks = editor.locator(".cm-lintRange-warning");
   await expect(marks, "the undefined function is marked though its package's file is not loaded").toHaveText(["hello2"], { timeout: 10_000 });
   const atCursor = editor.locator(".cm-cursor-diagnostic");
-  await expect(atCursor).toHaveCount(0);
+  const inlay = editor.locator(".cm-line", { hasText: "(hello2" }).locator(".cm-inlay-diagnostic");
+  await expect(inlay, "the message shows at the end of its line").toHaveText("undefined function: ZEN-USES-MAIN::HELLO2");
   await page.keyboard.type("^l");
-  await expect(atCursor, "moving the cursor onto a mark shows its message").toContainText("undefined function: ZEN-USES-MAIN::HELLO2");
+  await expect(atCursor, "the cursor on the mark opens no box over the code").toHaveCount(0);
+  await inlay.click();
+  await expect(atCursor, "clicking the message opens the full box").toContainText("undefined function: ZEN-USES-MAIN::HELLO2");
   expect(await atCursor.evaluate((el) => getComputedStyle(el).webkitUserSelect), "its text can be selected and copied").toBe("text");
   await expect(atCursor.getByRole("button", { name: "Copy" })).toBeVisible();
+  await shots(page, "30-cursor-diagnostic");
+  await page.keyboard.type("w");
+  await expect(atCursor, "and moving the cursor closes it").toHaveCount(0);
+
+  await page.keyboard.press("Meta+,");
+  await page.getByTestId("settings").getByRole("button", { name: "General" }).click();
+  await page.getByRole("combobox", { name: "Show problems" }).selectOption("box");
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(inlay, "with problems in a box, no message is at the line's end").toHaveCount(0);
+  await editor.locator(".cm-line", { hasText: "(hello2" }).click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("^l");
+  await expect(atCursor, "moving the cursor onto a mark shows its message").toContainText("undefined function: ZEN-USES-MAIN::HELLO2");
   await page.keyboard.type("w");
   await expect(atCursor, "and moving off it hides it").toHaveCount(0);
   await page.keyboard.type("b");
   await expect(atCursor).toHaveCount(1);
-  await shots(page, "30-cursor-diagnostic");
   await page.keyboard.type("a");
   await page.keyboard.type("x");
   await expect(atCursor, "typing hides it").toHaveCount(0);
@@ -1362,9 +1386,11 @@ test("a file that uses a package from an unloaded file is still checked, and a c
   await page.keyboard.press("Escape");
   await expect(marks).toHaveText(["hello2"], { timeout: 10_000 });
 
-  await editor.locator(".cm-line", { hasText: "(hello2" }).click();
-  await page.keyboard.press("Escape");
-  await page.keyboard.type("^l");
+  await page.keyboard.press("Meta+,");
+  await page.getByTestId("settings").getByRole("button", { name: "General" }).click();
+  await page.getByRole("combobox", { name: "Show problems" }).selectOption("inline");
+  await page.getByRole("button", { name: "Done" }).click();
+  await inlay.click();
   await atCursor.getByRole("button", { name: "Ask AI to fix" }).click();
   await expect(page.locator(".chat-user").last(), "the note goes to the assistant with where it is").toContainText("undefined function: ZEN-USES-MAIN::HELLO2");
   await expect(page.locator(".chat-assistant").last()).toContainText("I replaced the call", { timeout: 15_000 });

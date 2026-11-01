@@ -724,6 +724,10 @@ button.image-chip:hover {
 .cm-macro:hover {
   background: var(--bg-active);
 }
+/* Editor boxes stay above the panels but under Settings, dialogs and menus (z-index 50 and up). */
+.cm-editor .cm-tooltip {
+  z-index: 40;
+}
 .cm-tooltip {
   border: none !important;
   border-radius: 8px !important;
@@ -3499,4 +3503,30 @@ body.resizing * {
 }
 .cm-cursor-diagnostic.cm-tooltip-below {
   margin-top: 4px;
+}
+/* A problem's message at the end of its line. */
+.cm-inlay-diagnostic {
+  margin-left: 16px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-family: var(--sans);
+  font-size: 0.88em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.cm-inlay-error {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+.cm-inlay-warning {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+.cm-inlay-info,
+.cm-inlay-hint {
+  color: var(--text-faint);
+}
+.cm-inlay-diagnostic:hover {
+  text-decoration: underline;
 }

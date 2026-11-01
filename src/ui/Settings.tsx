@@ -254,6 +254,19 @@ function General() {
       <Row label="Lines" hint="⌥Z switches it too.">
         <Toggle label="Wrap long lines" checked={s.wordWrap} onChange={(wordWrap) => put({ wordWrap })} />
       </Row>
+      <Row
+        label="Problems"
+        hint={
+          s.problems === "inline"
+            ? "Each warning and error shows at the end of its line. Click it for the full message, Copy and Ask AI to fix."
+            : "A box opens when the cursor reaches a warning or error."
+        }
+      >
+        <select className="select" aria-label="Show problems" value={s.problems} onChange={(e) => put({ problems: e.target.value as "inline" | "box" })}>
+          <option value="inline">At the end of the line</option>
+          <option value="box">In a box at the cursor</option>
+        </select>
+      </Row>
       <Row label="Editor font" hint="Code in the editor, the REPL and the panels.">
         <FontPicker
           label="Editor font"

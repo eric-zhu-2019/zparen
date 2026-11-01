@@ -89,7 +89,8 @@ The tools are `eval`, `compile_form`, `describe_symbol`, `apropos`,
 ## Ask AI to fix
 
 Every warning and error mark has an **Ask AI to fix** button. It shows in the
-hover box and in the box that opens when the cursor reaches a mark. It sends
+box that opens when you hover a mark or click its message at the end of the
+line. It sends
 SBCL's message, the file, the line and the code to the assistant. The assistant
 finds the cause and changes the file with `edit_file`. The
 change shows in the editor at once, and one undo takes it back.

@@ -125,6 +125,13 @@ mark the exact symbol. Saving compiles only the top-level forms that changed
 into the running Lisp. A loaded file changed by git or another editor is
 compiled the same way.
 
+Each marked line ends with its message, in the mark's color: errors red,
+warnings yellow, notes dim. A line with several problems shows the most
+severe one and "+N" for the rest. Click the message to open the full box,
+with **Copy** and **Ask AI to fix**. Moving the cursor or typing closes it.
+To have a box open whenever the cursor reaches a mark instead, as ZParen did
+before, set Settings ▸ General ▸ Problems to **In a box at the cursor**.
+
 The **Problems** panel lists compiler notes from every file. Every warning
 and error mark has an **Ask AI to fix** button, described in
 [Assistant and MCP](assistant.md#ask-ai-to-fix).

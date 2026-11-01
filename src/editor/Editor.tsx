@@ -9,7 +9,18 @@ import { liveDebugSpot, useStore } from "../store";
 import { activeEditor, notesToDiagnostics, viewPath } from "./commands";
 import { setBound, setBreakpoints } from "./breakpoints";
 import { setDebugSpot } from "./debugSpot";
-import { diffCompartment, editorExtensions, externalChange, fallbackStructure, structureCompartment, vimCompartment, watchVimMode, wrapCompartment } from "./setup";
+import {
+  diffCompartment,
+  editorExtensions,
+  externalChange,
+  fallbackStructure,
+  problemsCompartment,
+  problemsExtension,
+  structureCompartment,
+  vimCompartment,
+  watchVimMode,
+  wrapCompartment,
+} from "./setup";
 import { setGitBase } from "./gitGutter";
 import { unifiedMergeView } from "@codemirror/merge";
 import { structureExtension } from "./structure";
@@ -49,6 +60,7 @@ export function Editor({ pane }: { pane: number }) {
   const diffShown = useStore((s) => (activeTab ? s.diffOn.includes(activeTab) : false));
   const vimOn = useSettings((s) => s.vim);
   const wrapOn = useSettings((s) => s.wordWrap);
+  const problemsMode = useSettings((s) => s.problems);
   const parinferOn = useSettings((s) => s.parinfer);
 
   const stateFor = (path: string) => {
@@ -67,6 +79,7 @@ export function Editor({ pane }: { pane: number }) {
         onBreakpoints: (list, toggled) => actions.breakpointsChanged(path, list, toggled),
         readOnly: actions.readOnlyFile(path),
         wrap: useSettings.getState().wordWrap,
+        problems: useSettings.getState().problems,
       }),
     }).update({ effects: setBreakpoints.of(useStore.getState().breakpoints[path] ?? []) }).state;
     states.current.set(path, st);
@@ -154,6 +167,10 @@ export function Editor({ pane }: { pane: number }) {
   useEffect(() => {
     reconfigureAll(() => wrapCompartment.reconfigure(wrapOn ? EditorView.lineWrapping : []));
   }, [wrapOn]);
+
+  useEffect(() => {
+    reconfigureAll(() => problemsCompartment.reconfigure(problemsExtension(problemsMode)));
+  }, [problemsMode]);
 
   useEffect(() => {
     reconfigureAll(() => structureCompartment.reconfigure(parinferOn ? structureExtension() : fallbackStructure));

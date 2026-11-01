@@ -18,6 +18,8 @@ export type Settings = {
   fontSize: number;
   /** Long lines wrap at the editor's edge instead of scrolling sideways. */
   wordWrap: boolean;
+  /** Where warnings and errors show: at the end of their lines, or in a box when the cursor reaches them. */
+  problems: "inline" | "box";
   /** The font family for code: the editor, the REPL and code in panels. Empty keeps SF Mono. */
   editorFont: string;
   /** The font family for everything else. Empty keeps the system font. */
@@ -37,7 +39,7 @@ export const SIDEBAR_WIDTH = 240;
 export const RIGHT_WIDTH = 360;
 
 function load(): Settings {
-  const defaults: Settings = { vim: true, emacs: true, parinfer: true, liveCheck: true, compileOnSave: true, compileOnChange: true, reloadSystems: true, autoImage: false, fontSize: 13, wordWrap: false, editorFont: "", uiFont: "", theme: "system", lightTheme: "zparen-light", darkTheme: "zparen-dark", sidebarWidth: SIDEBAR_WIDTH, rightWidth: RIGHT_WIDTH };
+  const defaults: Settings = { vim: true, emacs: true, parinfer: true, liveCheck: true, compileOnSave: true, compileOnChange: true, reloadSystems: true, autoImage: false, fontSize: 13, wordWrap: false, problems: "inline", editorFont: "", uiFont: "", theme: "system", lightTheme: "zparen-light", darkTheme: "zparen-dark", sidebarWidth: SIDEBAR_WIDTH, rightWidth: RIGHT_WIDTH };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {
