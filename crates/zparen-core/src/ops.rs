@@ -130,6 +130,10 @@ pub enum Op {
     /// top-level form's start to the cursor, names one; nothing otherwise.
     #[serde(rename_all = "camelCase")]
     DesignatorAt { text: String },
+    /// Whether renaming a local turned the form `before` into `after` without changing
+    /// what it does: "same", "different", or "unchecked: " and why, as text.
+    #[serde(rename_all = "camelCase")]
+    CheckRename { before: String, after: String, package: String },
     /// What the plugins add, as JSON: their commands, settings and hooks, and load errors.
     PluginManifest,
     /// Loads the plugins folder again, answering with the new manifest.
@@ -617,6 +621,7 @@ impl Op {
             EndThread { thread } => (rpc("zparen::end-thread", [Sexp::Int(*thread)]), t),
             FindSystems { query } => (rpc("zparen::find-systems", [s(query)]), t),
             DesignatorAt { text } => (rpc("zparen::designator-at", [s(text)]), t),
+            CheckRename { before, after, .. } => (rpc("zparen::rename-check", [s(before), s(after)]), t),
             PluginManifest => (rpc("zparen-plugin::manifest", []), t),
             ReloadPlugins => (rpc("zparen-plugin::reload-plugins", []), t),
             RunPluginCommand { id, file, text, cursor, selection_from, selection_to, package } => (
@@ -665,6 +670,7 @@ impl Op {
             | ProfileForm { package, .. }
             | Disassemble { package, .. }
             | CheckText { package, .. }
+            | CheckRename { package, .. }
             | Macrostep { package, .. } => package,
             _ => "COMMON-LISP-USER",
         }

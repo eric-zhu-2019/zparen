@@ -473,6 +473,22 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await page.keyboard.press("F2");
   await expect(renameBox).toBeHidden();
 
+  await page.keyboard.type("Go");
+  await page.keyboard.type("(defmacro show (v) `(list ',v ,v");
+  await page.keyboard.press("Escape");
+  await page.keyboard.type(",e");
+  await expect(page.locator(".editor-host .cm-inline-result").last()).toContainText("SHOW");
+  await page.keyboard.type("Go");
+  await page.keyboard.type("(defun shown (n) (show n");
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("$hh,r");
+  await expect(renameBox).toHaveValue("n");
+  await renameBox.fill("k");
+  await renameBox.press("Enter");
+  await expect(page.locator(".cm-rename-error"), "Lisp sees that SHOW quotes the name, so the output would change").toContainText("expands the renamed code differently");
+  await renameBox.press("Enter");
+  await expect.poll(() => activeLineText(page), { message: "Return again renames anyway" }).toBe("(defun shown (k) (show k))");
+
   await page.locator(".editor-host .cm-line", { hasText: "(defun greet (name)" }).click();
   await page.keyboard.press("Escape");
   await page.keyboard.type(",e");

@@ -69,15 +69,20 @@ export function badName(name: string): string | null {
 }
 
 /** The edits that rename the local symbol at `pos` to `newName`, or why they cannot be made. */
-export function renameLocal(text: string, pos: number, newName: string): { ok: true; edits: Edit[] } | { ok: false; reason: string } {
+export function renameLocal(
+  text: string,
+  pos: number,
+  newName: string,
+): { ok: true; edits: Edit[]; owner: { from: number; to: number } } | { ok: false; reason: string } {
   const target = localRename(text, pos);
   if (!target.ok) return target;
   const bad = badName(newName);
   if (bad) return { ok: false, reason: bad };
   const lower = newName.toLowerCase();
-  if (lower === target.name) return { ok: true, edits: [] };
+  const owner = { from: target.owner.from, to: target.owner.to };
+  if (lower === target.name) return { ok: true, edits: [], owner };
   // A use of the new name inside the form would be captured by the renamed binding, or capture its uses.
   const taken = codeAtoms(text, [target.owner], CODE, []).some((n) => symbolName(text, n) === lower);
   if (taken) return { ok: false, reason: `${newName} is already used in this form. Renaming to it could change which binding a symbol means.` };
-  return { ok: true, edits: target.uses.map((n) => ({ from: n.start, to: n.to, insert: newName })) };
+  return { ok: true, edits: target.uses.map((n) => ({ from: n.start, to: n.to, insert: newName })), owner };
 }

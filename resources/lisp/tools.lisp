@@ -142,3 +142,109 @@ its function is named in this package, which profiles leave out."
     (when (and (not (eq thread sb-thread:*current-thread*))
                (intersection ids (sb-thread:symbol-value-in-thread 'swank::*pending-continuations* thread nil)))
       (ignore-errors (sb-thread:interrupt-thread thread (lambda () (abort)))))))
+
+;;; Checking a rename. The editor renames a local variable or function in the
+;;; text; here both versions are fully macroexpanded, so every binding left is
+;;; a special form or a lambda list, and compared up to a consistent change of
+;;; bound names. A macro that quotes or captures the name shows up as a difference.
+
+(defun rename-check (before after)
+  "\"same\" when the forms in BEFORE and AFTER expand to the same code, up to the
+names of the locals they bind; \"different\" when they do not; \"unchecked: why\"
+when they cannot be read or expanded."
+  (handler-case
+      (handler-bind ((warning #'muffle-warning))
+        ;; Read in the editor's package, as Swank's own commands do.
+        (swank::with-buffer-syntax ()
+          (let* ((*read-eval* nil)
+                 (old (expand-fully (read-from-string before)))
+                 (new (expand-fully (read-from-string after))))
+            (if (same-code-p old new) "same" "different"))))
+    (error (e) (format nil "unchecked: ~a" e))))
+
+(defun expand-fully (form)
+  ;; SBCL's macroexpand-all leaves a DEFUN or DEFMACRO it is given whole, so the outer macro goes first.
+  (sb-cltl2:macroexpand-all (macroexpand form)))
+
+(defun same-code-p (old new)
+  (let ((gensyms (make-hash-table)) (back (make-hash-table)))
+    (labels ((bound (a b env)
+               ;; A bound name matches only its partner in the innermost binding of either.
+               (let ((by-old (assoc a env)) (by-new (rassoc b env)))
+                 (cond ((or by-old by-new) (and by-old (eq by-old by-new)))
+                       ((or (symbol-package a) (symbol-package b)) (eq a b))
+                       (t (let ((x (gethash a gensyms)) (y (gethash b back)))
+                            (cond ((or x y) (and (eq x b) (eq y a)))
+                                  (t (setf (gethash a gensyms) b (gethash b back) a) t)))))))
+             (data (a b)
+               (cond ((and (symbolp a) (symbolp b)) (bound a b nil))
+                     ((and (consp a) (consp b)) (and (data (car a) (car b)) (data (cdr a) (cdr b))))
+                     (t (equal a b))))
+             (code (a b vars fns)
+               (cond ((and (symbolp a) (symbolp b)) (bound a b vars))
+                     ((and (consp a) (consp b)) (compound a b vars fns))
+                     (t (equal a b))))
+             (all (as bs vars fns)
+               (loop (cond ((and (consp as) (consp bs))
+                            (unless (code (pop as) (pop bs) vars fns) (return nil)))
+                           (t (return (code as bs vars fns))))))
+             (fname (a b fns)
+               (if (and (symbolp a) (symbolp b)) (bound a b fns) (data a b)))
+             (lambda-list (as bs body-a body-b vars fns)
+               ;; Defaults see the parameters before them, so they extend VARS one by one.
+               (loop
+                 (cond ((and (null as) (null bs)) (return (all body-a body-b vars fns)))
+                       ((or (atom as) (atom bs))
+                        (return (and (symbolp as) (symbolp bs)
+                                     (all body-a body-b (acons as bs vars) fns))))
+                       (t (let ((a (pop as)) (b (pop bs)))
+                            (cond ((and (symbolp a) (member a lambda-list-keywords)) (unless (eq a b) (return nil)))
+                                  ((and (symbolp a) (symbolp b)) (setf vars (acons a b vars)))
+                                  ((and (consp a) (consp b) (= (length a) (length b)))
+                                   (destructuring-bind (va &optional ia sa) a
+                                     (destructuring-bind (vb &optional ib sb) b
+                                       (unless (code ia ib vars fns) (return nil))
+                                       (cond ((and (consp va) (consp vb))
+                                              (unless (data (first va) (first vb)) (return nil))
+                                              (setf vars (acons (second va) (second vb) vars)))
+                                             (t (setf vars (acons va vb vars))))
+                                       (when sa (setf vars (acons sa sb vars))))))
+                                  (t (return nil))))))))
+             (bindings (as bs vars fns sequential)
+               ;; LET's values see only the outer names; LET*'s see the ones before them.
+               ;; Returns whether the values match, and the names the body sees.
+               (let ((inner vars))
+                 (loop for a in as for b in bs
+                       for va = (if (consp a) (first a) a) and vb = (if (consp b) (first b) b)
+                       unless (code (if (consp a) (second a)) (if (consp b) (second b)) (if sequential inner vars) fns)
+                         do (return-from bindings (values nil nil))
+                       do (setf inner (acons va vb inner)))
+                 (values t inner)))
+             (compound (a b vars fns)
+               (let ((op (car a)))
+                 (case (and (eq op (car b)) op)
+                   (quote (data a b))
+                   (function
+                    (let ((x (second a)) (y (second b)))
+                      (if (and (consp x) (consp y) (member (car x) '(lambda sb-int:named-lambda)) (eq (car x) (car y)))
+                          (compound x y vars fns)
+                          (fname x y fns))))
+                   (lambda (and (= (length a) (length b)) (lambda-list (second a) (second b) (cddr a) (cddr b) vars fns)))
+                   (sb-int:named-lambda
+                    (and (data (second a) (second b)) (lambda-list (third a) (third b) (cdddr a) (cdddr b) vars fns)))
+                   ((let let* symbol-macrolet)
+                    (and (= (length (second a)) (length (second b)))
+                         (multiple-value-bind (ok inner) (bindings (second a) (second b) vars fns (not (eq op 'let)))
+                           (and ok (all (cddr a) (cddr b) inner fns)))))
+                   ((flet labels macrolet)
+                    (let* ((da (second a)) (db (second b))
+                           (inner (loop with e = fns for x in da for y in db do (setf e (acons (first x) (first y) e)) finally (return e))))
+                      (and (= (length da) (length db))
+                           (loop for x in da for y in db
+                                 always (lambda-list (second x) (second y) (cddr x) (cddr y) vars (if (eq op 'labels) inner fns)))
+                           (all (cddr a) (cddr b) vars inner))))
+                   (t (and (if (and (symbolp (car a)) (symbolp (car b)))
+                               (fname (car a) (car b) fns)
+                               (code (car a) (car b) vars fns))
+                           (all (cdr a) (cdr b) vars fns)))))))
+      (code old new nil nil))))

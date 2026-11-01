@@ -1,6 +1,10 @@
 import { StateEffect, StateField } from "@codemirror/state";
 import { EditorView, showTooltip, type Tooltip } from "@codemirror/view";
-import { localRename, renameLocal } from "../lisp/rename";
+import * as actions from "../actions";
+import { backend } from "../backend";
+import { type Edit, localRename, renameLocal } from "../lisp/rename";
+import { get } from "../store";
+import { bufferPackage } from "./commands";
 import { showInline } from "./inline";
 
 /** The symbol being renamed: where it is, and its text as written. */
@@ -34,6 +38,32 @@ function renameBox(view: EditorView, t: Target) {
   error.className = "cm-rename-error";
   error.setAttribute("role", "alert");
   dom.append(input, error);
+  // After Lisp finds the renamed code expands differently, Return again renames anyway.
+  let override: string | null = null;
+  let busy = false;
+  const rename = async () => {
+    const name = input.value.trim();
+    const text = view.state.doc.toString();
+    const r = renameLocal(text, t.pos, name);
+    if (!r.ok) return void (error.textContent = r.reason);
+    let unchecked: string | null = null;
+    if (r.edits.length && override !== name) {
+      busy = true;
+      error.textContent = "Checking with Lisp…";
+      const verdict = await checkRename(view, text, r.edits, r.owner);
+      busy = false;
+      if (view.state.doc.toString() !== text || view.state.field(target) !== t) return;
+      if (verdict === "different") {
+        override = name;
+        error.textContent = "Lisp expands the renamed code differently, so this rename could change what the code does. Press Return again to rename anyway.";
+        return;
+      }
+      if (verdict !== "same") unchecked = verdict;
+    }
+    view.dispatch({ changes: r.edits, effects: open.of(null), userEvent: "rename", scrollIntoView: true });
+    view.focus();
+    if (unchecked) actions.flash(`Renamed. Lisp did not check it: ${unchecked}`);
+  };
   input.addEventListener("keydown", (e) => {
     // The box owns its keys, so Vim and the window shortcuts never see them.
     e.stopPropagation();
@@ -42,17 +72,14 @@ function renameBox(view: EditorView, t: Target) {
       close(view);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const r = renameLocal(view.state.doc.toString(), t.pos, input.value.trim());
-      if (!r.ok) {
-        error.textContent = r.reason;
-        return;
-      }
-      view.dispatch({ changes: r.edits, effects: open.of(null), userEvent: "rename", scrollIntoView: true });
-      view.focus();
+      if (!busy) void rename();
     }
   });
-  input.addEventListener("input", () => (error.textContent = ""));
-  input.addEventListener("blur", () => setTimeout(() => view.state.field(target) === t && close(view)));
+  input.addEventListener("input", () => {
+    error.textContent = "";
+    override = null;
+  });
+  input.addEventListener("blur", () => setTimeout(() => !busy && view.state.field(target) === t && close(view)));
   return {
     dom,
     mount() {
@@ -60,6 +87,21 @@ function renameBox(view: EditorView, t: Target) {
       input.select();
     },
   };
+}
+
+/**
+ * Asks the running Lisp whether the binding form expands to the same code once
+ * renamed: "same", "different", or why it could not tell.
+ */
+async function checkRename(view: EditorView, text: string, edits: Edit[], owner: { from: number; to: number }): Promise<string> {
+  if (get().status.session.state !== "ready") return "Lisp is not running.";
+  let after = text.slice(owner.from, owner.to);
+  for (const e of [...edits].reverse()) after = after.slice(0, e.from - owner.from) + e.insert + after.slice(e.to - owner.from);
+  const op = { op: "checkRename", before: text.slice(owner.from, owner.to), after, package: bufferPackage(view, owner.from) } as const;
+  const r = await backend.request({ type: "lisp", op }).catch(() => null);
+  if (r?.type !== "lisp" || r.reply.kind !== "text") return "Lisp did not answer.";
+  const verdict = r.reply.text;
+  return verdict.startsWith("unchecked: ") ? verdict.slice("unchecked: ".length) : verdict;
 }
 
 /** Opens the rename box on the local variable or function at the cursor, or says why it cannot. */

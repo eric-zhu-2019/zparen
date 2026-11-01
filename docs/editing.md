@@ -80,6 +80,14 @@ does:
 - The symbol is a slot name in `with-slots`.
 - The name is both a local function and a variable in the same form.
 
+When Lisp is running, ZParen also asks it to check the rename before making
+it. Lisp expands every macro in the form, before and after the rename, and
+compares the two. They must be the same code except for the new name. This
+catches what reading the text cannot see, such as a macro of your own that
+quotes the name or binds it. When the two differ, the box says so, and
+Return again renames anyway. When Lisp cannot check, for example because it
+is not running, ZParen renames and says the rename was not checked.
+
 Renaming a global function, macro or variable across the project is not
 built yet.
 

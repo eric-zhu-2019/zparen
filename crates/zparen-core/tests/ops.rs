@@ -377,6 +377,34 @@ async fn names_being_typed_are_packages_or_systems_where_the_code_says_so() {
 }
 
 #[tokio::test]
+async fn a_rename_is_checked_by_expanding_both_versions() {
+    let s = start().await;
+    // In a package of their own, so the check must read in the package it is given.
+    cl(|package| Op::Eval { form: "(defpackage #:renames (:use #:cl))".into(), package }).run(&s.conn).await.unwrap();
+    let define = "(progn (defmacro show (v) `(list ',v ,v)) (defmacro rebind ((v) &body b) `(let ((,v 2)) ,@b)))";
+    Op::Eval { form: define.into(), package: "RENAMES".into() }.run(&s.conn).await.unwrap();
+    let cases = [
+        ("(defun f (x y) (+ x y))", "(defun f (n y) (+ n y))", "same"),
+        ("(let ((x 1)) (list x (let ((x 2)) x)))", "(let ((a 1)) (list a (let ((x 2)) x)))", "same"),
+        ("(let ((x 1)) (rebind (x) (+ x 1)) x)", "(let ((y 1)) (rebind (y) (+ y 1)) y)", "same"),
+        ("(let ((x 1)) (show x))", "(let ((y 1)) (show y))", "different"),
+        ("(defun shown (n) (show n))", "(defun shown (k) (show k))", "different"),
+        ("(let ((x 1)) (list x y))", "(let ((y 1)) (list y y))", "different"),
+        ("(labels ((f (n) (f n))) (f 3))", "(labels ((g (n) (g n))) (g 3))", "same"),
+        ("(let ((x", "(let ((y", "unchecked"),
+    ];
+    for (before, after, want) in cases {
+        let op = Op::CheckRename { before: before.into(), after: after.into(), package: "RENAMES".into() };
+        let got = match op.run(&s.conn).await.unwrap() {
+            Reply::Text { text } => text,
+            other => panic!("{other:?}"),
+        };
+        assert!(got.starts_with(want), "{before} -> {after}: {got}");
+    }
+    s.stop().await;
+}
+
+#[tokio::test]
 async fn plugins_add_commands_settings_checks_and_repl_hooks() {
     let data = std::env::temp_dir().join(format!("zparen-plugins-{}", std::process::id()));
     // Plugins start in the data folder, where they once lived, and move to the config folder.
