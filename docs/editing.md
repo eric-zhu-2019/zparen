@@ -95,13 +95,13 @@ clears whichever tab is showing.
 
 ## The editor
 
-- Split panes, with one file in two panes if you like.
+- Split panes, side by side.
 - A git gutter with inline diffs, and a Revert button on each change.
 - Word wrap (⌥Z) and Markdown preview (⇧⌘V).
 - A choice of editor and interface fonts.
 - Solarized, Nord and Gruvbox themes, picked separately for light and dark.
   Your own themes are JSON files in the themes folder, which Settings opens.
 
-![One file edited in two panes, side by side](screenshots/split-panes.png)
+![Two editor panes side by side, with main.lisp and package.lisp open](screenshots/split-panes.png)
 
 ![The git gutter and inline diff, with a Revert button on each change](screenshots/git-diff.png)

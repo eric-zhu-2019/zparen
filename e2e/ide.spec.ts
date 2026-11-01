@@ -392,8 +392,10 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await page.keyboard.press("Meta+Shift+/");
   await shots(page, "14-shortcuts");
   await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html"), "the theme follows the system into dark mode").toHaveAttribute("data-theme", "dark");
   await shots(page, "14-shortcuts-dark");
   await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.getByPlaceholder("Filter").fill("slurp");
   await expect(page.locator(".help-body tbody tr")).toHaveCount(2);
   await page.keyboard.press("Escape");
