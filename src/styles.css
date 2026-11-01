@@ -176,7 +176,7 @@ textarea {
 
 .app {
   display: grid;
-  grid-template-rows: 38px 1fr 24px;
+  grid-template-rows: 52px 1fr 24px;
   height: 100%;
 }
 
@@ -187,7 +187,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 12px 0 84px;
+  padding: 0 12px 0 92px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-sidebar);
   backdrop-filter: blur(20px);
@@ -198,6 +198,22 @@ textarea {
 }
 .titlebar .project-name {
   font-weight: 600;
+}
+/* In the app, the title bar and sidebar show macOS's sidebar material, tinted by the theme. */
+:root[data-vibrancy],
+:root[data-vibrancy] body,
+:root[data-vibrancy] #root {
+  background: transparent;
+}
+:root[data-vibrancy] .titlebar,
+:root[data-vibrancy] .sidebar {
+  background: color-mix(in srgb, var(--bg-sidebar) 35%, transparent);
+  backdrop-filter: none;
+}
+:root[data-vibrancy] .center,
+:root[data-vibrancy] .empty,
+:root[data-vibrancy] .statusbar {
+  background: var(--bg);
 }
 /* A toolbar pop-up: no frame until the pointer is over it. */
 .titlebar .toolbar-select {
@@ -3280,6 +3296,9 @@ button.image-chip:hover {
   top: 0;
   bottom: 0;
   width: 6px;
+  /* The right panel's .right rule matches the sidebar's handle too. */
+  background: none;
+  border: 0;
   z-index: 5;
   cursor: col-resize;
 }

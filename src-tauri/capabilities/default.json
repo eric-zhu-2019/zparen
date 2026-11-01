@@ -11,6 +11,7 @@
     "dialog:default",
     "core:window:allow-destroy",
     "core:window:allow-start-dragging",
+    "core:window:allow-set-theme",
     "opener:allow-reveal-item-in-dir"
   ]
 }

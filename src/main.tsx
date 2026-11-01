@@ -13,6 +13,8 @@ import { clearRecentProjects, loadedSystems, rememberLoaded, syncRecentMenu } fr
 import { useSettings } from "./settings";
 import { guardWindowClose } from "./ui/Dialog";
 
+// The window is transparent with macOS's sidebar material behind it; the page lets it show through.
+if (inTauri && /Mac/.test(navigator.platform)) document.documentElement.dataset.vibrancy = "";
 await initParinfer();
 guardWindowClose();
 /** The session state last reported, so a reload happens once per Lisp that becomes ready. */

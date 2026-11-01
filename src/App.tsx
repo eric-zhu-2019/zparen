@@ -5,6 +5,7 @@ import { fontStack } from "./fonts";
 import { emacsKeyHandler, handleWindowKey } from "./keys";
 import { useSettings } from "./settings";
 import { set, useStore } from "./store";
+import { inTauri } from "./backend";
 import { allThemes, applyTheme, readThemeFiles, themeFor, useThemes } from "./themes";
 import { EditorEmpty, isTabDrag, NewProjectDialog, readTabDrag, Tabs, TitleBar, Welcome } from "./ui/Chrome";
 import { ConflictBanner, DialogHost } from "./ui/Dialog";
@@ -55,6 +56,8 @@ function useAppearance() {
   useEffect(() => {
     const kind = theme === "system" ? (systemDark ? "dark" : "light") : theme;
     applyTheme(themeFor(kind, kind === "dark" ? darkTheme : lightTheme, allThemes(userThemes)));
+    // The sidebar's material is drawn by macOS, in the window's appearance, not the page's.
+    if (inTauri) void import("@tauri-apps/api/window").then(({ getCurrentWindow }) => getCurrentWindow().setTheme(theme === "system" ? null : kind));
   }, [theme, systemDark, lightTheme, darkTheme, userThemes]);
   useEffect(() => {
     document.documentElement.style.setProperty("--editor-font-size", `${fontSize}px`);
