@@ -238,10 +238,6 @@ were on disk, so a later change to one can be compiled form by form."
 ;; encapsulations START-SERVER installs, including a quickload typed in the REPL.
 (defvar *image-lock* (sb-thread:make-mutex :name "zparen image"))
 
-(defvar *stopped-in-debugger* '()
-  "The threads whose compile or load sits in the debugger. SBCL's own compiler
-lock stays held there, so a check would wait until a restart is chosen.")
-
 (defun hold-image-lock (function &rest args)
   "Calls FUNCTION with the image lock held, except while its thread sits in the
 debugger: a compile stopped there would otherwise hold up every check and
@@ -262,9 +258,7 @@ compile until a restart is chosen."
                  (cond ((not outer) nil)
                        ((sb-thread:holding-mutex-p *image-lock*)
                         (sb-thread:release-mutex *image-lock*)
-                        (sb-ext:atomic-push sb-thread:*current-thread* *stopped-in-debugger*)
                         (unwind-protect (debug)
-                          (sb-ext:atomic-update *stopped-in-debugger* (lambda (l) (remove sb-thread:*current-thread* l :count 1)))
                           (sb-thread:grab-mutex *image-lock*)))
                        (t (debug)))))))
       (apply function args))))
@@ -828,11 +822,7 @@ An error at compile time becomes an error note, and the check goes on past it
 when the error allows that, or stops there.
 TEXT is SOURCE's text, when SOURCE names a file. When the packages TEXT uses
 are not in Lisp yet, the files SOURCE depends on in its ASDF system compile
-first, as a build compiles them, so their packages and functions are known.
-Returns :BUSY at once while another thread's compile or load sits in the
-debugger, since the check would wait there until a restart is chosen."
-  (when (remove sb-thread:*current-thread* *stopped-in-debugger*)
-    (return-from check-text :busy))
+first, as a build compiles them, so their packages and functions are known."
   (sb-thread:with-recursive-lock (*image-lock*)
     (let* ((dir (uiop:ensure-directory-pathname
                  (merge-pathnames (format nil "zparen-check-~d/" (sb-posix:getpid)) (uiop:temporary-directory))))

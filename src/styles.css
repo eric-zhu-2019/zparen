@@ -3532,7 +3532,3 @@ body.resizing * {
 .cm-tooltip-lint:empty {
   display: none;
 }
-/* Checking is held up by a load or compile stopped in the debugger. */
-.statusbar .checks-waiting {
-  color: var(--warning);
-}

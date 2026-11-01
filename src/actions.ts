@@ -993,10 +993,8 @@ async function checkNow(path: string) {
     const still = get().tabs.find((t) => t.path === path)?.text === text;
     if (r?.type === "lisp" && r.reply.kind === "compiled" && still) {
       const notes = r.reply.notes.filter((n) => !packageMissing(n));
-      set((s) => ({ notes: { ...s.notes, [path]: notes }, checksWaiting: false }));
+      set((s) => ({ notes: { ...s.notes, [path]: notes } }));
     }
-    // A load or compile stopped in the debugger holds the compiler; the file keeps its marks until it closes.
-    if (r?.type === "lisp" && r.reply.kind === "text" && r.reply.text === "busy") set({ checksWaiting: true });
   } finally {
     checking.delete(path);
     if (checkAgain.delete(path)) void checkNow(path);

@@ -1291,7 +1291,7 @@ test("saving compiles only what changed, and gd goes to local bindings and back"
   await expect(page.locator(".presentation", { hasText: /^20$/ })).toBeVisible();
 });
 
-test("a load stopped in the debugger does not leave checks hanging, and they run once it closes", async ({ page }) => {
+test("files are checked while a load is stopped in the debugger, and a fixed error's mark goes", async ({ page }) => {
   const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
   await fresh(page);
   await page.getByRole("button", { name: "New Project" }).click();
@@ -1307,12 +1307,16 @@ test("a load stopped in the debugger does not leave checks hanging, and they run
   await page.getByRole("button", { name: "Files" }).click();
   await page.getByTestId("file-tree").getByText("src").click();
   await page.getByTestId("file-tree").getByText("other.lisp").click();
-  await expect(page.getByTestId("checks-waiting"), "the status bar says why the file has no marks yet").toBeVisible({ timeout: 10_000 });
-  await page.locator(".restart", { hasText: "ABORT" }).first().click();
-  await expect(page.locator(".editor-host .cm-inlay-diagnostic"), "closing the debugger checks the file").toHaveText(["undefined variable: COMMON-LISP-USER::UNDEFINED-THING"], {
+  const editor = page.locator(".editor-host");
+  await expect(editor.locator(".cm-inlay-diagnostic"), "the file is checked with the debugger open").toHaveText(["undefined variable: COMMON-LISP-USER::UNDEFINED-THING"], {
     timeout: 15_000,
   });
-  await expect(page.getByTestId("checks-waiting")).toHaveCount(0);
+  await editor.locator(".cm-line").first().click({ position: { x: 3, y: 5 } });
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("dd");
+  await expect(editor.locator(".cm-lintRange"), "deleting the bad form clears its mark").toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId("debugger"), "and the load is still stopped").toContainText("stop the load");
+  await page.locator(".restart", { hasText: "ABORT" }).first().click();
 });
 
 test("the box for a mark never covers the line the cursor is on", async ({ page }) => {

@@ -697,8 +697,6 @@ impl Op {
                 output: str_at(&v, 0),
                 value: str_at(&v, 1),
             },
-            // Lisp declines a check while another compile sits in the debugger; the file keeps its notes.
-            CheckText { .. } if v.is_kw("busy") => Reply::Text { text: "busy".into() },
             CompileForm { .. } | CompileFile { .. } | CheckText { .. } => parse_compilation(&v),
             Complete { .. } => Reply::Completions {
                 items: v

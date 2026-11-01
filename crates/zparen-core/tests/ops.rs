@@ -337,14 +337,16 @@ async fn a_check_does_not_wait_for_a_load_stopped_in_the_debugger() {
     let d = next_debugger(&mut events).await;
     assert!(d.condition.contains("stop here"), "{}", d.condition);
 
-    let check = || cl(|package| Op::CheckText { text: "(defun g () undefined-thing)".into(), package, file: None });
-    let reply = tokio::time::timeout(Duration::from_secs(5), check().run(c)).await.expect("the check returns while the load is stopped").unwrap();
-    assert_eq!(reply, Reply::Text { text: "busy".into() });
+    let check = |text: &str| cl(|package| Op::CheckText { text: text.into(), package, file: None });
+    let Reply::Compiled { notes, .. } = tokio::time::timeout(Duration::from_secs(5), check("(defun g () undefined-thing)").run(c)).await.expect("the check returns while the load is stopped").unwrap() else {
+        panic!("the check runs while the load is stopped")
+    };
+    assert!(notes.iter().any(|n| n.message.contains("UNDEFINED-THING")), "{notes:?}");
+    let Reply::Compiled { notes, .. } = tokio::time::timeout(Duration::from_secs(5), check("(defun g () 1)").run(c)).await.unwrap().unwrap() else { panic!() };
+    assert!(notes.is_empty(), "the fixed text has no notes: {notes:?}");
 
     let _ = Op::DebuggerAbort { thread: d.thread }.run(c).await;
     let _ = pending.await;
-    let Reply::Compiled { notes, .. } = tokio::time::timeout(Duration::from_secs(20), check().run(c)).await.expect("then it checks").unwrap() else { panic!() };
-    assert!(notes.iter().any(|n| n.message.contains("UNDEFINED-THING")), "{notes:?}");
     let _ = std::fs::remove_dir_all(&dir);
     s.stop().await;
 }

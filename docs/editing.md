@@ -125,9 +125,8 @@ mark the exact symbol. Saving compiles only the top-level forms that changed
 into the running Lisp. A loaded file changed by git or another editor is
 compiled the same way.
 
-While a load or compile is stopped in the debugger, SBCL's compiler is held,
-so files cannot be checked. The status bar then says **Checks wait for the
-debugger**, and the open files are checked as soon as a restart is chosen.
+Files are still checked while a load or compile is stopped in the debugger.
+Choosing a restart checks the open files again, since the load may go on.
 
 Each line with an error or warning ends with its message, in light text of
 the mark's color: red for errors, yellow for warnings. SBCL's notes keep

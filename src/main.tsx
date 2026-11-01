@@ -60,8 +60,7 @@ backend.onEvent((e) => {
   if ((e.type === "taskFinished" && e.ok) || (e.type === "status" && e.session.state === "ready")) void trackLoadedFiles();
   // Files opened before Lisp was ready have not been checked yet, and a load
   // defines what open files use, which changes what their checks report.
-  // A check declined while a compile sat in the debugger runs once the debugger closes.
-  if (e.type === "lisp" && e.event.kind === "debugReturn") set({ checksWaiting: false });
+  // Closing the debugger lets a stopped load go on, which also changes what they report.
   if (e.type === "taskFinished" || (e.type === "status" && e.session.state === "ready") || (e.type === "lisp" && e.event.kind === "debugReturn"))
     for (const t of get().tabs) checkSoon(t.path, 0);
   if (e.type === "lisp" && e.event.kind === "debug" && e.event.stepping) showFrame(e.event, 0, { remember: false });
