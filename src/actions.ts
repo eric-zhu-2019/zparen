@@ -399,7 +399,7 @@ async function writeText(path: string, text: string) {
   }
 }
 
-async function readText(path: string) {
+export async function readText(path: string) {
   const open = get().tabs.find((t) => t.path === path);
   if (open) return open.text;
   const r = await request({ type: "readFile", path });

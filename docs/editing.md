@@ -19,7 +19,7 @@ These are the ones you use most:
 | Slurp, barf | ⌃), ⌃} | `>)`, `<)` |
 | Select a form | ⌃⇧⌘→ | `vaf` |
 | Change the symbol at the cursor | | `cie` |
-| Rename a local variable or function | F2 | `,r` |
+| Rename a symbol | F2 | `,r` |
 | Search in project | ⇧⌘F | |
 | Command palette | ⇧⌘P | |
 
@@ -62,10 +62,15 @@ next list out.
 
 ## Rename
 
-F2, or `,r` in Vim, renames the local variable or local function at the
-cursor. A box opens on the symbol with its name selected. Type the new name
-and press Return, or press Escape to cancel. ZParen renames the binding and
-every use of it, and one undo takes the whole rename back.
+F2, or `,r` in Vim, renames the symbol at the cursor. A box opens on the
+symbol with its name selected. Type the new name and press Return, or press
+Escape to cancel. A local variable or local function is renamed in its form.
+Any other symbol is renamed across the project, after a preview.
+
+### A local variable or function
+
+ZParen renames the binding and every use of it, and one undo takes the whole
+rename back.
 
 It reads the code as text, the way `gd` does, so it works before the code is
 loaded. It knows which binding each use means. An inner `let` that binds the
@@ -88,8 +93,30 @@ quotes the name or binds it. When the two differ, the box says so, and
 Return again renames anyway. When Lisp cannot check, for example because it
 is not running, ZParen renames and says the rename was not checked.
 
-Renaming a global function, macro or variable across the project is not
-built yet.
+### A global symbol
+
+A function, macro, variable or class is renamed in every file of the
+project. Lisp must be running and have loaded the code that defines it.
+
+1. Lisp says which symbol the name at the cursor is, such as `APP::GREET`.
+2. ZParen refuses when the symbol is defined outside the project, such as a
+   function from a library, or when the new name already means something in
+   that package.
+3. ZParen finds every token with that name in the project, and Lisp reads
+   each one as the reader would. A token in another package, a keyword, a
+   string or a comment does not count. Names in `defpackage`, such as
+   `(:export #:greet)`, do.
+4. The Search sidebar lists every place by file. Places Lisp confirmed are
+   ticked. Places it could not read, such as code in a package that is not
+   loaded, are unticked, and you can tick them.
+5. **Rename** writes the files. An open file shows the change, and one undo
+   in it takes the change back.
+
+Files with unsaved changes must be saved first. A file changed since the
+preview stops the rename before anything is written.
+
+Lisp still has the old name defined until the code is compiled again. Load
+the system again so that it uses only the new name.
 
 ## Checking as you type
 

@@ -248,3 +248,78 @@ when they cannot be read or expanded."
                                (code (car a) (car b) vars fns))
                            (all (cdr a) (cdr b) vars fns)))))))
       (code old new nil nil))))
+
+;;; Renaming a global symbol. The editor finds every token in the project that
+;;; could name it; here each one is read the way the reader would, without
+;;; interning anything, to say whether it is that symbol.
+
+(defun token-symbol (token)
+  "The symbol TOKEN reads as in *PACKAGE*, without interning one, or NIL and
+why not: :ESCAPED, :NO-PACKAGE or :NOT-FOUND."
+  (when (find-if (lambda (c) (find c "|\\")) token)
+    (return-from token-symbol (values nil :escaped)))
+  (let* ((first (position #\: token))
+         (last (position #\: token :from-end t))
+         (package (cond ((null first) *package*)
+                        ((zerop first) (find-package "KEYWORD"))
+                        (t (find-package (string-upcase (subseq token 0 first))))))
+         (name (string-upcase (if last (subseq token (1+ last)) token))))
+    (if (null package)
+        (values nil :no-package)
+        (multiple-value-bind (symbol status) (find-symbol name package)
+          (if status (values symbol nil) (values nil :not-found))))))
+
+(defun rename-target (token)
+  "\"PACKAGE<newline>NAME\" for the symbol TOKEN names in the editor's package,
+or \"error: why\" when it cannot be renamed."
+  (swank::with-buffer-syntax ()
+    (multiple-value-bind (symbol why) (token-symbol token)
+      (let ((home (and symbol (symbol-package symbol))))
+        (cond ((eq why :no-package) (format nil "error: The package in ~a does not exist in Lisp. Load the code first." token))
+              (why (format nil "error: Lisp does not know ~a yet. Load the code that defines it first." token))
+              ((null home) (format nil "error: ~a belongs to no package." token))
+              ((eq home (find-package "KEYWORD")) (format nil "error: ~a is a keyword. Keywords mean the same everywhere, so ZParen does not rename them." token))
+              ((sb-ext:package-locked-p home)
+               (format nil "error: ~a belongs to ~a, which is locked." token (package-name home)))
+              (t (format nil "~a~%~a" (package-name home) (symbol-name symbol))))))))
+
+(defun rename-matches (home name lines)
+  "One character per line of LINES, each \"package<tab>designator<tab>token\":
+y when the token reads as HOME::NAME in that package, n when it does not, and ?
+when Lisp cannot tell. A designator, such as #:foo in DEFPACKAGE, is looked up
+by name in its package."
+  (multiple-value-bind (target found) (find-symbol name home)
+    (with-output-to-string (out)
+      (dolist (line (uiop:split-string lines :separator '(#\Newline)))
+        (when (plusp (length line))
+          (destructuring-bind (context designator token) (uiop:split-string line :separator '(#\Tab))
+            (let* ((context (find-package context))
+                   (*package* (or context *package*)))
+              (write-char
+               ;; A qualified token names its package, so it reads the same in any file.
+               (cond ((or (not found) (and (null context) (or (string= designator "1") (not (find #\: token))))) #\?)
+                     ((string= designator "1")
+                      (let ((name (string-upcase (string-left-trim "#:" token))))
+                        (multiple-value-bind (symbol status) (find-symbol name)
+                          (if (and status (eq symbol target)) #\y #\n))))
+                     (t (multiple-value-bind (symbol why) (token-symbol token)
+                          (cond ((member why '(:escaped :no-package)) #\?)
+                                ((and (not why) (eq symbol target)) #\y)
+                                (t #\n)))))
+               out))))))))
+
+(defun rename-conflict (home name new)
+  "Why HOME::NAME cannot become NEW, or an empty string when it can."
+  (let* ((package (find-package home))
+         (new-name (string-upcase new)))
+    (multiple-value-bind (symbol status) (find-symbol new-name package)
+      (cond ((string= new-name name) "")
+            ((null status) "")
+            ((not (eq (symbol-package symbol) package))
+             (format nil "~a in ~a already means ~a:~a." new home (package-name (symbol-package symbol)) (symbol-name symbol)))
+            ((or (fboundp symbol) (boundp symbol) (find-class symbol nil))
+             (format nil "~a already names a ~a in ~a." new
+                     (cond ((macro-function symbol) "macro") ((fboundp symbol) "function")
+                           ((boundp symbol) "variable") (t "class"))
+                     home))
+            (t "")))))

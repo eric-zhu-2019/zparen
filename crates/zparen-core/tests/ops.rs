@@ -405,6 +405,50 @@ async fn a_rename_is_checked_by_expanding_both_versions() {
 }
 
 #[tokio::test]
+async fn a_global_rename_reads_each_token_as_the_reader_would() {
+    let s = start().await;
+    let text = |r: Reply| match r {
+        Reply::Text { text } => text,
+        Reply::None => String::new(),
+        other => panic!("{other:?}"),
+    };
+    let setup = "(progn (defpackage #:shapes (:use #:cl) (:export #:area)) (defpackage #:other (:use #:cl)) (defpackage #:client (:use #:cl #:shapes)))";
+    cl(|package| Op::Eval { form: setup.into(), package }).run(&s.conn).await.unwrap();
+    Op::Eval { form: "(progn (defun area (s) s) (defun perimeter (s) s))".into(), package: "SHAPES".into() }.run(&s.conn).await.unwrap();
+    Op::Eval { form: "(defun area (x) x)".into(), package: "OTHER".into() }.run(&s.conn).await.unwrap();
+
+    let target = |token: &str, package: &str| Op::RenameTarget { token: token.into(), package: package.into() };
+    assert_eq!(text(target("area", "CLIENT").run(&s.conn).await.unwrap()), "SHAPES\nAREA");
+    assert_eq!(text(target("shapes::area", "CL-USER").run(&s.conn).await.unwrap()), "SHAPES\nAREA");
+    assert!(text(target("car", "SHAPES").run(&s.conn).await.unwrap()).starts_with("error: car belongs to COMMON-LISP"));
+    assert!(text(target("nowhere:area", "SHAPES").run(&s.conn).await.unwrap()).starts_with("error: The package"));
+    assert!(text(target("unheard-of", "SHAPES").run(&s.conn).await.unwrap()).starts_with("error: Lisp does not know"));
+
+    // The same name in another package, a keyword, and an unknown package do not count.
+    let tokens = [
+        ("SHAPES", "0", "area"),
+        ("CLIENT", "0", "area"),
+        ("CL-USER", "0", "shapes:area"),
+        ("OTHER", "0", "area"),
+        ("CL-USER", "0", ":area"),
+        ("NOT-LOADED", "0", "area"),
+        ("NOT-LOADED", "0", "shapes:area"),
+        ("SHAPES", "1", "#:area"),
+        ("SHAPES", "1", "#:perimeter"),
+    ]
+    .map(|(p, d, t)| format!("{p}\t{d}\t{t}"))
+    .join("\n");
+    let op = Op::RenameMatches { home: "SHAPES".into(), name: "AREA".into(), tokens };
+    assert_eq!(text(op.run(&s.conn).await.unwrap()), "yyynn?yyn");
+
+    let conflict = |new: &str| Op::RenameConflict { home: "SHAPES".into(), name: "AREA".into(), new_name: new.into() };
+    assert_eq!(text(conflict("surface").run(&s.conn).await.unwrap()), "");
+    assert!(text(conflict("perimeter").run(&s.conn).await.unwrap()).contains("already names a function in SHAPES"));
+    assert!(text(conflict("list").run(&s.conn).await.unwrap()).contains("already means"));
+    s.stop().await;
+}
+
+#[tokio::test]
 async fn plugins_add_commands_settings_checks_and_repl_hooks() {
     let data = std::env::temp_dir().join(format!("zparen-plugins-{}", std::process::id()));
     // Plugins start in the data folder, where they once lived, and move to the config folder.

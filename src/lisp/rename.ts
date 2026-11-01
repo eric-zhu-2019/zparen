@@ -7,7 +7,9 @@ import { type Node, parse, pathAt } from "./tree";
 export type Edit = { from: number; to: number; insert: string };
 
 /** What renaming the symbol at a position would change, or why it cannot. */
-export type LocalRename = { ok: true; name: string; uses: Node[]; owner: Node } | { ok: false; reason: string };
+export type LocalRename =
+  | { ok: true; name: string; uses: Node[]; owner: Node }
+  | { ok: false; reason: string; global?: { from: number; to: number } };
 
 /** Where a node sits: how many backquotes are open, and whether it is data rather than code. */
 type Quoting = { depth: number; data: boolean };
@@ -42,7 +44,8 @@ export function localRename(text: string, pos: number): LocalRename {
   const symbol = symbolName(text, at);
   if (!at || at.kind !== "atom" || !symbol) return { ok: false, reason: "Put the cursor on a symbol to rename it." };
   const found = bindingOf(text, path);
-  if (!found) return { ok: false, reason: `${symbol} is not a local variable or local function here.` };
+  // A symbol no form here binds may be a global one, which renames across the project.
+  if (!found) return { ok: false, reason: `${symbol} is not a local variable or local function here.`, global: { from: at.start, to: at.to } };
   if (found.fixed === "key") return { ok: false, reason: `${symbol} is a &key parameter. Its name is also the keyword callers pass, so renaming it would change how they call.` };
   if (found.fixed === "slot") return { ok: false, reason: `${symbol} is a slot name in WITH-SLOTS. Renaming it would read a different slot.` };
   const { owner, binder } = found;

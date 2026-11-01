@@ -134,6 +134,16 @@ pub enum Op {
     /// what it does: "same", "different", or "unchecked: " and why, as text.
     #[serde(rename_all = "camelCase")]
     CheckRename { before: String, after: String, package: String },
+    /// The symbol `token` names in `package`, as "PACKAGE\nNAME", or "error: " and why it cannot be renamed.
+    #[serde(rename_all = "camelCase")]
+    RenameTarget { token: String, package: String },
+    /// For each line of `tokens`, "package\tdesignator\ttoken", one character: y when the token
+    /// reads as `home`::`name`, n when it does not, ? when Lisp cannot tell.
+    #[serde(rename_all = "camelCase")]
+    RenameMatches { home: String, name: String, tokens: String },
+    /// Why `home`::`name` cannot be renamed to `new_name`, or an empty string.
+    #[serde(rename_all = "camelCase")]
+    RenameConflict { home: String, name: String, new_name: String },
     /// What the plugins add, as JSON: their commands, settings and hooks, and load errors.
     PluginManifest,
     /// Loads the plugins folder again, answering with the new manifest.
@@ -622,6 +632,9 @@ impl Op {
             FindSystems { query } => (rpc("zparen::find-systems", [s(query)]), t),
             DesignatorAt { text } => (rpc("zparen::designator-at", [s(text)]), t),
             CheckRename { before, after, .. } => (rpc("zparen::rename-check", [s(before), s(after)]), t),
+            RenameTarget { token, .. } => (rpc("zparen::rename-target", [s(token)]), t),
+            RenameMatches { home, name, tokens } => (rpc("zparen::rename-matches", [s(home), s(name), s(tokens)]), t),
+            RenameConflict { home, name, new_name } => (rpc("zparen::rename-conflict", [s(home), s(name), s(new_name)]), t),
             PluginManifest => (rpc("zparen-plugin::manifest", []), t),
             ReloadPlugins => (rpc("zparen-plugin::reload-plugins", []), t),
             RunPluginCommand { id, file, text, cursor, selection_from, selection_to, package } => (
@@ -671,6 +684,7 @@ impl Op {
             | Disassemble { package, .. }
             | CheckText { package, .. }
             | CheckRename { package, .. }
+            | RenameTarget { package, .. }
             | Macrostep { package, .. } => package,
             _ => "COMMON-LISP-USER",
         }

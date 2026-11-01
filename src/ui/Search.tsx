@@ -3,6 +3,7 @@ import * as actions from "../actions";
 import type { Query } from "../protocol/Query";
 import type { SearchResult } from "../protocol/SearchResult";
 import { set, useStore } from "../store";
+import { applyGlobalRename, toggleSpot } from "../editor/renameGlobal";
 import { Icon } from "./Icon";
 
 function Highlight({ text, spans }: { text: string; spans: [number, number][] }) {
@@ -32,6 +33,52 @@ function Toggle({ on, title, label, onClick }: { on: boolean; title: string; lab
     <button className={`search-toggle ${on ? "on" : ""}`} title={title} aria-pressed={on} onClick={onClick}>
       {label}
     </button>
+  );
+}
+
+/** A rename across the project, for the user to look over and confirm. */
+function RenamePreview({ rel }: { rel: (p: string) => string }) {
+  const plan = useStore((s) => s.renamePlan);
+  if (!plan) return null;
+  const spots = plan.files.flatMap((f) => f.spots);
+  const ticked = spots.filter((s) => s.checked).length;
+  const files = plan.files.filter((f) => f.spots.some((s) => s.checked)).length;
+  return (
+    <div className="rename-plan" data-testid="rename-plan">
+      <div className="search-summary">
+        Rename <code>{plan.symbol}</code> to <code>{plan.newName}</code>: {ticked} of {spots.length} place{spots.length === 1 ? "" : "s"}
+        {plan.truncated && ". The search stopped early, so some uses may be missing"}
+      </div>
+      {spots.some((s) => !s.sure) && (
+        <div className="search-summary">Unticked places are ones Lisp could not read, such as code in a package that is not loaded. Tick them to rename them too.</div>
+      )}
+      {plan.files.map((f) => (
+        <div key={f.path}>
+          <div className="tree-row search-file-row" title={f.path}>
+            <Icon name="file" size={12} />
+            <span>{rel(f.path)}</span>
+            <span className="count">{f.spots.length}</span>
+          </div>
+          {f.spots.map((spot) => (
+            <label key={spot.from} className="search-line rename-spot">
+              <input type="checkbox" checked={spot.checked} onChange={() => toggleSpot(f.path, spot.from)} />
+              <span className="search-lineno">{spot.line}</span>
+              <span className="search-text" onClick={() => actions.navigateToLine(f.path, spot.line, spot.column)}>
+                <Highlight text={spot.lineText} spans={[[spot.column, spot.column + (spot.to - spot.from)]]} />
+              </span>
+            </label>
+          ))}
+        </div>
+      ))}
+      <div className="rename-actions">
+        <button className="btn primary" disabled={ticked === 0} onClick={() => void applyGlobalRename()}>
+          Rename {ticked} in {files} file{files === 1 ? "" : "s"}
+        </button>
+        <button className="btn" onClick={() => set({ renamePlan: null })}>
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -124,6 +171,7 @@ export function SearchPanel() {
         )}
       </div>
       <div className="section-body" data-testid="search-results">
+        <RenamePreview rel={rel} />
         {!query.pattern && references && (
           <>
             <div className="search-summary">

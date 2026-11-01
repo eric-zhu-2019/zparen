@@ -469,8 +469,10 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await page.keyboard.type("u");
   await expect.poll(() => activeLineText(page), { message: "one undo takes the rename back" }).toBe("(defun area (w h) (* w h))");
   await page.keyboard.type("0ww,r");
-  await expect(page.locator(".editor-host .cm-inline-error"), "a global function is not renamed").toContainText("area is not a local variable");
-  await page.keyboard.press("F2");
+  await expect(renameBox, "a global function opens the box for a rename across the project").toHaveValue("area");
+  await renameBox.press("Enter");
+  await expect(page.locator(".cm-rename-error"), "AREA was never compiled, so Lisp knows of no definition to rename").toContainText("Lisp has no record of where area is defined");
+  await renameBox.press("Escape");
   await expect(renameBox).toBeHidden();
 
   await page.keyboard.type("Go");
@@ -2034,6 +2036,50 @@ test("K shows a symbol's documentation in a popup at the cursor", async ({ page 
   await page.keyboard.press("Escape");
   await expect(page.locator(".statusbar .mode")).toHaveText("normal");
   await expect(editor.locator(".cm-content"), "nothing is added to the code").not.toContainText("Lambda-list");
+});
+
+test("F2 on a global function renames it across the project after a preview", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-rn");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  await page.locator(".system").first().getByRole("button", { name: "Load" }).click();
+  await expect(page.getByText("load zen-rn: done")).toBeVisible({ timeout: 60_000 });
+  const root = join(parent, "zen-rn");
+  // The same name in another package is a different function.
+  writeFileSync(join(root, "src/other.lisp"), "(in-package #:cl-user)\n\n(defun greet () :other)\n");
+
+  await page.getByRole("button", { name: "Files" }).click();
+  await page.getByTestId("file-tree").getByText("src").click();
+  await page.getByTestId("file-tree").getByText("main.lisp").click();
+  await page.locator(".editor-host .cm-line", { hasText: "(defun greet (name)" }).getByText("greet").click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("F2");
+  const box = page.locator(".cm-rename input");
+  await expect(box).toHaveValue("greet");
+  await box.fill("main");
+  await box.press("Enter");
+  await expect(page.locator(".cm-rename-error"), "a name the package already defines is refused").toContainText("already names a function in ZEN-RN");
+  await box.fill("welcome");
+  await box.press("Enter");
+
+  const plan = page.getByTestId("rename-plan");
+  await expect(plan).toContainText("Rename ZEN-RN::GREET to welcome");
+  await expect(plan.locator(".rename-spot"), "the export, the definition, the call and the test").toHaveCount(4);
+  await expect(plan, "the CL-USER function of the same name is left out").not.toContainText("other.lisp");
+  await plan.getByRole("button", { name: "Rename 4 in 3 files" }).click();
+  await expect(page.getByTestId("flash")).toContainText("Renamed ZEN-RN::GREET to welcome in 4 places in 3 files");
+  await expect(plan).toBeHidden();
+
+  expect(readFileSync(join(root, "src/package.lisp"), "utf8")).toContain("(:export #:main #:welcome)");
+  expect(readFileSync(join(root, "src/main.lisp"), "utf8")).toContain("(defun welcome (name)");
+  expect(readFileSync(join(root, "src/main.lisp"), "utf8")).toContain('(write-line (welcome "world"))');
+  expect(readFileSync(join(root, "tests/main.lisp"), "utf8")).toContain('(zen-rn:welcome "Lisp")');
+  expect(readFileSync(join(root, "src/other.lisp"), "utf8")).toContain("(defun greet ()");
+  await expect(page.locator(".editor-host .cm-content"), "the open file shows the rename").toContainText("(defun welcome (name)");
 });
 
 test("a Markdown file previews rendered, without running HTML it holds", async ({ page }) => {

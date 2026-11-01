@@ -1777,6 +1777,23 @@ button.image-chip:hover {
   margin-left: auto;
   color: var(--text-faint);
 }
+.rename-spot {
+  padding-left: 8px;
+  align-items: center;
+  cursor: default;
+}
+.rename-spot input {
+  margin: 0;
+  flex: none;
+}
+.rename-spot .search-text {
+  cursor: pointer;
+}
+.rename-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 4px 12px;
+}
 
 /* Problems */
 

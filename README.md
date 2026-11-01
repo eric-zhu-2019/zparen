@@ -40,7 +40,7 @@ Three decisions follow from that goal:
 | Area | What you get | Read more |
 | --- | --- | --- |
 | Run and debug | A REPL of live objects, an inspector, a debugger with restarts and Restart Frame, breakpoints, stepping, trace, profile, tests and macroexpansion | [Run and debug](docs/run-and-debug.md) |
-| Edit | Vim keys, SLIME's Emacs sequences, parinfer, structural editing, checking as you type, go to definition, split panes and a git gutter | [Edit code](docs/editing.md) |
+| Edit | Vim keys, SLIME's Emacs sequences, parinfer, structural editing, rename across the project, checking as you type, go to definition, split panes and a git gutter | [Edit code](docs/editing.md) |
 | Projects | ASDF systems with Quicklisp, ocicl, qlot or vendored dependencies, a dependency editor, builds and startup images | [Projects](docs/projects.md) |
 | Coalton | Coalton projects, `.ct` and `.coal` files, types on hover, and type errors on the expression Coalton blames | [Coalton](docs/coalton.md) |
 | AI | An assistant that answers with Claude or OpenAI and works in your image, and an MCP server for Claude Code | [Assistant and MCP](docs/assistant.md) |

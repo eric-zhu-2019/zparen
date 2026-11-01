@@ -37,6 +37,18 @@ export type Tab = {
 
 export type Location = { path: string; offset: number };
 
+/** One place a global rename would change: confirmed when Lisp read it as the symbol, unsure when it could not tell. */
+export type RenameSpot = { from: number; to: number; line: number; column: number; lineText: string; sure: boolean; checked: boolean };
+
+/** A global symbol's rename, with every place it would change, by file. */
+export type RenamePlan = {
+  symbol: string;
+  newName: string;
+  files: { path: string; text: string; spots: RenameSpot[] }[];
+  /** The project search stopped early, so some uses may be missing. */
+  truncated: boolean;
+};
+
 /** An editor pane: the files open in it, in tab order, and the one on show. */
 export type Pane = { tabs: string[]; active: string | null };
 
@@ -160,6 +172,8 @@ export interface State {
   newProject: boolean;
   /** The last find-references result, shown in the search panel. */
   references: { name: string; items: Definition[] } | null;
+  /** A rename across the project waiting for the user to look it over, shown in the search panel. */
+  renamePlan: RenamePlan | null;
   /** Bumped when files change on disk, so the file tree re-lists. */
   fsNonce: number;
   dialog: Dialog | null;
@@ -228,6 +242,7 @@ export const useStore = create<State>(() => ({
   tourDone: [],
   newProject: false,
   references: null,
+  renamePlan: null,
 }));
 
 export const set = useStore.setState;

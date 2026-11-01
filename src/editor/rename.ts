@@ -5,10 +5,14 @@ import { backend } from "../backend";
 import { type Edit, localRename, renameLocal } from "../lisp/rename";
 import { get } from "../store";
 import { bufferPackage } from "./commands";
+import { planGlobalRename } from "./renameGlobal";
 import { showInline } from "./inline";
 
-/** The symbol being renamed: where it is, and its text as written. */
-type Target = { pos: number; from: number; to: number; text: string };
+/**
+ * The symbol being renamed: where it is, and its name as written. A global one
+ * also has its whole token, package prefix included, and the package it is read in.
+ */
+type Target = { pos: number; from: number; to: number; text: string; global?: { token: string; pkg: string } };
 
 const open = StateEffect.define<Target | null>();
 
@@ -41,7 +45,17 @@ function renameBox(view: EditorView, t: Target) {
   // After Lisp finds the renamed code expands differently, Return again renames anyway.
   let override: string | null = null;
   let busy = false;
+  const renameGlobal = async (global: { token: string; pkg: string }) => {
+    busy = true;
+    error.textContent = "Finding every use in the project…";
+    const why = await planGlobalRename(global.token, global.pkg, input.value.trim());
+    busy = false;
+    if (view.state.field(target) !== t) return;
+    if (why) error.textContent = why;
+    else close(view);
+  };
   const rename = async () => {
+    if (t.global) return renameGlobal(t.global);
     const name = input.value.trim();
     const text = view.state.doc.toString();
     const r = renameLocal(text, t.pos, name);
@@ -104,11 +118,21 @@ async function checkRename(view: EditorView, text: string, edits: Edit[], owner:
   return verdict.startsWith("unchecked: ") ? verdict.slice("unchecked: ".length) : verdict;
 }
 
-/** Opens the rename box on the local variable or function at the cursor, or says why it cannot. */
+/**
+ * Opens the rename box on the symbol at the cursor: a local variable or
+ * function renames in this form, any other symbol across the project.
+ */
 export function renameAtCursor(view: EditorView): boolean {
   const pos = view.state.selection.main.head;
   const text = view.state.doc.toString();
   const r = localRename(text, pos);
+  if (!r.ok && r.global) {
+    const token = text.slice(r.global.from, r.global.to);
+    const nameFrom = r.global.from + token.lastIndexOf(":") + 1;
+    const global = { token, pkg: bufferPackage(view, pos) };
+    view.dispatch({ effects: open.of({ pos, from: nameFrom, to: r.global.to, text: text.slice(nameFrom, r.global.to), global }) });
+    return true;
+  }
   if (!r.ok) {
     const line = view.state.doc.lineAt(pos);
     view.dispatch({ effects: showInline.of({ from: pos, to: Math.max(pos, Math.min(line.to, pos + 1)), kind: "error", text: r.reason }) });
