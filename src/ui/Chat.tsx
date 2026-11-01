@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as actions from "../actions";
 import { modelName } from "./modelName";
+import { isAgent, MODEL_KEY, PROVIDER_NAMES } from "./providers";
 import { toolInput } from "./toolInput";
 import { editorContext, insertAtCursor } from "../editor/commands";
 import type { AssistantStatus } from "../protocol/AssistantStatus";
@@ -140,27 +141,27 @@ function Message({ item }: { item: ChatItem }) {
   }
 }
 
-const NAMES: Record<Provider, string> = { claude: "Claude", openai: "OpenAI" };
+const NAMES = PROVIDER_NAMES;
 
-/** The active provider's model, chosen among both providers' models. */
+/** The active provider's model, chosen among every provider's models. */
 function ModelMenu({ status, onChange }: { status: AssistantStatus; onChange: (s: AssistantStatus) => void }) {
   const { config } = status;
   const models = (p: Provider) => {
-    const chosen = p === "claude" ? config.claudeModel : config.openaiModel;
+    const chosen = config[MODEL_KEY[p]];
     return status[p].models.includes(chosen) ? status[p].models : [chosen, ...status[p].models];
   };
   return (
     <select
       className="select chat-model"
       aria-label="Model"
-      value={`${config.provider}:${config.provider === "claude" ? config.claudeModel : config.openaiModel}`}
+      value={`${config.provider}:${config[MODEL_KEY[config.provider]]}`}
       onChange={(e) => {
         const [provider, model] = e.target.value.split(/:(.*)/) as [Provider, string];
-        const next = { ...config, provider, ...(provider === "claude" ? { claudeModel: model } : { openaiModel: model }) };
+        const next = { ...config, provider, [MODEL_KEY[provider]]: model };
         actions.request({ type: "assistantConfigure", config: next }).then((r) => r.type === "assistant" && onChange(r));
       }}
     >
-      {(["claude", "openai"] as const).map((p) => (
+      {(["claude", "openai", "claudeCode", "codex"] as const).map((p) => (
         <optgroup key={p} label={NAMES[p]}>
           {models(p).map((m) => (
             <option key={m} value={`${p}:${m}`} title={m}>
@@ -183,7 +184,21 @@ function Setup({ status, onSaved }: { status: AssistantStatus | null; onSaved: (
   const provider = status?.config.provider ?? "claude";
   return (
     <div className="chat-setup">
-      {status && !status[provider].configured && (
+      {status && !status[provider].configured && isAgent(provider) && (
+        <div>
+          <h3>Connect {NAMES[provider]}</h3>
+          <p>
+            <Inline text={status[provider].note ?? ""} />
+          </p>
+          <p>
+            ZParen runs your own {NAMES[provider]} with its login, and gives it the same tools as the other providers.
+          </p>
+          <button className="btn primary" onClick={onSaved}>
+            Check Again
+          </button>
+        </div>
+      )}
+      {status && !status[provider].configured && !isAgent(provider) && (
         <form
           onSubmit={async (e) => {
             e.preventDefault();

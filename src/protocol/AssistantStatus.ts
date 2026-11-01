@@ -2,4 +2,4 @@
 import type { AssistantConfig } from "./AssistantConfig";
 import type { ProviderStatus } from "./ProviderStatus";
 
-export type AssistantStatus = { busy: boolean, config: AssistantConfig, claude: ProviderStatus, openai: ProviderStatus, };
+export type AssistantStatus = { busy: boolean, config: AssistantConfig, claude: ProviderStatus, openai: ProviderStatus, claudeCode: ProviderStatus, codex: ProviderStatus, };

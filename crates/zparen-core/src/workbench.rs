@@ -378,6 +378,15 @@ impl Workbench {
         *self.mcp.lock().unwrap() = Some(info);
     }
 
+    /// Where the MCP server listens, when it runs.
+    pub fn mcp_url(&self) -> Option<String> {
+        self.mcp.lock().unwrap().as_ref().map(|m| m.url.clone())
+    }
+
+    pub(crate) fn assistant(&self) -> &Arc<Assistant> {
+        &self.assistant
+    }
+
     pub fn subscribe(&self) -> broadcast::Receiver<AppEvent> {
         self.events.subscribe()
     }

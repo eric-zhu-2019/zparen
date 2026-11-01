@@ -114,6 +114,28 @@ async fn stateless_2026_request() {
     wb.stop().await;
 }
 
+/// An agent answering in the assistant names its turn in a header. A call
+/// that arrives after the turn ended, such as one sent just before Stop,
+/// does not run, since nothing could stop it.
+#[tokio::test]
+async fn a_call_from_an_ended_assistant_turn_does_not_run() {
+    let resources = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../resources");
+    let wb = Workbench::new(SessionConfig::new(resources));
+    let addr = mcp::serve(wb.clone(), 0, TOKEN.into()).await.unwrap();
+    let c = Client { http: reqwest::Client::new(), url: format!("http://{addr}/mcp") };
+    let auth = format!("Bearer {TOKEN}");
+    let call = |form: &str| json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "eval", "arguments": {"form": form}}});
+    let (status, text) = c.post(call("(defparameter cl-user::*late* t)"), &[("Authorization", &auth), ("x-zparen-turn", "1234")]).await;
+    assert_eq!(status, 200, "{text}");
+    let v: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(v["result"]["isError"], true, "{v}");
+    assert_eq!(v["result"]["content"][0]["text"], "The assistant's turn has ended, so the tool did not run.");
+    let (_, text) = c.post(call("(boundp 'cl-user::*late*)"), &[("Authorization", &auth)]).await;
+    let v: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(v["result"]["content"][0]["text"], "Values:\nNIL", "a call without the header runs, and the late one did not: {v}");
+    wb.stop().await;
+}
+
 #[test]
 fn config_line_is_ready_to_paste() {
     assert_eq!(

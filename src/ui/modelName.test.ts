@@ -8,6 +8,7 @@ describe("model names", () => {
     expect(modelName("claude-opus-5")).toBe("Claude Opus 5");
     expect(modelName("claude-haiku-4-5-20251001")).toBe("Claude Haiku 4.5");
     expect(modelName("gpt-5.1")).toBe("GPT-5.1");
+    expect(modelName("default"), "Claude Code and Codex use their own setting").toBe("Default model");
   });
 
   it("leaves an id it does not know as written", () => {

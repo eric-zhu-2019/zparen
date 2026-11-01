@@ -20,7 +20,9 @@ export default defineConfig({
       ...(process.env.ZPAREN_TRACE ? { stdout: "pipe" as const, stderr: "pipe" as const } : {}),
       env: { ...(process.env.ZPAREN_TRACE ? { ZPAREN_TRACE: "1" } : {}), ZPAREN_HYPERSPEC: `${process.cwd()}/e2e/fixtures/hyperspec`,
         // Settings the tests change stay out of the real app's data folder.
-        ZPAREN_DATA_DIR: mkdtempSync(join(tmpdir(), "zparen-e2e-data-")), ZPAREN_CONFIG_DIR: mkdtempSync(join(tmpdir(), "zparen-e2e-config-")), ANTHROPIC_BASE_URL: "http://127.0.0.1:7899", ANTHROPIC_API_KEY: "e2e", OPENAI_BASE_URL: "http://127.0.0.1:7899/v1", OPENAI_API_KEY: "", ZPAREN_DEV_MCP: "1" },
+        ZPAREN_DATA_DIR: mkdtempSync(join(tmpdir(), "zparen-e2e-data-")), ZPAREN_CONFIG_DIR: mkdtempSync(join(tmpdir(), "zparen-e2e-config-")), ANTHROPIC_BASE_URL: "http://127.0.0.1:7899", ANTHROPIC_API_KEY: "e2e", OPENAI_BASE_URL: "http://127.0.0.1:7899/v1", OPENAI_API_KEY: "", ZPAREN_DEV_MCP: "1",
+        // Stand-ins for the claude and codex commands, so the tests never use the real ones or their logins.
+        PATH: `${process.cwd()}/e2e/fake-agents:${process.env.PATH}` },
     },
     { command: "npx vite --port 1420 --strictPort", port: 1420, reuseExistingServer: true },
   ],

@@ -98,7 +98,7 @@ async fn openai_runs_tools_and_claude_continues_the_same_conversation() {
     let wb = Workbench::new(cfg);
     let mut rx = wb.subscribe();
 
-    let config = AssistantConfig { provider: Provider::OpenAI, claude_model: "claude-sonnet-5-5".into(), openai_model: "gpt-6-luna".into() };
+    let config = AssistantConfig { provider: Provider::OpenAI, claude_model: "claude-sonnet-5-5".into(), openai_model: "gpt-6-luna".into(), ..Default::default() };
     let Ok(Response::Assistant(status)) = wb.handle(Request::AssistantConfigure { config: config.clone() }).await else { panic!("status") };
     assert_eq!(status.config, config, "the choice is kept");
     assert!(status.openai.configured && status.claude.configured);

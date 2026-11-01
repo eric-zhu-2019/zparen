@@ -1,3 +1,4 @@
+pub mod agent;
 pub mod assistant;
 pub mod docs;
 pub mod files;

@@ -1,9 +1,11 @@
+use crate::agent::{self, Agent};
 use crate::sexp::Sexp;
 use crate::swank::{SENT, Thread};
 use crate::tools;
 use crate::workbench::Workbench;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
 use tokio::sync::Mutex;
@@ -13,6 +15,8 @@ use ts_rs::TS;
 /// The models offered for each provider, the default first. Any other name can be typed in.
 const CLAUDE_MODELS: [&str; 4] = ["claude-opus-5-5", "claude-fable-5-1", "claude-sonnet-5-5", "claude-haiku-5-5"];
 const OPENAI_MODELS: [&str; 4] = ["gpt-6.1-sol", "gpt-6-astra", "gpt-6.1-terra", "gpt-6-luna"];
+/// For Claude Code and Codex, `default` leaves the model to the agent's own settings.
+const DEFAULT_MODEL: &str = "default";
 const API_VERSION: &str = "2026-10-21";
 const FALLBACK_BETA: &str = "server-side-fallback-2026-07-01";
 const OAUTH_BETA: &str = "oauth-2025-04-20";
@@ -56,12 +60,27 @@ pub struct EditorContext {
     pub form: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "lowercase")]
 #[ts(export)]
 pub enum Provider {
     Claude,
     OpenAI,
+    /// The user's Claude Code, with its own login.
+    #[serde(rename = "claudeCode")]
+    ClaudeCode,
+    /// The user's Codex, with its own login.
+    Codex,
+}
+
+impl Provider {
+    fn agent(self) -> Option<Agent> {
+        match self {
+            Provider::ClaudeCode => Some(Agent::ClaudeCode),
+            Provider::Codex => Some(Agent::Codex),
+            Provider::Claude | Provider::OpenAI => None,
+        }
+    }
 }
 
 /// Which provider answers, and the model chosen for each. Kept in `assistant.json`.
@@ -72,11 +91,19 @@ pub struct AssistantConfig {
     pub provider: Provider,
     pub claude_model: String,
     pub openai_model: String,
+    pub claude_code_model: String,
+    pub codex_model: String,
 }
 
 impl Default for AssistantConfig {
     fn default() -> Self {
-        AssistantConfig { provider: Provider::Claude, claude_model: CLAUDE_MODELS[0].into(), openai_model: OPENAI_MODELS[0].into() }
+        AssistantConfig {
+            provider: Provider::Claude,
+            claude_model: CLAUDE_MODELS[0].into(),
+            openai_model: OPENAI_MODELS[0].into(),
+            claude_code_model: DEFAULT_MODEL.into(),
+            codex_model: DEFAULT_MODEL.into(),
+        }
     }
 }
 
@@ -87,6 +114,8 @@ pub struct ProviderStatus {
     pub configured: bool,
     pub source: Option<CredentialSource>,
     pub models: Vec<String>,
+    /// What to do before the provider can answer, when it cannot.
+    pub note: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS, PartialEq)]
@@ -97,6 +126,8 @@ pub struct AssistantStatus {
     pub config: AssistantConfig,
     pub claude: ProviderStatus,
     pub openai: ProviderStatus,
+    pub claude_code: ProviderStatus,
+    pub codex: ProviderStatus,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, TS, PartialEq)]
@@ -106,6 +137,8 @@ pub enum CredentialSource {
     Settings,
     Environment,
     Ant,
+    /// The agent's own login.
+    Login,
 }
 
 #[derive(Debug, Clone)]
@@ -116,6 +149,8 @@ enum Credential {
 
 /// The turn being answered, and the Lisp requests its tools have sent.
 struct Running {
+    /// Names the turn in the MCP requests of an agent answering it.
+    turn: String,
     task: JoinHandle<()>,
     sent: Arc<std::sync::Mutex<Vec<u64>>>,
     wb: Weak<Workbench>,
@@ -132,6 +167,15 @@ pub struct Assistant {
     sessions_dir: PathBuf,
     /// The id of the conversation `history` belongs to.
     session: Mutex<String>,
+    /// The agents' own conversations that continue this one.
+    threads: Mutex<BTreeMap<Provider, AgentThread>>,
+}
+
+/// An agent's own conversation, and how much of the history it has seen.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AgentThread {
+    id: String,
+    seen: usize,
 }
 
 /// A saved conversation, as the history menu lists it.
@@ -153,6 +197,8 @@ struct SavedSession {
     #[serde(flatten)]
     info: SessionInfo,
     messages: Vec<Value>,
+    #[serde(default)]
+    threads: BTreeMap<Provider, AgentThread>,
 }
 
 fn new_session_id() -> String {
@@ -182,6 +228,7 @@ impl Assistant {
             running: Mutex::new(None),
             sessions_dir: data_dir.join("assistant-sessions"),
             session: Mutex::new(new_session_id()),
+            threads: Mutex::default(),
         }
     }
 
@@ -194,7 +241,8 @@ impl Assistant {
         let title: String = title.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(80).collect();
         let id = self.session.lock().await.clone();
         let updated = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or_default();
-        let saved = SavedSession { info: SessionInfo { id: id.clone(), title, project, updated }, messages };
+        let threads = self.threads.lock().await.clone();
+        let saved = SavedSession { info: SessionInfo { id: id.clone(), title, project, updated }, messages, threads };
         let _ = std::fs::create_dir_all(&self.sessions_dir);
         if let Ok(json) = serde_json::to_vec(&saved) {
             let _ = std::fs::write(self.sessions_dir.join(format!("{id}.json")), json);
@@ -221,6 +269,7 @@ impl Assistant {
         let bytes = std::fs::read(self.sessions_dir.join(format!("{id}.json"))).map_err(|_| "That conversation is gone.".to_string())?;
         let saved: SavedSession = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
         *self.history.lock().await = saved.messages.clone();
+        *self.threads.lock().await = saved.threads;
         *self.session.lock().await = saved.info.id;
         Ok(saved.messages)
     }
@@ -229,15 +278,17 @@ impl Assistant {
         let _ = std::fs::remove_file(self.sessions_dir.join(format!("{id}.json")));
         if *self.session.lock().await == id {
             self.history.lock().await.clear();
+            self.threads.lock().await.clear();
             *self.session.lock().await = new_session_id();
         }
     }
 
-    fn key_file(&self, provider: Provider) -> PathBuf {
-        self.data_dir.join(match provider {
+    fn key_file(&self, provider: Provider) -> Option<PathBuf> {
+        Some(self.data_dir.join(match provider {
             Provider::Claude => "anthropic-api-key",
             Provider::OpenAI => "openai-api-key",
-        })
+            Provider::ClaudeCode | Provider::Codex => return None,
+        }))
     }
 
     pub fn config(&self) -> AssistantConfig {
@@ -250,15 +301,13 @@ impl Assistant {
     }
 
     async fn credential(&self, provider: Provider) -> Option<(Credential, CredentialSource)> {
-        if let Ok(k) = std::fs::read_to_string(self.key_file(provider)) {
+        let file = self.key_file(provider)?;
+        if let Ok(k) = std::fs::read_to_string(file) {
             if !k.trim().is_empty() {
                 return Some((Credential::ApiKey(k.trim().into()), CredentialSource::Settings));
             }
         }
-        let env = match provider {
-            Provider::Claude => "ANTHROPIC_API_KEY",
-            Provider::OpenAI => "OPENAI_API_KEY",
-        };
+        let env = if provider == Provider::Claude { "ANTHROPIC_API_KEY" } else { "OPENAI_API_KEY" };
         if let Ok(k) = std::env::var(env) {
             if !k.is_empty() {
                 return Some((Credential::ApiKey(k), CredentialSource::Environment));
@@ -282,21 +331,34 @@ impl Assistant {
     }
 
     pub async fn status(&self) -> AssistantStatus {
+        let (claude, openai, claude_code, codex) = tokio::join!(
+            self.provider_status(Provider::Claude, &CLAUDE_MODELS),
+            self.provider_status(Provider::OpenAI, &OPENAI_MODELS),
+            self.provider_status(Provider::ClaudeCode, &CLAUDE_MODELS),
+            self.provider_status(Provider::Codex, &OPENAI_MODELS),
+        );
         AssistantStatus {
             busy: self.running.lock().await.as_ref().is_some_and(|r| !r.task.is_finished()),
             config: self.config(),
-            claude: self.provider_status(Provider::Claude, &CLAUDE_MODELS).await,
-            openai: self.provider_status(Provider::OpenAI, &OPENAI_MODELS).await,
+            claude,
+            openai,
+            claude_code,
+            codex,
         }
     }
 
     async fn provider_status(&self, provider: Provider, models: &[&str]) -> ProviderStatus {
+        if let Some(agent) = provider.agent() {
+            let note = agent.problem().await;
+            let models = std::iter::once(DEFAULT_MODEL).chain(models.iter().copied()).map(String::from).collect();
+            return ProviderStatus { configured: note.is_none(), source: note.is_none().then_some(CredentialSource::Login), models, note };
+        }
         let source = self.credential(provider).await.map(|(_, s)| s);
-        ProviderStatus { configured: source.is_some(), source, models: models.iter().map(|m| m.to_string()).collect() }
+        ProviderStatus { configured: source.is_some(), source, models: models.iter().map(|m| m.to_string()).collect(), note: None }
     }
 
     pub fn set_key(&self, provider: Provider, key: &str) -> std::io::Result<()> {
-        let file = self.key_file(provider);
+        let file = self.key_file(provider).ok_or_else(|| std::io::Error::other("this provider uses its own login, not a key"))?;
         std::fs::create_dir_all(&self.data_dir)?;
         std::fs::write(&file, key.trim())?;
         #[cfg(unix)]
@@ -311,7 +373,14 @@ impl Assistant {
     pub async fn reset(&self) {
         self.cancel().await;
         self.history.lock().await.clear();
+        self.threads.lock().await.clear();
         *self.session.lock().await = new_session_id();
+    }
+
+    /// The requests the running turn named `turn` has sent, for an agent's MCP tool call to add to.
+    pub async fn turn_requests(&self, turn: &str) -> Option<Arc<std::sync::Mutex<Vec<u64>>>> {
+        let running = self.running.lock().await;
+        running.as_ref().filter(|r| r.turn == turn && !r.task.is_finished()).map(|r| r.sent.clone())
     }
 
     /// Stops the turn being answered, and the Lisp work its tools started.
@@ -348,9 +417,11 @@ impl Assistant {
         let me = self.clone();
         let sent = Arc::default();
         let weak = Arc::downgrade(&wb);
+        let turn = new_session_id();
+        let id = turn.clone();
         let task = tokio::spawn(SENT.scope(Arc::clone(&sent), async move {
             emit(AssistantEvent::TurnStarted);
-            let stop_reason = match me.turn(&wb, user_message(&text, context.as_ref()), &emit).await {
+            let stop_reason = match me.turn(&wb, &id, user_message(&text, context.as_ref()), &emit).await {
                 Ok(reason) => reason,
                 Err(message) => {
                     emit(AssistantEvent::Error { message });
@@ -360,24 +431,29 @@ impl Assistant {
             me.save(project).await;
             emit(AssistantEvent::TurnFinished { stop_reason });
         }));
-        *running = Some(Running { task, sent, wb: weak });
+        *running = Some(Running { turn, task, sent, wb: weak });
         Ok(())
     }
 
-    async fn turn(&self, wb: &Arc<Workbench>, user: Value, emit: &Emit) -> Result<String, String> {
+    async fn turn(&self, wb: &Arc<Workbench>, turn: &str, user: Value, emit: &Emit) -> Result<String, String> {
         let config = self.config();
-        let (cred, _) = self.credential(config.provider).await.ok_or(match config.provider {
-            Provider::Claude => "No Anthropic credentials. Add an API key in the assistant settings, set ANTHROPIC_API_KEY, or run `ant auth login`.",
-            Provider::OpenAI => "No OpenAI API key. Add one in the assistant settings or set OPENAI_API_KEY.",
+        if let Some(agent) = config.provider.agent() {
+            return self.agent_turn(wb, agent, config.provider, turn, user, emit).await;
+        }
+        let (cred, _) = self.credential(config.provider).await.ok_or(if config.provider == Provider::Claude {
+            "No Anthropic credentials. Add an API key in the assistant settings, set ANTHROPIC_API_KEY, or run `ant auth login`."
+        } else {
+            "No OpenAI API key. Add one in the assistant settings or set OPENAI_API_KEY."
         })?;
         // History only grows: we append the user's message and each response
         // whole, thinking blocks included, so cached prefixes stay valid.
         self.history.lock().await.push(user);
         for _ in 0..MAX_TOOL_ROUNDS {
             let messages = self.history.lock().await.clone();
-            let reply = match config.provider {
-                Provider::Claude => self.stream_message(&cred, &config.claude_model, &claude_messages(&messages), emit).await?,
-                Provider::OpenAI => self.stream_openai(&cred, &config.openai_model, &messages, emit).await?,
+            let reply = if config.provider == Provider::Claude {
+                self.stream_message(&cred, &config.claude_model, &claude_messages(&messages), emit).await?
+            } else {
+                self.stream_openai(&cred, &config.openai_model, &messages, emit).await?
             };
             match reply.stop_reason.as_str() {
                 // A declined turn may stop mid-output, so its partial content is dropped.
@@ -396,6 +472,85 @@ impl Assistant {
             }
         }
         Err(format!("Stopped after {MAX_TOOL_ROUNDS} rounds of tool calls."))
+    }
+
+    /// A turn answered by Claude Code or Codex. The agent keeps its own
+    /// conversation; what other providers said since it last answered is
+    /// sent along with the user's message.
+    async fn agent_turn(&self, wb: &Arc<Workbench>, agent: Agent, provider: Provider, turn: &str, user: Value, emit: &Emit) -> Result<String, String> {
+        if let Some(problem) = agent.problem().await {
+            return Err(problem);
+        }
+        let program = agent.program().ok_or_else(|| format!("{} is not installed.", agent.name()))?;
+        let mcp_url = wb
+            .mcp_url()
+            .ok_or_else(|| format!("ZParen's MCP server is not running, and {} reaches your Lisp through it.", agent.name()))?;
+        let token = crate::mcp::load_or_create_token(wb.data_dir()).map_err(|e| e.to_string())?;
+        let thread = self.threads.lock().await.get(&provider).cloned();
+        let mut prompt = String::new();
+        {
+            let mut history = self.history.lock().await;
+            let earlier = agent::transcript(&history[thread.as_ref().map_or(0, |t| t.seen.min(history.len()))..]);
+            if !earlier.is_empty() {
+                prompt.push_str(&format!("Earlier in this conversation:\n\n{earlier}---\n\n"));
+            }
+            prompt.push_str(&user["content"].as_array().into_iter().flatten().filter_map(|b| b["text"].as_str()).collect::<Vec<_>>().join("\n\n"));
+            history.push(user);
+        }
+        let cwd = wb.status().await.project.map(|p| PathBuf::from(p.root)).unwrap_or_else(crate::project::home);
+        let model = match provider {
+            Provider::ClaudeCode => self.config().claude_code_model,
+            _ => self.config().codex_model,
+        };
+        let model = model.trim();
+        let run = agent::Run {
+            program: &program,
+            model: (!model.is_empty() && model != DEFAULT_MODEL).then_some(model),
+            resume: thread.as_ref().map(|t| t.id.as_str()),
+            system: SYSTEM,
+            cwd: &cwd,
+            mcp_url: &mcp_url,
+            token: &token,
+            turn,
+            mcp_file: &self.data_dir.join("agent-mcp.json"),
+        };
+        let mut child = agent
+            .command(&run)
+            .map_err(|e| e.to_string())?
+            .spawn()
+            .map_err(|e| format!("could not start {}: {e}", agent.name()))?;
+        let mut stdin = child.stdin.take().expect("piped");
+        tokio::io::AsyncWriteExt::write_all(&mut stdin, prompt.as_bytes()).await.map_err(|e| e.to_string())?;
+        drop(stdin);
+        let stderr = child.stderr.take().expect("piped");
+        let errors = tokio::spawn(async move {
+            let mut text = String::new();
+            let _ = tokio::io::AsyncReadExt::read_to_string(&mut tokio::io::BufReader::new(stderr), &mut text).await;
+            text
+        });
+        let mut lines = tokio::io::AsyncBufReadExt::lines(tokio::io::BufReader::new(child.stdout.take().expect("piped")));
+        let mut stream = agent::Stream::new(turn);
+        while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
+            let Ok(v) = serde_json::from_str::<Value>(&line) else { continue };
+            let mut history = self.history.lock().await;
+            match agent {
+                Agent::ClaudeCode => stream.claude(&v, emit, &mut history),
+                Agent::Codex => stream.codex(&v, emit, &mut history),
+            }
+        }
+        let status = child.wait().await.map_err(|e| e.to_string())?;
+        if let Some(id) = stream.session.take() {
+            let seen = self.history.lock().await.len();
+            self.threads.lock().await.insert(provider, AgentThread { id, seen });
+        }
+        if let Some(outcome) = stream.outcome {
+            return outcome;
+        }
+        let errors = errors.await.unwrap_or_default();
+        Err(match errors.lines().filter(|l| !l.trim().is_empty()).last() {
+            Some(last) => format!("{} stopped: {last}", agent.name()),
+            None => format!("{} stopped ({status}) before it finished the reply.", agent.name()),
+        })
     }
 
     fn body(&self, model: &str, messages: &[Value]) -> Value {

@@ -66,6 +66,14 @@ only on loopback, needs a bearer token, and rejects foreign `Origin` headers.
 `assistant.rs` offers the same table to Claude through the Messages API, and
 to OpenAI models through the Responses API.
 
+For Claude Code and Codex, `agent.rs` runs the user's own `claude -p` or
+`codex exec` with its JSON output, and passes the table through the MCP
+server instead. Each run gets only ZParen's MCP server, and its requests carry
+an `x-zparen-turn` header. That header lets Stop find the Lisp work the run's
+tool calls started, and it lets the server refuse a call that arrives after
+the turn ended. The agent's tool calls and replies go into the same history
+as the API providers' replies, so any provider can continue the conversation.
+
 Rust has no official Anthropic SDK, so the assistant uses raw HTTP with
 server-sent events. Its history only grows: each response is appended whole,
 thinking blocks and signatures included, so prompt caching keeps working. A

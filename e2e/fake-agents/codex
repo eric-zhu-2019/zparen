@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+import { callTool, formFor, note, print, prompt } from "./agent.mjs";
+
+const args = process.argv.slice(2);
+if (args[0] === "login") process.exit(0);
+const text = prompt();
+const resumed = args[1] === "resume";
+const server = args.find((a) => a.startsWith("mcp_servers="));
+const url = /url="([^"]+)"/.exec(server)[1];
+const turn = /"x-zparen-turn"="([^"]+)"/.exec(server)[1];
+const headers = { Authorization: `Bearer ${process.env[/bearer_token_env_var="([^"]+)"/.exec(server)[1]]}`, "x-zparen-turn": turn };
+const form = formFor(text);
+
+print({ type: "thread.started", thread_id: resumed ? args[args.length - 2] : "fake-codex-thread" });
+print({ type: "turn.started" });
+const call = { id: "item_1", type: "mcp_tool_call", server: "zparen", tool: "eval", arguments: { form }, result: null, error: null, status: "in_progress" };
+print({ type: "item.started", item: call });
+const result = await callTool(url, headers, form);
+print({ type: "item.completed", item: { ...call, result: { content: [{ type: "text", text: result.text }] }, status: "completed" } });
+print({ type: "item.completed", item: { id: "item_2", type: "agent_message", text: note("Codex", resumed, text) } });
+print({ type: "turn.completed", usage: { input_tokens: 1 } });

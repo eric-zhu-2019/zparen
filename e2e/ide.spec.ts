@@ -333,6 +333,66 @@ test("Stop ends the assistant's turn, and the Lisp work its tools started", asyn
   await expect(page.locator(".chat-error")).toHaveCount(0);
 });
 
+test("Claude Code and Codex answer with their own login, in the same conversation and the same image", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-agents");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  await page.getByTitle("AI assistant (⌘L)").click();
+  await page.getByTitle("New conversation").click();
+  const model = page.getByRole("combobox", { name: "Model" });
+  const reply = page.locator(".chat-assistant").last();
+
+  await model.selectOption("claudeCode:default");
+  await expect(page.getByRole("heading", { name: /Connect/ }), "a logged-in agent needs no key").toHaveCount(0);
+  await page.getByPlaceholder("Ask Claude Code…  ⏎ to send").fill("What is six times seven?");
+  await page.keyboard.press("Enter");
+  await expect(reply).toHaveText("Claude Code says 42 (new).");
+  const tool = page.locator(".chat-tool").last();
+  await expect(tool.locator(".dot.ready"), "the agent's tool call runs in the image").toBeVisible();
+  await tool.locator(".chat-tool-head").click();
+  await expect(tool.locator(".chat-tool-body")).toContainText("Values:\n42");
+
+  await page.getByPlaceholder("Ask Claude Code…  ⏎ to send").fill("And again?");
+  await page.keyboard.press("Enter");
+  await expect(reply, "the next message continues the agent's own conversation").toHaveText("Claude Code says 42 (resumed).");
+
+  await model.selectOption("codex:default");
+  await page.getByPlaceholder("Ask Codex…  ⏎ to send").fill("What does Codex say?");
+  await page.keyboard.press("Enter");
+  await expect(reply, "an agent joining later is told what was said").toHaveText("Codex says 42 (new) and knows the earlier turns.");
+
+  await model.selectOption("claude:claude-opus-5-5");
+  await page.getByPlaceholder("Ask Claude…  ⏎ to send").fill("What is six times seven?");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".chat-assistant strong").last(), "the API continues the same history").toHaveText("42");
+  await expect(page.locator(".chat-error")).toHaveCount(0);
+
+  await model.selectOption("claudeCode:default");
+  await page.getByPlaceholder("Ask Claude Code…  ⏎ to send").fill("Sleep a while");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".chat-tool").last()).toContainText("(sleep 30)");
+  await page.waitForTimeout(1000);
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(page.locator(".chat-working")).toHaveCount(0);
+  await page.locator(".panel-tab", { hasText: "REPL" }).click();
+  await replEval(page, "(boundp 'cl-user::*unwound*)");
+  await expect(page.locator(".repl-buffer"), "Stop also ends the Lisp work of the agent's tool call").toContainText(/\(boundp 'cl-user::\*unwound\*\)\s*T\s*CL-USER>/);
+
+  await page.keyboard.press("Meta+,");
+  await page.getByTestId("settings").getByRole("button", { name: "Assistant" }).click();
+  await expect(page.getByRole("combobox", { name: "Provider" })).toHaveValue("claudeCode");
+  await expect(page.getByRole("combobox", { name: "Codex model" })).toHaveValue("default");
+  await expect(page.getByTestId("settings")).toContainText("Uses the login of the codex command on this Mac.");
+  // The tests after this one expect the API provider.
+  await page.getByRole("combobox", { name: "Provider" }).selectOption("claude");
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(model).toHaveValue("claude:claude-opus-5-5");
+});
+
 test("vim editing with parinfer, completion, arglists, notes and definitions", async ({ page }) => {
   const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
   await fresh(page);

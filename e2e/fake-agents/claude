@@ -1,0 +1,27 @@
+#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { callTool, formFor, note, print, prompt } from "./agent.mjs";
+
+const args = process.argv.slice(2);
+if (args[0] === "auth") {
+  print({ loggedIn: true, authMethod: "claude.ai" });
+  process.exit(0);
+}
+const after = (flag) => args[args.indexOf(flag) + 1];
+const text = prompt();
+const resumed = args.includes("--resume");
+const session_id = resumed ? after("--resume") : "fake-claude-session";
+const { url, headers } = JSON.parse(readFileSync(after("--mcp-config"), "utf8")).mcpServers.zparen;
+const form = formFor(text);
+
+const id = `toolu_fake_${Date.now()}`;
+print({ type: "system", subtype: "init", session_id, tools: ["mcp__zparen__eval"] });
+print({ type: "assistant", message: { content: [{ type: "tool_use", id, name: "mcp__zparen__eval", input: { form } }] }, session_id });
+const result = await callTool(url, headers, form);
+print({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content: [{ type: "text", text: result.text }] }] }, session_id });
+const reply = note("Claude Code", resumed, text);
+for (const piece of [reply.slice(0, 10), reply.slice(10)]) {
+  print({ type: "stream_event", event: { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: piece } }, session_id });
+}
+print({ type: "assistant", message: { content: [{ type: "text", text: reply }] }, session_id });
+print({ type: "result", subtype: "success", is_error: false, stop_reason: "end_turn", result: reply, session_id });

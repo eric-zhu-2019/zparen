@@ -43,7 +43,7 @@ Three decisions follow from that goal:
 | Edit | Vim keys, SLIME's Emacs sequences, parinfer, structural editing, rename across the project, checking as you type, go to definition, split panes and a git gutter | [Edit code](docs/editing.md) |
 | Projects | ASDF systems with Quicklisp, ocicl, qlot or vendored dependencies, a dependency editor, builds and startup images | [Projects](docs/projects.md) |
 | Coalton | Coalton projects, `.ct` and `.coal` files, types on hover, and type errors on the expression Coalton blames | [Coalton](docs/coalton.md) |
-| AI | An assistant that answers with Claude or OpenAI and works in your image, and an MCP server for Claude Code | [Assistant and MCP](docs/assistant.md) |
+| AI | An assistant that works in your image and answers with Claude or OpenAI through an API key, or with your own Claude Code or Codex login, and an MCP server for Claude Code | [Assistant and MCP](docs/assistant.md) |
 | Extend | Plugins written in Common Lisp, and themes as JSON files | [Plugins](docs/plugins.md) |
 
 ![Checking as you type: SBCL's warning marks the undefined variable, and the status bar shows the argument list](docs/screenshots/live-check.png)
@@ -81,7 +81,7 @@ flowchart TB
       direction TB
       wb["Workbench"]
       local["Files, git,<br/>search, docs"]
-      assistant["Assistant<br/>Claude, OpenAI"]
+      assistant["Assistant<br/>Claude, OpenAI,<br/>Claude Code, Codex"]
       mcp["MCP server"]
       tools["Lisp tools"]
       session["Session<br/>runs SBCL"]
@@ -93,10 +93,11 @@ flowchart TB
     store <-- "Tauri IPC" --> wb
   end
   apis["Claude and<br/>OpenAI APIs"]
-  agents["Claude Code,<br/>MCP clients"]
+  agents["Claude Code, Codex,<br/>MCP clients"]
   sbcl["SBCL image<br/>Swank, your code"]
   dev["zparen-dev<br/>browser bridge"]
   assistant <-- "HTTPS" --> apis
+  assistant -- "runs, with your login" --> agents
   agents --> mcp
   session <-- "Swank socket" --> sbcl
   dev -.-> wb
@@ -145,7 +146,7 @@ Where the code lives:
 | Lisp | SBCL, Swank from SLIME 2.30, ASDF | Swank already has completion, the debugger, the inspector and cross-references |
 | Packages | Quicklisp, ocicl, qlot | Each project keeps the manager it already uses |
 | Search | ripgrep's crates (`ignore`, `grep-searcher`) | The same `.gitignore` rules as `rg` |
-| AI | Anthropic Messages API, OpenAI Responses API, MCP over Streamable HTTP (`rmcp`) | Replies stream over HTTPS, and the assistant and MCP share one tool table |
+| AI | Anthropic Messages API, OpenAI Responses API, the `claude` and `codex` commands, MCP over Streamable HTTP (`rmcp`) | Replies stream over HTTPS or from the agent's JSON output, and the assistant and MCP share one tool table |
 | Tests | Rust tests against a real SBCL, Vitest, Playwright on WebKit | Each layer is tested where it runs, and the UI in the engine the app uses |
 | Release | GitHub Actions, Developer ID signing, Apple notarization | A version tag builds, signs, notarizes and publishes the disk image |
 
@@ -161,7 +162,7 @@ Without tests and generated code, ZParen is about 12,200 lines of TypeScript,
 | [Edit code](docs/editing.md) | Keys, Vim and Emacs bindings, structural editing, checking as you type, search and files |
 | [Projects](docs/projects.md) | Opening and creating projects, dependency managers, systems and startup images |
 | [Coalton](docs/coalton.md) | Coalton projects and files, types, the manual, and type errors |
-| [Assistant and MCP](docs/assistant.md) | Claude and OpenAI in the app, and Claude Code over MCP |
+| [Assistant and MCP](docs/assistant.md) | Claude, OpenAI, Claude Code and Codex in the app, and Claude Code over MCP |
 | [Plugins](docs/plugins.md) | Extending ZParen in Common Lisp |
 | [How ZParen is built](docs/architecture.md) | The design and the reasons behind it |
 | [Develop and release](docs/development.md) | Building from the source, the checks, and shipping a release |

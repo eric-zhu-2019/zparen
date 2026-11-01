@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import * as actions from "../actions";
 import { CODE_FONTS, installed, UI_FONTS } from "../fonts";
 import type { AssistantConfig } from "../protocol/AssistantConfig";
@@ -13,6 +13,7 @@ import { allThemes, readThemeFiles, type ThemeKind, useThemes } from "../themes"
 import { type PluginSetting, reloadPlugins, setPluginSetting, usePlugins } from "../plugins";
 import { useReturnFocus } from "./focus";
 import { modelName } from "./modelName";
+import { MODEL_KEY, PROVIDER_NAMES } from "./providers";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -421,7 +422,7 @@ function StartupImage() {
   );
 }
 
-const PROVIDERS: Record<Provider, { name: string; env: string; placeholder: string }> = {
+const PROVIDERS: Record<"claude" | "openai", { name: string; env: string; placeholder: string }> = {
   claude: { name: "Claude", env: "ANTHROPIC_API_KEY", placeholder: "sk-ant-…" },
   openai: { name: "OpenAI", env: "OPENAI_API_KEY", placeholder: "sk-…" },
 };
@@ -465,7 +466,7 @@ function ModelPicker({ label, value, models, onChange }: { label: string; value:
   );
 }
 
-function KeyRow({ provider, status, onSaved }: { provider: Provider; status: ProviderStatus; onSaved: () => void }) {
+function KeyRow({ provider, status, onSaved }: { provider: "claude" | "openai"; status: ProviderStatus; onSaved: () => void }) {
   const [key, setKey] = useState("");
   const { name, env, placeholder } = PROVIDERS[provider];
   const source = status.source;
@@ -500,6 +501,18 @@ function KeyRow({ provider, status, onSaved }: { provider: Provider; status: Pro
   );
 }
 
+/** Whether Claude Code or Codex is ready, and what to do when it is not. */
+function LoginRow({ provider, status, onCheck }: { provider: "claudeCode" | "codex"; status: ProviderStatus; onCheck: () => void }) {
+  const name = PROVIDER_NAMES[provider];
+  return (
+    <Row label={`${name} login`} hint={status.note ?? `Uses the login of the ${provider === "codex" ? "codex" : "claude"} command on this Mac.`}>
+      <button className="btn" onClick={onCheck}>
+        Check Again
+      </button>
+    </Row>
+  );
+}
+
 function Assistant() {
   const [status, setStatus] = useState<AssistantStatus | null>(null);
   const refresh = () => actions.request({ type: "assistantStatus" }).then((r) => r.type === "assistant" && setStatus(r));
@@ -511,8 +524,11 @@ function Assistant() {
     <>
       <Row label="Answered by" hint="The chat's model menu switches too.">
         <select className="select" aria-label="Provider" value={status.config.provider} onChange={(e) => void configure({ provider: e.target.value as Provider })}>
-          <option value="claude">Claude</option>
-          <option value="openai">OpenAI</option>
+          {(Object.keys(PROVIDER_NAMES) as Provider[]).map((p) => (
+            <option key={p} value={p}>
+              {PROVIDER_NAMES[p]}
+            </option>
+          ))}
         </select>
       </Row>
       <Row label="Claude model">
@@ -523,6 +539,19 @@ function Assistant() {
         <ModelPicker label="OpenAI model" value={status.config.openaiModel} models={status.openai.models} onChange={(openaiModel) => void configure({ openaiModel })} />
       </Row>
       <KeyRow provider="openai" status={status.openai} onSaved={refresh} />
+      {(["claudeCode", "codex"] as const).map((p) => (
+        <Fragment key={p}>
+          <Row label={`${PROVIDER_NAMES[p]} model`}>
+            <ModelPicker
+              label={`${PROVIDER_NAMES[p]} model`}
+              value={status.config[MODEL_KEY[p]]}
+              models={status[p].models}
+              onChange={(model) => void configure({ [MODEL_KEY[p]]: model })}
+            />
+          </Row>
+          <LoginRow provider={p} status={status[p]} onCheck={refresh} />
+        </Fragment>
+      ))}
     </>
   );
 }

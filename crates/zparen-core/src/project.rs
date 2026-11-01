@@ -54,7 +54,7 @@ pub enum NewLanguage {
 
 const VENDOR_DIRS: [&str; 4] = ["vendor", "lib", "third_party", "deps"];
 
-fn home() -> PathBuf {
+pub(crate) fn home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default()
 }
 

@@ -1,3 +1,4 @@
+use crate::swank::SENT;
 use crate::tools;
 use crate::workbench::Workbench;
 use axum::extract::Request;
@@ -48,13 +49,32 @@ impl ServerHandler for Server {
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
-        _: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
         if !tools::specs().iter().any(|s| s.name == request.name) {
             return Err(ErrorData::invalid_params(format!("unknown tool {}", request.name), None));
         }
         let args = request.arguments.map(serde_json::Value::Object).unwrap_or_default();
-        let result = match tools::call(&self.wb, &request.name, args).await {
+        // A call from an agent answering in the assistant joins that turn, so Stop ends its Lisp work too.
+        let turn = context
+            .extensions
+            .get::<axum::http::request::Parts>()
+            .and_then(|p| p.headers.get(crate::agent::TURN_HEADER))
+            .and_then(|v| v.to_str().ok());
+        let sent = match turn {
+            Some(t) => match self.wb.assistant().turn_requests(t).await {
+                Some(sent) => Some(sent),
+                // The agent may send a call it announced just before Stop killed it.
+                None => return Ok(CallToolResult::error(vec![ContentBlock::text("The assistant's turn has ended, so the tool did not run.")]).into()),
+            },
+            None => None,
+        };
+        let call = tools::call(&self.wb, &request.name, args);
+        let result = match sent {
+            Some(sent) => SENT.scope(sent, call).await,
+            None => call.await,
+        };
+        let result = match result {
             Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
             Err(text) => CallToolResult::error(vec![ContentBlock::text(text)]),
         };

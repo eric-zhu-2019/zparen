@@ -4,4 +4,4 @@ import type { Provider } from "./Provider";
 /**
  * Which provider answers, and the model chosen for each. Kept in `assistant.json`.
  */
-export type AssistantConfig = { provider: Provider, claudeModel: string, openaiModel: string, };
+export type AssistantConfig = { provider: Provider, claudeModel: string, openaiModel: string, claudeCodeModel: string, codexModel: string, };
