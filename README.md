@@ -25,13 +25,15 @@ So I decided to make an IDE that works the way I like:
 
 Three decisions follow from that goal:
 
-- **Nothing to set up.** The app carries its own SBCL and Swank. Open a folder
-  and Lisp is running.
-- **One image for everyone.** You, the assistant and outside agents evaluate
-  in the same SBCL. What an agent defines, you can call in the REPL.
-- **The ecosystem's own tools.** A project is an ASDF system, and its
-  dependencies come from Quicklisp, ocicl, qlot or a vendor folder. ZParen
-  adds no project format of its own, so a project still builds without it.
+- **It works without setup.** The app includes SBCL and Swank. When you open
+  a project folder, Lisp starts.
+- **AI runs code in your Lisp, not in a copy.** Each project has one SBCL
+  process. Your REPL, the built-in assistant and Claude Code over MCP all
+  send code to it. If Claude Code defines a function, you can call it in the
+  REPL at once, and the assistant can use the systems you loaded.
+- **Projects are plain ASDF systems.** Dependencies come from Quicklisp,
+  ocicl, qlot or a vendor folder. ZParen adds no files of its own, so the
+  project builds the same way without ZParen.
 
 ## What it does
 
