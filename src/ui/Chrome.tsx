@@ -14,6 +14,16 @@ export function TitleBar() {
   const packages = useStore((s) => s.packages);
   const right = useStore((s) => s.right);
   const state = status.session.state;
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => (document.hasFocus() ? delete root.dataset.inactive : (root.dataset.inactive = ""));
+    window.addEventListener("focus", sync);
+    window.addEventListener("blur", sync);
+    return () => {
+      window.removeEventListener("focus", sync);
+      window.removeEventListener("blur", sync);
+    };
+  }, []);
 
   return (
     <header className="titlebar" data-tauri-drag-region>
@@ -41,15 +51,15 @@ export function TitleBar() {
       {status.project && <ImageChip />}
       <span className="spacer" data-tauri-drag-region />
       {state === "ready" && (
-        <select className="select" value={pkg} title="Current package" onChange={(e) => actions.setPackage(e.target.value)}>
+        <select className="select toolbar-select" value={pkg} title="Current package" onChange={(e) => actions.setPackage(e.target.value)}>
           {!packages.includes(pkg) && <option value={pkg}>{pkg}</option>}
           {packages.map((p) => (
             <option key={p}>{p}</option>
           ))}
         </select>
       )}
-      <button className="btn" title="Command palette (⇧⌘P)" onClick={() => set({ palette: "commands" })}>
-        <Icon name="search" size={12} /> <span className="kbd">⇧⌘P</span>
+      <button className="icon-btn" title="Command palette (⇧⌘P)" onClick={() => set({ palette: "commands" })}>
+        <Icon name="search" />
       </button>
       <button
         className={`icon-btn`}

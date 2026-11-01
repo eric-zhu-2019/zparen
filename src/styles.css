@@ -47,7 +47,7 @@
   :root:not([data-theme="light"]) {
     --bg: #1c1c1e;
     --bg-editor: #1e1f22;
-    --bg-sidebar: rgba(37, 37, 40, 0.82);
+    --bg-sidebar: rgba(44, 44, 48, 0.86);
     --bg-panel: #232427;
     --bg-hover: rgba(255, 255, 255, 0.06);
     --bg-active: rgba(79, 194, 159, 0.16);
@@ -198,6 +198,22 @@ textarea {
 }
 .titlebar .project-name {
   font-weight: 600;
+}
+/* A toolbar pop-up: no frame until the pointer is over it. */
+.titlebar .toolbar-select {
+  max-width: 200px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.titlebar .toolbar-select:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+/* The title bar dims while the window is in the background, as the system's does. */
+:root[data-inactive] .titlebar > :not(.spacer) {
+  opacity: 0.5;
 }
 
 .workspace {
@@ -421,10 +437,8 @@ button.image-chip:hover {
   gap: 4px;
   padding: 10px 10px 4px 14px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .section-header .grow {
   flex: 1;
