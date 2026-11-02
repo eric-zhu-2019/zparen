@@ -167,7 +167,6 @@ Without tests and generated code, ZParen is about 12,200 lines of TypeScript,
 | [How ZParen is built](docs/architecture.md) | The design and the reasons behind it |
 | [Develop and release](docs/development.md) | Building from the source, the checks, and shipping a release |
 | [Built with Claude Code](docs/built-with-claude-code.md) | How Claude Code built ZParen, and the skills and agents it used |
-| [What ZParen borrows from TurboLisp](docs/inspiration.md) | The ideas taken from TurboLisp and WhateverCLIM |
 
 ## How it was built
 
