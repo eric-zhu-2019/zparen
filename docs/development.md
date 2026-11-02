@@ -100,3 +100,20 @@ ZPAREN_SIGN_IDENTITY="…" scripts/release.sh
 
 The script writes `latest.json` beside the archive. Publish both at those
 URLs. A build without these variables has updates turned off and says so.
+
+## The website
+
+The website at https://eric-zhu-2019.github.io/zparen/ is the landing page in
+`site/` plus a page for each file in `docs/`. `scripts/build-site.mjs` builds
+it into one folder, and the Pages workflow publishes it when a push to `main`
+changes `site/`, `docs/`, the icon or the script. To look at it before you
+push, build it, serve the folder, and open http://localhost:8000:
+
+```sh
+node scripts/build-site.mjs _site
+python3 -m http.server --directory _site 8000
+```
+
+A link from one doc to another, such as `editing.md#keys`, becomes a link
+between their pages. A link to any other file in the repository goes to that
+file on GitHub.

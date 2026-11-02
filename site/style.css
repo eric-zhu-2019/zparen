@@ -380,7 +380,223 @@ footer p {
     font-size: 14px;
   }
 
-  .nav nav a[href="#features"] {
+  .nav nav a[href$="#features"] {
     display: none;
+  }
+}
+
+/* Doc pages */
+.doc-layout {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 40px 16px 0;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 56px;
+}
+
+.doc-nav {
+  position: sticky;
+  top: 76px;
+  align-self: start;
+  font-size: 15px;
+}
+
+.doc-nav-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.doc-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.doc-nav a {
+  display: block;
+  padding: 5px 10px;
+  margin-left: -10px;
+  border-radius: 7px;
+  color: var(--muted);
+}
+
+.doc-nav a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.doc-nav a[aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+  background: var(--bg-alt);
+}
+
+.doc {
+  max-width: 760px;
+}
+
+.doc h1 {
+  font-size: clamp(34px, 5vw, 46px);
+  line-height: 1.1;
+  margin-bottom: 20px;
+}
+
+.doc h2 {
+  font-size: 28px;
+  margin: 48px 0 12px;
+}
+
+.doc h3 {
+  font-size: 21px;
+  margin: 32px 0 8px;
+}
+
+.doc h2,
+.doc h3 {
+  scroll-margin-top: 76px;
+}
+
+.doc .anchor {
+  color: var(--muted);
+  opacity: 0;
+  font-weight: 400;
+}
+
+.doc h2:hover .anchor,
+.doc h3:hover .anchor,
+.doc .anchor:focus {
+  opacity: 1;
+  text-decoration: none;
+}
+
+.doc p,
+.doc li {
+  color: var(--text);
+}
+
+.doc ul,
+.doc ol {
+  padding-left: 1.3em;
+}
+
+.doc li {
+  margin: 4px 0;
+}
+
+.doc img {
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  margin: 24px 0;
+}
+
+.doc pre {
+  background: var(--bg-alt);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.doc pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.doc table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 15px;
+}
+
+.doc th,
+.doc td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 14px 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.doc th {
+  font-weight: 600;
+}
+
+.doc blockquote {
+  margin: 20px 0;
+  padding: 2px 16px;
+  border-left: 3px solid var(--accent-fill);
+  color: var(--muted);
+}
+
+.doc-pager {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 64px;
+}
+
+.doc-pager a {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.doc-pager a:hover {
+  text-decoration: none;
+  border-color: var(--accent);
+}
+
+.doc-pager span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.doc-pager .next {
+  text-align: right;
+  grid-column: 2;
+}
+
+.doc-source {
+  font-size: 14px;
+  margin-top: 24px;
+}
+
+@media (max-width: 860px) {
+  .doc-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding-top: 24px;
+  }
+
+  .doc-nav {
+    position: static;
+  }
+
+  .doc-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .doc-nav a {
+    margin-left: 0;
+    padding: 4px 10px;
+    background: var(--bg-alt);
   }
 }
