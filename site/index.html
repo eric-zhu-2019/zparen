@@ -7,8 +7,26 @@
 <meta name="description" content="ZParen is a Common Lisp IDE for macOS, built on SBCL. Evaluate, inspect, debug and fix code in one live image, with Claude and Codex working beside you.">
 <meta property="og:title" content="ZParen · Common Lisp IDE for macOS">
 <meta property="og:description" content="One live SBCL image for your REPL, editor, debugger and AI assistant. No setup.">
-<meta property="og:image" content="screenshots/debugger.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://eric-zhu-2019.github.io/zparen/">
+<meta property="og:image" content="https://eric-zhu-2019.github.io/zparen/screenshots/debugger.png">
+<link rel="canonical" href="https://eric-zhu-2019.github.io/zparen/">
 <link rel="icon" href="icon.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ZParen",
+  "description": "A Common Lisp IDE for macOS, built on SBCL.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "macOS 13 or later, Apple silicon",
+  "url": "https://eric-zhu-2019.github.io/zparen/",
+  "downloadUrl": "https://github.com/eric-zhu-2019/zparen/releases/latest",
+  "screenshot": "https://eric-zhu-2019.github.io/zparen/screenshots/debugger.png",
+  "license": "https://github.com/eric-zhu-2019/zparen/blob/main/LICENSE",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -40,15 +58,15 @@
   <section class="principles">
     <div>
       <h3>Works without setup</h3>
-      <p>The app carries SBCL and Swank. Open a project folder and Lisp starts. No Emacs config to keep alive across upgrades.</p>
+      <p>ZParen carries SBCL and Swank. Open a project folder and Lisp starts. No Emacs config to keep alive across upgrades.</p>
     </div>
     <div>
       <h3>AI works in your image</h3>
-      <p>Your REPL, the built-in assistant and Claude Code over MCP send code to the same SBCL. A function Claude defines is one you can call at once.</p>
+      <p>In ZParen, your REPL, the built-in assistant and Claude Code over MCP send code to the same SBCL. A function Claude defines is one you can call at once.</p>
     </div>
     <div>
       <h3>Plain ASDF projects</h3>
-      <p>Dependencies come from Quicklisp, ocicl, qlot or a vendor folder. ZParen adds no files, so the project builds the same way without it.</p>
+      <p>ZParen projects are ASDF systems, with dependencies from Quicklisp, ocicl, qlot or a vendor folder. ZParen adds no files, so the project builds the same way without it.</p>
     </div>
   </section>
 
@@ -57,7 +75,7 @@
       <div class="text">
         <p class="kicker">Run and debug</p>
         <h2>A REPL of live objects.</h2>
-        <p>Results are real objects: click one to inspect it. The debugger keeps the stack while you redefine the broken function, then Restart Frame runs it again. Breakpoints, stepping, trace, profile and tests are a key away.</p>
+        <p>In ZParen, every REPL result is a live object in the running SBCL, and clicking one opens it in the inspector. When code stops in the debugger, ZParen keeps the stack, so you can redefine the broken function and use Restart Frame to run that frame again. Breakpoints, stepping, trace, profile and tests are in the same window.</p>
         <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/run-and-debug.md">Run and debug →</a>
       </div>
       <figure class="window"><img src="screenshots/tests.png" alt="Test results as a tree, with the failing test opened" loading="lazy" width="2880" height="1800"></figure>
@@ -67,7 +85,7 @@
       <div class="text">
         <p class="kicker">Edit</p>
         <h2>Checked as you type.</h2>
-        <p>SBCL compiles the file in the background and marks each warning where it happens, with the message at the end of the line. Vim keys come first, SLIME's Emacs sequences work too, and parinfer keeps the parentheses right.</p>
+        <p>ZParen checks each open Lisp file as you type. SBCL compiles the file in the background without loading it, and ZParen marks each warning on the code it concerns, with the message at the end of the line. Vim keys come first, SLIME's Emacs sequences work too, and parinfer keeps the parentheses right.</p>
         <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/editing.md">Edit code →</a>
       </div>
       <figure class="window"><img src="screenshots/live-check.png" alt="SBCL's warning marks the undefined variable, and the status bar shows the argument list" loading="lazy" width="2880" height="1800"></figure>
@@ -77,7 +95,7 @@
       <div class="text">
         <p class="kicker">Assistant and MCP</p>
         <h2>Claude and Codex, in the same Lisp.</h2>
-        <p>Ask the assistant with an API key or your own Claude Code or Codex login. It evaluates, compiles and edits through ZParen's tools. Every warning has an Ask AI to fix button, and one undo takes the change back.</p>
+        <p>ZParen's assistant answers with Claude or Codex, through an API key or your own Claude Code or Codex login. It evaluates, compiles and edits through ZParen's tools. Every warning has an Ask AI to fix button, and one undo takes the change back.</p>
         <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/assistant.md">Assistant and MCP →</a>
       </div>
       <figure class="window"><img src="screenshots/ask-ai-to-fix.png" alt="The assistant reads a warning and edits the file" loading="lazy" width="2880" height="1800"></figure>
@@ -87,7 +105,7 @@
       <div class="text">
         <p class="kicker">Macros</p>
         <h2>See what a macro becomes.</h2>
-        <p>Expand a form in place, right under the code, and step back when you have seen enough. Disassembly is one command away.</p>
+        <p>ZParen expands a macro form in place, under the form, with a Step back button. ZParen also shows a function's disassembly.</p>
         <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/run-and-debug.md">Run and debug →</a>
       </div>
       <figure class="window"><img src="screenshots/macrostep.png" alt="A macro expanded in place under its form" loading="lazy" width="2880" height="1800"></figure>
@@ -97,7 +115,7 @@
       <div class="text">
         <p class="kicker">Files and git</p>
         <h2>Your files, side by side.</h2>
-        <p>Split panes, and a git gutter with inline diffs and a Revert button on each change. Rename a symbol across the project, and jump to any definition.</p>
+        <p>ZParen has split panes, and a git gutter with inline diffs and a Revert button on each change. Rename a symbol across the project, and jump to any definition.</p>
         <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/editing.md">Edit code →</a>
       </div>
       <figure class="window"><img src="screenshots/git-diff.png" alt="The inline diff with a Revert button beside changed lines" loading="lazy" width="2880" height="1800"></figure>
@@ -107,7 +125,7 @@
   <section class="grid">
     <div class="card">
       <h3>Coalton</h3>
-      <p>Coalton projects, <code>.ct</code> and <code>.coal</code> files, types on hover, and type errors on the expression Coalton blames.</p>
+      <p>ZParen opens Coalton projects and <code>.ct</code> and <code>.coal</code> files, shows types on hover, and puts type errors on the expression Coalton blames.</p>
       <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/coalton.md">Coalton →</a>
     </div>
     <div class="card">
@@ -117,7 +135,7 @@
     </div>
     <div class="card">
       <h3>Keyboard first</h3>
-      <p>Every command has a key, and ⇧⌘/ lists them all. Light and dark themes follow your Mac.</p>
+      <p>Every ZParen command has a key, and ⇧⌘/ lists them all. Light and dark themes follow your Mac.</p>
       <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/getting-started.md">Getting started →</a>
     </div>
   </section>
