@@ -48,7 +48,7 @@ pub fn head_text(path: &Path) -> Option<String> {
 
 /// Changed and untracked files under `dir`, with absolute paths.
 pub fn status(dir: &Path) -> Vec<GitFile> {
-    let (Some(top), Some(out)) = (toplevel(dir), git(dir, &["status", "--porcelain=v1", "-z", "--untracked-files=all"])) else {
+    let (Some(top), Some(out)) = (toplevel(dir), git(dir, &["--no-optional-locks", "status", "--porcelain=v1", "-z", "--untracked-files=all"])) else {
         return Vec::new();
     };
     let mut files = Vec::new();

@@ -5,6 +5,7 @@ import { definitions } from "../lisp/tree";
 import { get, set, useStore } from "../store";
 import { openProjectFlow } from "./Chrome";
 import { openTour } from "../tour";
+import { continueCourse, refreshCourse } from "../learn/learn";
 import { useReturnFocus } from "./focus";
 import { displayKey } from "../keys";
 import { reloadPlugins, runPluginCommand, usePlugins } from "../plugins";
@@ -63,6 +64,9 @@ export function commands(openNew: () => void): Command[] {
     { id: "new-repl", label: "New REPL in Its Own Thread", run: actions.newRepl },
     { id: "inspector", label: "Toggle Inspector", keys: "⌥⌘I", run: () => set({ right: get().right === "inspector" ? null : "inspector" }) },
     { id: "docs", label: "Toggle Documentation", run: () => set({ right: get().right === "docs" ? null : "docs" }) },
+    { id: "learn", label: "Toggle Learn Lisp", run: () => set({ right: get().right === "learn" ? null : "learn" }) },
+    { id: "learn-continue", label: "Continue Lisp Course", run: () => (set({ right: "learn" }), void refreshCourse().then(continueCourse)) },
+    { id: "learn-new", label: "New Lisp Course Project…", run: () => set({ newProject: "course" }) },
     { id: "assistant", label: "Toggle AI Assistant", keys: "⌘L", run: () => set({ right: get().right === "assistant" ? null : "assistant" }) },
     { id: "trace", label: "Show Traced Calls", run: () => set({ bottom: "trace" }) },
     ...(s.traces.specs.length ? [{ id: "untrace", label: "Untrace All Functions", run: actions.untraceAll }] : []),

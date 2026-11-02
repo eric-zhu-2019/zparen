@@ -4,6 +4,7 @@ import { activeDebugger, set, useStore, type State } from "../store";
 import { Chat } from "./Chat";
 import { DebuggerPanel } from "./Debugger";
 import { DocsPanel } from "./Docs";
+import { LearnPanel } from "./Learn";
 import { Icon } from "./Icon";
 import { EdgeHandle } from "./EdgeHandle";
 import { RIGHT_WIDTH, updateSettings, useSettings } from "../settings";
@@ -74,7 +75,7 @@ export function RightPanel() {
         fallback={RIGHT_WIDTH}
         onResize={(rightWidth) => updateSettings({ rightWidth })}
       />
-      {right === "inspector" ? <Inspector /> : right === "docs" ? <DocsPanel /> : <Chat />}
+      {right === "inspector" ? <Inspector /> : right === "docs" ? <DocsPanel /> : right === "learn" ? <LearnPanel /> : <Chat />}
     </div>
   );
 }

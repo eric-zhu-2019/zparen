@@ -78,6 +78,7 @@ const MENU: Record<string, () => void> = {
   "help-shortcuts": () => set({ palette: null, help: true }),
   "help-docs": () => set({ right: get().right === "docs" ? null : "docs" }),
   "help-tour": openTour,
+  "help-learn": () => set({ right: get().right === "learn" ? null : "learn" }),
   "help-report": () => void copyDiagnostics(),
   settings: () => set({ palette: null, settingsOpen: true }),
 };

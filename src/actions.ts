@@ -246,14 +246,19 @@ export async function newProject(parent: string, name: string, deps: NewDeps = "
   if (!(await leaveProject())) return false;
   const r = await request({ type: "newProject", parent, name, deps, language });
   if (r.type !== "project") return false;
-  rememberProject(r.project.root);
+  await adoptNewProject(r.project.root, `src/main.${language === "coalton" ? "ct" : "lisp"}`);
+  return true;
+}
+
+/** Shows a project the backend just made and opened, with `file`, relative to its root, open. */
+export async function adoptNewProject(root: string, file: string) {
+  rememberProject(root);
   set({ tabs: [], ...emptyPanes(), notes: {} });
   markTour("project");
   offerTour();
   await Promise.all([refreshSystems(), refreshStatus(), refreshPackages()]);
   void refreshGit();
-  await openFile(`${r.project.root}/src/main.${language === "coalton" ? "ct" : "lisp"}`);
-  return true;
+  await openFile(`${root}/${file}`);
 }
 
 export async function closeProject() {
@@ -1001,7 +1006,8 @@ async function checkNow(path: string) {
   }
 }
 
-export async function compileFile(path: string) {
+/** Compiles and loads a file, showing its notes; true when it compiled without errors. */
+export async function compileFile(path: string): Promise<boolean> {
   await saveTab(path, { compileChanges: false });
   const r = await lisp({ op: "compileFile", path, load: true });
   // The files it depends on may have loaded first.
@@ -1016,7 +1022,9 @@ export async function compileFile(path: string) {
       tone: r.success && failures === 0 ? "success" : "error",
       text: `Compiled ${path.split("/").pop()} in ${r.seconds.toFixed(2)}s: ${r.notes.length} note${r.notes.length === 1 ? "" : "s"}`,
     });
+    return r.success && failures === 0;
   }
+  return false;
 }
 
 export async function goToLocation(loc: SourceLocation | null) {

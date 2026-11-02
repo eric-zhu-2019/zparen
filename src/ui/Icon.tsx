@@ -26,11 +26,12 @@ const paths: Record<string, string> = {
   stepOut: "M8 10V3M5 6l3-3 3 3M5 13.5h6",
   restart: "M3 8a5 5 0 1 0 1.5-3.6M3 2.5V5h2.5",
   upgrade: "M8 13V4M4.5 7.5 8 4l3.5 3.5M3.5 2.5h9",
+  more: "M3.5 8h.01M8 8h.01M12.5 8h.01",
 };
 
 export function Icon({ name, size = 14 }: { name: keyof typeof paths | string; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={name === "more" ? 2.6 : 1.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d={paths[name] ?? paths.file} fill={name === "play" ? "currentColor" : "none"} />
     </svg>
   );

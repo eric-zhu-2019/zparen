@@ -72,7 +72,7 @@ export async function testProject() {
   actions.flash("This project has no system to test", "error");
 }
 
-const toggleRight = (panel: "inspector" | "assistant" | "docs") => set({ right: get().right === panel ? null : panel });
+const toggleRight = (panel: "inspector" | "assistant" | "docs" | "learn") => set({ right: get().right === panel ? null : panel });
 
 export const bindings: Binding[] = [
   { id: "eval", label: "Evaluate the top-level form at the cursor", category: "Lisp", key: "Mod-Enter", vim: ",e", emacs: "C-M-x", scope: "editor", run: evalForm },
@@ -112,6 +112,7 @@ export const bindings: Binding[] = [
   { id: "assistant", label: "Toggle the assistant", category: "Window", key: "Mod-l", scope: "window", run: () => toggleRight("assistant") },
   { id: "inspector", label: "Toggle the inspector", category: "Window", key: "Mod-Alt-i", scope: "window", run: () => toggleRight("inspector") },
   { id: "docs-panel", label: "Toggle the documentation panel", category: "Window", scope: "window", run: () => toggleRight("docs") },
+  { id: "learn-panel", label: "Toggle Learn Lisp", category: "Window", note: "in the panel, ⌘[ and ⌘] move between lessons", scope: "window", run: () => toggleRight("learn") },
   { id: "md-preview", label: "Show a Markdown file rendered, or as text", category: "Window", key: "Mod-Shift-v", scope: "window", when: () => isMarkdown(get().activeTab), run: () => actions.togglePreview(get().activeTab!) },
   { id: "wrap", label: "Wrap long lines, or stop wrapping them", category: "Window", key: "Alt-z", scope: "window", run: () => useSettings.setState((s) => ({ wordWrap: !s.wordWrap })) },
   { id: "bigger", label: "Increase the font size", category: "Window", key: "Mod-=", scope: "window", run: () => useSettings.setState((s) => ({ fontSize: s.fontSize + 1 })) },
