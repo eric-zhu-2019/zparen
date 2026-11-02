@@ -40,3 +40,7 @@ src-tauri/sbcl/
 
 # ts-rs writes here when a test runs outside the configured export dir; src/protocol is the real one.
 bindings/
+
+# Copied in by the Pages workflow.
+/site/screenshots/
+/site/icon.png

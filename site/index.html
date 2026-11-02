@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZParen · Common Lisp IDE for macOS</title>
+<meta name="description" content="ZParen is a Common Lisp IDE for macOS, built on SBCL. Evaluate, inspect, debug and fix code in one live image, with Claude and Codex working beside you.">
+<meta property="og:title" content="ZParen · Common Lisp IDE for macOS">
+<meta property="og:description" content="One live SBCL image for your REPL, editor, debugger and AI assistant. No setup.">
+<meta property="og:image" content="screenshots/debugger.png">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="#top"><img src="icon.png" alt="" width="28" height="28">ZParen</a>
+  <nav>
+    <a href="#features">Features</a>
+    <a href="#install">Install</a>
+    <a href="#docs">Docs</a>
+    <a href="https://github.com/eric-zhu-2019/zparen">GitHub</a>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <img class="hero-icon" src="icon.png" alt="The ZParen icon, a lambda in a circle" width="112" height="112">
+    <h1>Common Lisp,<br>live on your Mac.</h1>
+    <p class="lede">ZParen is a Common Lisp IDE built on SBCL. Evaluate a form, click the result to inspect the real object, stop in the debugger, fix the code, and restart the frame that failed.</p>
+    <div class="actions">
+      <a class="button primary" href="https://github.com/eric-zhu-2019/zparen/releases/latest">Download for Mac</a>
+      <a class="button" href="https://github.com/eric-zhu-2019/zparen">View on GitHub</a>
+    </div>
+    <p class="fine">Apple silicon · macOS 13 or later · Signed and notarized · SBCL included</p>
+    <figure class="window">
+      <img src="screenshots/debugger.png" alt="The REPL beside the debugger, with its restarts and backtrace, and the inspector on the right" width="2880" height="1800">
+    </figure>
+  </section>
+
+  <section class="principles">
+    <div>
+      <h3>Works without setup</h3>
+      <p>The app carries SBCL and Swank. Open a project folder and Lisp starts. No Emacs config to keep alive across upgrades.</p>
+    </div>
+    <div>
+      <h3>AI works in your image</h3>
+      <p>Your REPL, the built-in assistant and Claude Code over MCP send code to the same SBCL. A function Claude defines is one you can call at once.</p>
+    </div>
+    <div>
+      <h3>Plain ASDF projects</h3>
+      <p>Dependencies come from Quicklisp, ocicl, qlot or a vendor folder. ZParen adds no files, so the project builds the same way without it.</p>
+    </div>
+  </section>
+
+  <section id="features" class="features">
+    <article class="feature">
+      <div class="text">
+        <p class="kicker">Run and debug</p>
+        <h2>A REPL of live objects.</h2>
+        <p>Results are real objects: click one to inspect it. The debugger keeps the stack while you redefine the broken function, then Restart Frame runs it again. Breakpoints, stepping, trace, profile and tests are a key away.</p>
+        <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/run-and-debug.md">Run and debug →</a>
+      </div>
+      <figure class="window"><img src="screenshots/tests.png" alt="Test results as a tree, with the failing test opened" loading="lazy" width="2880" height="1800"></figure>
+    </article>
+
+    <article class="feature">
+      <div class="text">
+        <p class="kicker">Edit</p>
+        <h2>Checked as you type.</h2>
+        <p>SBCL compiles the file in the background and marks each warning where it happens, with the message at the end of the line. Vim keys come first, SLIME's Emacs sequences work too, and parinfer keeps the parentheses right.</p>
+        <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/editing.md">Edit code →</a>
+      </div>
+      <figure class="window"><img src="screenshots/live-check.png" alt="SBCL's warning marks the undefined variable, and the status bar shows the argument list" loading="lazy" width="2880" height="1800"></figure>
+    </article>
+
+    <article class="feature">
+      <div class="text">
+        <p class="kicker">Assistant and MCP</p>
+        <h2>Claude and Codex, in the same Lisp.</h2>
+        <p>Ask the assistant with an API key or your own Claude Code or Codex login. It evaluates, compiles and edits through ZParen's tools. Every warning has an Ask AI to fix button, and one undo takes the change back.</p>
+        <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/assistant.md">Assistant and MCP →</a>
+      </div>
+      <figure class="window"><img src="screenshots/ask-ai-to-fix.png" alt="The assistant reads a warning and edits the file" loading="lazy" width="2880" height="1800"></figure>
+    </article>
+
+    <article class="feature">
+      <div class="text">
+        <p class="kicker">Macros</p>
+        <h2>See what a macro becomes.</h2>
+        <p>Expand a form in place, right under the code, and step back when you have seen enough. Disassembly is one command away.</p>
+        <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/run-and-debug.md">Run and debug →</a>
+      </div>
+      <figure class="window"><img src="screenshots/macrostep.png" alt="A macro expanded in place under its form" loading="lazy" width="2880" height="1800"></figure>
+    </article>
+
+    <article class="feature">
+      <div class="text">
+        <p class="kicker">Files and git</p>
+        <h2>Your files, side by side.</h2>
+        <p>Split panes, and a git gutter with inline diffs and a Revert button on each change. Rename a symbol across the project, and jump to any definition.</p>
+        <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/editing.md">Edit code →</a>
+      </div>
+      <figure class="window"><img src="screenshots/git-diff.png" alt="The inline diff with a Revert button beside changed lines" loading="lazy" width="2880" height="1800"></figure>
+    </article>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h3>Coalton</h3>
+      <p>Coalton projects, <code>.ct</code> and <code>.coal</code> files, types on hover, and type errors on the expression Coalton blames.</p>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/coalton.md">Coalton →</a>
+    </div>
+    <div class="card">
+      <h3>Plugins</h3>
+      <p>Extend ZParen in Common Lisp, and bring your own themes as JSON files.</p>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/plugins.md">Plugins →</a>
+    </div>
+    <div class="card">
+      <h3>Keyboard first</h3>
+      <p>Every command has a key, and ⇧⌘/ lists them all. Light and dark themes follow your Mac.</p>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/getting-started.md">Getting started →</a>
+    </div>
+  </section>
+
+  <section id="install" class="install">
+    <h2>Install</h2>
+    <ol>
+      <li>Download <code>ZParen_&lt;version&gt;_aarch64.dmg</code> from the <a href="https://github.com/eric-zhu-2019/zparen/releases/latest">latest release</a>.</li>
+      <li>Open it, and drag ZParen to Applications.</li>
+      <li>Open ZParen, and open or create a project. Lisp starts on its own.</li>
+    </ol>
+    <p class="fine">Releases do not update themselves yet. To update, download the new disk image. To build from the source, read <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/development.md">Develop and release</a>.</p>
+  </section>
+
+  <section id="docs" class="docs">
+    <h2>Documentation</h2>
+    <div class="doc-list">
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/getting-started.md"><strong>Getting started</strong><span>The first start, and the first keys to learn</span></a>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/run-and-debug.md"><strong>Run and debug</strong><span>REPL, inspector, debugger, tools and tests</span></a>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/editing.md"><strong>Edit code</strong><span>Keys, structural editing and checking as you type</span></a>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/projects.md"><strong>Projects</strong><span>Systems, dependency managers and startup images</span></a>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/coalton.md"><strong>Coalton</strong><span>Coalton files, types and type errors</span></a>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/assistant.md"><strong>Assistant and MCP</strong><span>Claude, Codex and Claude Code over MCP</span></a>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/plugins.md"><strong>Plugins</strong><span>Extending ZParen in Common Lisp</span></a>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/architecture.md"><strong>How ZParen is built</strong><span>The design and the reasons behind it</span></a>
+      <a href="https://github.com/eric-zhu-2019/zparen/blob/main/docs/built-with-claude-code.md"><strong>Built with Claude Code</strong><span>How Claude Code built ZParen</span></a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>ZParen is open source under the <a href="https://github.com/eric-zhu-2019/zparen/blob/main/LICENSE">MIT License</a>. Built with Rust, Tauri, React, CodeMirror and SBCL.</p>
+</footer>
+</body>
+</html>
