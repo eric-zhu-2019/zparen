@@ -259,3 +259,30 @@ async fn clean_images_deletes_every_project_image_and_the_cached_cores() {
     let left: Vec<_> = std::fs::read_dir(&cache).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
     assert_eq!(left, ["other.txt"], "the base cores are gone, and nothing else");
 }
+
+/// Requests that arrive while a restart starts the new Lisp wait for it, rather than start a second one.
+#[tokio::test]
+async fn requests_during_a_restart_share_the_new_lisp() {
+    use zparen_core::ops::{Op, Reply};
+    let wb = workbench();
+    let parent = tmp("restart-race");
+    wb.handle(Request::NewProject { parent: parent.display().to_string(), name: "racing-zen".into(), deps: Default::default(), language: Default::default() }).await.unwrap();
+    let pid = |wb: std::sync::Arc<Workbench>| async move {
+        let op = Op::Eval { form: "(sb-posix:getpid)".into(), package: "CL-USER".into() };
+        match wb.handle(Request::Lisp { op }).await {
+            Ok(Response::Lisp { reply: Reply::Evaluated { value, .. } }) => value,
+            other => panic!("{other:?}"),
+        }
+    };
+    let restart = tokio::spawn({
+        let wb = wb.clone();
+        async move { wb.handle(Request::RestartSession).await.unwrap() }
+    });
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let during: Vec<_> = (0..4).map(|_| tokio::spawn(pid(wb.clone()))).collect();
+    restart.await.unwrap();
+    let after = pid(wb.clone()).await;
+    for d in during {
+        assert_eq!(d.await.unwrap(), after, "a request made during the restart used another Lisp");
+    }
+}

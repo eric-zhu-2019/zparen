@@ -338,6 +338,9 @@ pub struct Workbench {
     config: SessionConfig,
     options: std::sync::Mutex<LispOptions>,
     inner: Mutex<Inner>,
+    /// Held while a Lisp stops or starts, so a request made meanwhile waits for
+    /// the new Lisp instead of starting a second one.
+    lifecycle: Mutex<()>,
     events: broadcast::Sender<AppEvent>,
     assistant: Arc<Assistant>,
     mcp: std::sync::Mutex<Option<McpInfo>>,
@@ -352,6 +355,7 @@ impl Workbench {
             options: std::sync::Mutex::new(load_options(&config.data_dir)),
             mcp: std::sync::Mutex::new(None),
             config,
+            lifecycle: Mutex::new(()),
             inner: Mutex::new(Inner { session: None, state: SessionState::Stopped, project: None, debuggers: HashMap::new(), watcher: None }),
             events: broadcast::channel(8192).0,
         })
@@ -427,6 +431,10 @@ impl Workbench {
 
     /// The running session, starting one if needed.
     pub async fn session(self: &Arc<Self>) -> Result<Arc<Session>> {
+        if let Some(s) = self.inner.lock().await.session.clone() {
+            return Ok(s);
+        }
+        let _starting = self.lifecycle.lock().await;
         if let Some(s) = self.inner.lock().await.session.clone() {
             return Ok(s);
         }
@@ -547,6 +555,7 @@ impl Workbench {
                 Ok(Response::Status(self.status().await))
             }
             Request::RestartSession => {
+                let _restarting = self.lifecycle.lock().await;
                 self.stop().await;
                 self.start().await?;
                 Ok(Response::Status(self.status().await))
@@ -577,6 +586,7 @@ impl Workbench {
                 ocicl_missing: project::OCICL_MISSING.into(),
             }),
             Request::CloseProject => {
+                let _closing = self.lifecycle.lock().await;
                 self.stop().await;
                 let mut inner = self.inner.lock().await;
                 inner.project = None;
@@ -892,6 +902,7 @@ impl Workbench {
     async fn open_project(self: &Arc<Self>, root: &Path) -> Result<Response> {
         let root = root.canonicalize().map_err(|e| format!("{}: {e}", root.display()))?;
         let project = Project::detect(&root);
+        let _opening = self.lifecycle.lock().await;
         self.stop().await;
         let events = self.events.clone();
         let watcher = files::watch(&root, move |paths| {
