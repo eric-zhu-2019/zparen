@@ -28,8 +28,7 @@ directory. Two SBCLs starting at once raced on those files, and one loaded a
 half-written fasl. ZParen now builds an SBCL core with Swank preloaded,
 writes it to a temporary file, and renames it into
 `~/Library/Caches/ZParen`. The cache key covers the SBCL version and every
-bundled Lisp file. A warm start takes about 50 ms. TurboLisp ships a saved
-image for the same reason.
+bundled Lisp file. A warm start takes about 50 ms.
 
 SBCL exits when its standard input closes. ZParen holds that pipe, so a
 crashed IDE never leaves an orphan SBCL behind.
