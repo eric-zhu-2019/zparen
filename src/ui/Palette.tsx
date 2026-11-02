@@ -7,10 +7,17 @@ import { openProjectFlow } from "./Chrome";
 import { openTour } from "../tour";
 import { useReturnFocus } from "./focus";
 import { displayKey } from "../keys";
+import { runStructural, structuralCommands } from "../editor/structural";
+import { activeEditor } from "../editor/commands";
 import { reloadPlugins, runPluginCommand, usePlugins } from "../plugins";
 import { isMarkdown } from "./MarkdownPreview";
 
 export type Command = { id: string; label: string; keys?: string; run: () => void };
+
+const SMALL_WORDS = new Set(["a", "an", "at", "the", "of", "to", "in"]);
+
+/** "Up a level" as a palette names commands: "Up a Level". */
+const titleCase = (s: string) => s.split(" ").map((w, i) => (i > 0 && SMALL_WORDS.has(w) ? w : w[0].toUpperCase() + w.slice(1))).join(" ");
 
 export function commands(openNew: () => void): Command[] {
   const s = get();
@@ -45,6 +52,24 @@ export function commands(openNew: () => void): Command[] {
               ]
             : []),
           { id: "compile", label: "Compile and Load File", keys: "⌘B", run: () => actions.compileFile(tab) },
+          // Structural edits act on the editor at its cursor, as their keys do.
+          ...structuralCommands.flatMap((c) =>
+            c.run
+              ? [
+                  {
+                    id: `structure:${c.name}`,
+                    label: `Structure: ${titleCase(c.name)}`,
+                    keys: c.keys[0] ? displayKey(c.keys[0]) : undefined,
+                    run: () => {
+                      const view = activeEditor.view;
+                      if (!view) return;
+                      runStructural(view, c.run!);
+                      view.focus();
+                    },
+                  },
+                ]
+              : [],
+          ),
         ]
       : []),
     ...(usePlugins.getState().manifest?.commands ?? []).map((c) => ({
