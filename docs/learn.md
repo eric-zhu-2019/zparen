@@ -3,8 +3,8 @@
 ZParen has a course in Common Lisp. It follows the order of Paul Graham's
 *ANSI Common Lisp* and *On Lisp*, from your first form to writing macros. The
 text and exercises are ZParen's own, and each lesson names the chapters to
-read. The Beginner level, lessons 1 to 8, is here now. Later levels arrive
-with ZParen updates.
+read. The Beginner level (lessons 1 to 8) and the Intermediate level
+(lessons 9 to 15) are here now. Later levels arrive with ZParen updates.
 
 You learn in a real project. Each exercise is a function you write in a file,
 and FiveAM tests check it. Git records your progress.
@@ -14,6 +14,16 @@ and FiveAM tests check it. Git records your progress.
 On the Welcome screen, click **Learn Lisp…**. In an open project, choose
 **New Lisp Course Project…** from the command palette, or choose the **Lisp
 course** template in the New Project dialog.
+
+After you start a course, the Welcome screen shows **Continue Learning Lisp**
+instead of **Learn Lisp…**. It opens your most recent course project where you
+stopped. The Learn panel in another project and the palette's **Continue Lisp
+Course** do the same. To start a second course, use the New Project dialog.
+
+When you finish every lesson, the Welcome screen stops offering the course. If
+a ZParen update adds lessons, it offers the course again. To hide it before
+then, turn off **Settings ▸ General ▸ Learn Lisp**. The course stays in
+Help ▸ Learn Lisp and the command palette.
 
 The course uses ocicl to pin FiveAM, the test framework. If ocicl is not set
 up, the dialog says how: run `brew install ocicl`, then `ocicl setup`. The
@@ -79,6 +89,10 @@ typing. It switches only between `main` and `lesson/*` branches, and asks
 before it leaves a branch of your own. It never resets, deletes or pushes
 anything. If a merge stops on a conflict, the panel says which files, and
 offers **Abort Merge**.
+
+When a ZParen update brings more lessons and you finished every lesson in your
+project, the course view offers **Add Lesson N**. It writes the new lesson's
+files on `main` in one commit.
 
 Exercises run in the `learn-lisp` package, which uses only Common Lisp. Your
 other projects are never touched.

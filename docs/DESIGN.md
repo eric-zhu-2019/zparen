@@ -18,8 +18,8 @@ The course has three parts:
 This file is a plan, not user documentation, so `scripts/build-site.mjs` does
 not publish it.
 
-First version: the template, git progress, the panel, and the Beginner level
-(lessons 1–8). Lessons 9–24 follow once their style is approved.
+Built so far: the template, git progress, the panel, the Beginner level
+(lessons 1–8) and the Intermediate level (lessons 9–15). Lessons 16–24 follow.
 
 ## Feeling
 
@@ -373,7 +373,8 @@ Documentation and Getting Started.
 | Check running | The button reads "Checking…" and is disabled, with no spinner; checks finish in seconds. |
 | No git | "Progress needs git. macOS offers to install it the first time git runs." Lessons and tests still work. |
 | Merge conflict | "Lesson 3 could not merge into main: a file outside the lesson changed." followed by **Show Changes** and **Abort Merge**. |
-| Every lesson this ZParen has is finished | "You finished the Beginner level. More lessons arrive with ZParen updates." Once an update has them, the next lesson arrives on the next open of the panel, as an "Add lesson 9" commit on `main`. |
+| Every lesson this ZParen has is finished | "You finished every lesson this ZParen has. More lessons arrive with ZParen updates." |
+| An update brought more lessons | "This ZParen brings more", with **Add Lesson N**. It writes the lesson on `main` as an "Add lesson N" commit. |
 
 ## Restoring
 
@@ -430,7 +431,7 @@ Progress itself is always read from git.
 
 ## Out of scope for the first version
 
-- Lessons 9–24, which come after the Beginner level's style is approved.
+- Lessons 16–24, the Advanced and Master levels.
 - Pushing to a remote. Plain git push works, but the panel doesn't offer it.
 - Lessons written by users or plugins, and Coalton lessons.
 - Grading style. Only behavior is checked.

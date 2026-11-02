@@ -5,7 +5,7 @@ import { definitions } from "../lisp/tree";
 import { get, set, useStore } from "../store";
 import { openProjectFlow } from "./Chrome";
 import { openTour } from "../tour";
-import { continueCourse, refreshCourse } from "../learn/learn";
+import { continueCourse, findCourse, openCourse, refreshCourse, useLearn } from "../learn/learn";
 import { useReturnFocus } from "./focus";
 import { displayKey } from "../keys";
 import { runStructural, structuralCommands } from "../editor/structural";
@@ -90,7 +90,7 @@ export function commands(openNew: () => void): Command[] {
     { id: "inspector", label: "Toggle Inspector", keys: "⌥⌘I", run: () => set({ right: get().right === "inspector" ? null : "inspector" }) },
     { id: "docs", label: "Toggle Documentation", run: () => set({ right: get().right === "docs" ? null : "docs" }) },
     { id: "learn", label: "Toggle Learn Lisp", run: () => set({ right: get().right === "learn" ? null : "learn" }) },
-    { id: "learn-continue", label: "Continue Lisp Course", run: () => (set({ right: "learn" }), void refreshCourse().then(continueCourse)) },
+    { id: "learn-continue", label: "Continue Lisp Course", run: () => void continueOrOpenCourse() },
     { id: "learn-new", label: "New Lisp Course Project…", run: () => set({ newProject: "course" }) },
     { id: "assistant", label: "Toggle AI Assistant", keys: "⌘L", run: () => set({ right: get().right === "assistant" ? null : "assistant" }) },
     { id: "trace", label: "Show Traced Calls", run: () => set({ bottom: "trace" }) },
@@ -229,4 +229,13 @@ export function Palette({ openNew }: { openNew: () => void }) {
       </div>
     </div>
   );
+}
+
+/** In a course, opens the lesson in progress; elsewhere, opens the most recent course. */
+async function continueOrOpenCourse() {
+  set({ right: "learn" });
+  await refreshCourse();
+  if (useLearn.getState().course) return continueCourse();
+  const found = await findCourse();
+  if (found) await openCourse(found.root);
 }

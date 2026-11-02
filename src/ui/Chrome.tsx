@@ -3,9 +3,10 @@ import * as actions from "../actions";
 import { openExternal, pickFile, pickFolder, recentProjects } from "../platform";
 import type { NewDeps } from "../protocol/NewDeps";
 import type { NewLanguage } from "../protocol/NewLanguage";
+import { useSettings } from "../settings";
 import { set, useStore } from "../store";
 import { Icon } from "./Icon";
-import { createCourse } from "../learn/learn";
+import { createCourse, findCourse, openCourse } from "../learn/learn";
 
 export const openProjectFlow = actions.requestOpenProject;
 
@@ -456,6 +457,9 @@ function NeedSbcl({ onFound }: { onFound: () => void }) {
 export function Welcome({ onNew }: { onNew: () => void }) {
   const recent = recentProjects();
   const [sbcl, setSbcl] = useState<"found" | "missing" | "unknown">("unknown");
+  const learnOnWelcome = useSettings((s) => s.learnOnWelcome);
+  const [course, setCourse] = useState<{ root: string; done: boolean } | null | undefined>(undefined);
+  useEffect(() => void findCourse().then(setCourse), []);
   const check = () =>
     actions.request({ type: "lispOptions" }).then(
       (r) => r.type === "lispOptions" && setSbcl(r.sbcl ? "found" : "missing"),
@@ -477,7 +481,7 @@ export function Welcome({ onNew }: { onNew: () => void }) {
     );
   }
   return (
-    <div className="empty">
+    <div className="empty" data-course={course === undefined ? "checking" : course === null ? "none" : course.done ? "done" : "started"}>
       <div>
         <div className="lambda">λ</div>
         <h1>ZParen</h1>
@@ -490,12 +494,21 @@ export function Welcome({ onNew }: { onNew: () => void }) {
             <Icon name="plus" size={12} /> New Project…
           </button>
         </div>
-        <div className="welcome-learn">
-          <p>New to Lisp? A course project teaches Common Lisp from your first form to writing macros, with tests for each exercise.</p>
-          <button className="btn" onClick={() => set({ newProject: "course" })}>
-            Learn Lisp…
-          </button>
-        </div>
+        {!learnOnWelcome || course === undefined || course?.done ? null : course ? (
+          <div className="welcome-learn">
+            <p>Your Lisp course is in {course.root.split("/").pop()}. Continue from where you stopped.</p>
+            <button className="btn" onClick={() => void openCourse(course.root)} title={course.root}>
+              Continue Learning Lisp
+            </button>
+          </div>
+        ) : (
+          <div className="welcome-learn">
+            <p>New to Lisp? A course project teaches Common Lisp from your first form to writing macros, with tests for each exercise.</p>
+            <button className="btn" onClick={() => set({ newProject: "course" })}>
+              Learn Lisp…
+            </button>
+          </div>
+        )}
         {recent.length > 0 && (
           <div className="recent">
             <div className="section-header" style={{ padding: "0 6px 4px" }}>

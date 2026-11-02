@@ -4,11 +4,15 @@ import { type Exercise, exercisesPassed, type Lesson, lessonBranch, lessonDone, 
 import { escapeHtml, highlightLisp } from "../learn/highlight";
 import {
   abortMerge,
+  addWaitingLesson,
+  waitingLesson,
   askForHint,
   check,
   continueCourse,
+  findCourse,
   finishLesson,
   goToCode,
+  openCourse,
   refreshCourse,
   runExample,
   showHistory,
@@ -98,17 +102,29 @@ function Menu({ onClose, lesson }: { onClose: () => void; lesson: Lesson | null 
 }
 
 function NotCourse() {
+  const [found, setFound] = useState<string | null>(null);
+  useEffect(() => void findCourse().then((c) => setFound(c?.root ?? null)), []);
   return (
     <div className="learn-body">
       <div className="learn-box">
         <p>
           <strong>The course runs in a course project of its own</strong>, so it never touches this one.
         </p>
-        <p className="learn-dim">A course project has a file for each lesson, FiveAM tests, and a git branch per lesson that records your progress.</p>
+        {found ? (
+          <p className="learn-dim">Your course is in {found.split("/").pop()}. Continue opens it where you stopped.</p>
+        ) : (
+          <p className="learn-dim">A course project has a file for each lesson, FiveAM tests, and a git branch per lesson that records your progress.</p>
+        )}
         <div>
-          <button className="btn primary" onClick={() => set({ newProject: "course" })}>
-            New Course Project…
-          </button>
+          {found ? (
+            <button className="btn primary" onClick={() => void openCourse(found)} title={found}>
+              Continue Learning Lisp
+            </button>
+          ) : (
+            <button className="btn primary" onClick={() => set({ newProject: "course" })}>
+              New Course Project…
+            </button>
+          )}
         </div>
       </div>
       <Outline p={null} />
@@ -169,6 +185,7 @@ function CourseView() {
   const done = LESSONS.filter((l) => lessonDone(p, l)).length;
   const passed = LESSONS.reduce((n, l) => n + exercisesPassed(p, l), 0);
   const fresh = passed === 0 && done === 0 && !git?.branches.length;
+  const waiting = waitingLesson(p);
   const label = p.current ? `${p.onLesson?.id === p.current.id || git?.branches.includes(lessonBranch(p.current)) ? "Continue" : "Start"}: ${p.current.title}` : null;
   return (
     <div className="learn-body">
@@ -182,7 +199,16 @@ function CourseView() {
           </span>
         </div>
         {fresh && <p className="learn-dim">Each lesson is a git branch in this project. Write the functions in the lesson's file and press Check; passing an exercise commits your answer.</p>}
-        {label ? (
+        {waiting ? (
+          <>
+            <p className="learn-dim">You finished every lesson this project has. This ZParen brings more.</p>
+            <div>
+              <button className="btn primary" disabled={!!busy || !ready} title={ready ? undefined : "Lisp is not running"} onClick={() => void addWaitingLesson(waiting)}>
+                {busy ?? `Add Lesson ${waiting.number}: ${waiting.title}`}
+              </button>
+            </div>
+          </>
+        ) : label ? (
           <div>
             <button className="btn primary" disabled={!!busy || !ready} title={ready ? undefined : "Lisp is not running"} onClick={() => void continueCourse()}>
               {busy ?? label}
@@ -381,7 +407,7 @@ function LessonView({ l }: { l: Lesson }) {
               {file}
             </>
           ) : !reached ? (
-            <>Arrives when lesson {before?.number} is finished</>
+            waitingLesson(p) === l ? <>Ready to add: lesson {before?.number} is finished</> : <>Arrives when lesson {before?.number} is finished</>
           ) : (
             <>
               {git?.branches.includes(lessonBranch(l)) ? "Started" : "Not started"} · you are on <code>⎇ {git?.branch ?? "no branch"}</code>
@@ -390,6 +416,18 @@ function LessonView({ l }: { l: Lesson }) {
         </div>
       </div>
       <ConflictBanner />
+      {waitingLesson(p) === l && (
+        <div className="learn-box">
+          <p>
+            This lesson came with a ZParen update. Adding it writes <code>{lessonSource(l)}</code> and its tests on main.
+          </p>
+          <div>
+            <button className="btn primary" disabled={!!busy || !ready} title={ready ? undefined : "Lisp is not running"} onClick={() => void addWaitingLesson(l)}>
+              {busy ?? "Add Lesson"}
+            </button>
+          </div>
+        </div>
+      )}
       {reached && !here && !done && (
         <div className="learn-box">
           <p>

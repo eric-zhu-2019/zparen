@@ -247,11 +247,18 @@ export function lambdaVariables(list: string): string[] {
   return vars;
 }
 
-/** A stub's call to NOT-WRITTEN-YET with the function's variables passed on. */
+/**
+ * A stub's call to NOT-WRITTEN-YET with the function's variables passed on.
+ * A stub macro expands into the call, quoting its arguments, so it signals
+ * when the code runs: an error while expanding would reach a check as a
+ * compile error rather than as a stub to skip.
+ */
 export function stubWithArguments(stub: string): string {
-  return stub.replace(/\(\s*def(?:un|macro)\s+([^\s()]+)\s*(\([^()]*(?:\([^()]*\)[^()]*)*\))([\s\S]*?)\(not-written-yet\s+'([^\s()]+)\s*\)/g, (all, _name, list: string, _between: string, target: string) => {
+  return stub.replace(/\(\s*def(un|macro|method)\s+([^\s()]+)\s*(\([^()]*(?:\([^()]*\)[^()]*)*\))([\s\S]*?)\(not-written-yet\s+'([^\s()]+)\s*\)/g, (all, kind: string, _name, list: string, _between: string, target: string) => {
     const vars = lambdaVariables(list);
-    return vars.length ? all.replace(/\(not-written-yet\s+'[^\s()]+\s*\)$/, `(not-written-yet '${target} ${vars.join(" ")})`) : all;
+    const call =
+      kind === "macro" ? `\`(not-written-yet '${target}${vars.map((v) => ` ',${v}`).join("")})` : vars.length ? `(not-written-yet '${target} ${vars.join(" ")})` : null;
+    return call ? all.replace(/\(not-written-yet\s+'[^\s()]+\s*\)$/, call) : all;
   });
 }
 

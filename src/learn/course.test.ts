@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { asdFile, definedName, lambdaVariables, LESSONS, parseLesson, passMessage, progress, sourceFile, startingFiles, stubWithArguments, testFile } from "./course";
 import type { CourseState } from "../protocol/CourseState";
+import { waitingLesson } from "./learn";
 
 const LESSON = `---
 title: Sample
@@ -100,6 +101,8 @@ describe("course files", () => {
     expect(stubWithArguments("(defun f (a &optional (b 1) &key c)\n  (not-written-yet 'f))")).toContain("(not-written-yet 'f a b c)");
     expect(stubWithArguments("(defstruct point x y)\n(defun g ()\n  (not-written-yet 'g))")).toContain("(not-written-yet 'g))");
     expect(lambdaVariables("(list &rest more)")).toEqual(["list", "more"]);
+    expect(stubWithArguments("(defmethod area ((s circle) scale)\n  (not-written-yet 'area))")).toContain("(not-written-yet 'area s scale)");
+    expect(stubWithArguments("(defmacro my-while (test &body body)\n  (not-written-yet 'my-while))")).toContain("`(not-written-yet 'my-while ',test ',body)");
   });
 
   it("marks a passing commit with the exercise's trailer", () => {
@@ -118,6 +121,11 @@ describe("progress", () => {
     expect(p.passed.has("02/1")).toBe(true);
     expect(p.onLesson).toBe(two);
     expect(p.current).toBe(two);
+  });
+
+  it("offers a lesson an update brought once every lesson in the project is finished", () => {
+    expect(waitingLesson(progress(state({ finished: ["01", "02"] }), files([one, two])))).toBe(three);
+    expect(waitingLesson(progress(state({ finished: ["01"] }), files([one, two])))).toBeNull();
   });
 
   it("points at the lesson that arrived last once the one before is merged", () => {

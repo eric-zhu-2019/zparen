@@ -36,6 +36,9 @@ pub enum Request {
     /// A git step in the open course project.
     #[serde(rename_all = "camelCase")]
     CourseGit { op: CourseGitOp },
+    /// The progress of the course project at ROOT, open or not. It only reads.
+    #[serde(rename_all = "camelCase")]
+    CourseState { root: String },
     CloseProject,
     ProjectSystems,
     #[serde(rename_all = "camelCase")]
@@ -563,6 +566,10 @@ impl Workbench {
             Request::CourseGit { op } => {
                 let root = PathBuf::from(self.project().await?.root);
                 let reply = tokio::task::spawn_blocking(move || course::run(&root, &op)).await.map_err(|e| e.to_string())??;
+                Ok(Response::CourseGit { reply })
+            }
+            Request::CourseState { root } => {
+                let reply = tokio::task::spawn_blocking(move || course::run(Path::new(&root), &CourseGitOp::State)).await.map_err(|e| e.to_string())??;
                 Ok(Response::CourseGit { reply })
             }
             Request::NewProjectChoices => Ok(Response::NewProjectChoices {

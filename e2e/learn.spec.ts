@@ -96,4 +96,28 @@ test("a course: start a lesson, check, pass, finish, and the next lesson arrives
   await learn.getByRole("button", { name: "Back to the course" }).click();
   await expect(learn.getByText(/1 of \d+ lessons · 3 of \d+ exercises/)).toBeVisible();
   await expect(learn.getByRole("button", { name: "Start: Functions and conditionals" })).toBeVisible();
+
+  // Once a course exists, Welcome continues it instead of offering a new one.
+  await fresh(page);
+  await expect(page.getByRole("button", { name: "Learn Lisp…" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Continue Learning Lisp" }).click();
+  await expect(learn.getByRole("button", { name: "Start: Functions and conditionals" })).toBeVisible({ timeout: 60_000 });
+  await shots(page, "learn-06-continued");
+
+  // The setting hides the course on Welcome.
+  const welcomeCourse = page.getByRole("button", { name: /Continue Learning Lisp|Learn Lisp…/ });
+  await fresh(page);
+  await page.evaluate(() => localStorage.setItem("zparen.settings", JSON.stringify({ ...JSON.parse(localStorage.getItem("zparen.settings") ?? "{}"), learnOnWelcome: false })));
+  await page.reload();
+  await expect(page.locator('[data-course="started"]')).toBeVisible();
+  await expect(welcomeCourse).toHaveCount(0);
+  await page.evaluate(() => localStorage.setItem("zparen.settings", JSON.stringify({ ...JSON.parse(localStorage.getItem("zparen.settings") ?? "{}"), learnOnWelcome: true })));
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Continue Learning Lisp" })).toBeVisible();
+
+  // A course with every lesson finished is not offered again.
+  for (let n = 2; n <= 15; n++) git(root, "commit", "--quiet", "--allow-empty", "-m", `Finish lesson ${n}`, "--trailer", `Lesson: ${String(n).padStart(2, "0")}`);
+  await page.reload();
+  await expect(page.locator('[data-course="done"]')).toBeVisible();
+  await expect(welcomeCourse).toHaveCount(0);
 });

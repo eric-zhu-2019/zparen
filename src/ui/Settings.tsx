@@ -292,6 +292,9 @@ function General() {
       <Row label="Projects" hint="Each session starts a fresh Lisp. This loads the systems you loaded last time, so the project is ready as you left it.">
         <Toggle label="Load the systems loaded last time" checked={s.reloadSystems} onChange={(reloadSystems) => put({ reloadSystems })} />
       </Row>
+      <Row label="Learn Lisp" hint="The course stays in Help ▸ Learn Lisp and the command palette.">
+        <Toggle label="Show the Lisp course on the Welcome screen" checked={s.learnOnWelcome} onChange={(learnOnWelcome) => put({ learnOnWelcome })} />
+      </Row>
       <Row label="Keys" hint="Vim works in the editor; Emacs sequences such as C-c C-c work in any mode.">
         <Toggle label="Vim keys" checked={s.vim} onChange={(vim) => put({ vim })} />
         <Toggle label="Emacs key sequences" checked={s.emacs} onChange={(emacs) => put({ emacs })} />
