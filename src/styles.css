@@ -979,6 +979,7 @@ button.image-chip:hover {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
   min-width: 0;
   background: var(--bg-editor);
 }
@@ -1079,6 +1080,10 @@ button.image-chip:hover {
   gap: 6px;
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
+  /* Many restarts scroll here, so none hides under the status bar and the frames keep room. */
+  flex-shrink: 0;
+  max-height: 50%;
+  overflow-y: auto;
 }
 .restart {
   border: 1px solid var(--border);
@@ -1113,6 +1118,7 @@ button.image-chip:hover {
 .frames {
   overflow: auto;
   flex: 1;
+  min-height: 0;
   padding: 4px 6px;
   font-family: var(--mono);
   font-size: 12px;

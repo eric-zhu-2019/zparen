@@ -1324,6 +1324,9 @@ test("files are checked while a load is stopped in the debugger, and a fixed err
   await page.keyboard.type("dd");
   await expect(editor.locator(".cm-lintRange"), "deleting the bad form clears its mark").toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByTestId("debugger"), "and the load is still stopped").toContainText("stop the load");
+  const statusTop = (await page.locator(".statusbar").boundingBox())!.y;
+  const restartsBottom = await page.locator(".restarts").evaluate((e) => e.getBoundingClientRect().bottom);
+  expect(restartsBottom, "the restarts end above the status bar").toBeLessThanOrEqual(statusTop);
   await page.locator(".restart", { hasText: "ABORT" }).first().click();
 });
 
