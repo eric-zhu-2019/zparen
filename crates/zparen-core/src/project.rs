@@ -266,11 +266,15 @@ fn main_file(language: NewLanguage) -> &'static str {
     }
 }
 
+/// Whether NAME suits a new project's folder and ASDF system.
+pub fn valid_name(name: &str) -> bool {
+    !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
 /// Creates a new ASDF project with a package, a main file and a test system,
 /// and for ocicl an empty `ocicl.csv` that `ocicl install` fills.
 pub fn create(parent: &Path, name: &str, deps: NewDeps, language: NewLanguage) -> std::io::Result<PathBuf> {
-    let valid = !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
-    if !valid {
+    if !valid_name(name) {
         return Err(std::io::Error::other("project names use lowercase letters, digits and dashes"));
     }
     if language == NewLanguage::Coalton && deps != NewDeps::Ocicl {

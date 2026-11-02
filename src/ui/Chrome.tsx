@@ -5,6 +5,7 @@ import type { NewDeps } from "../protocol/NewDeps";
 import type { NewLanguage } from "../protocol/NewLanguage";
 import { set, useStore } from "../store";
 import { Icon } from "./Icon";
+import { createCourse } from "../learn/learn";
 
 export const openProjectFlow = actions.requestOpenProject;
 
@@ -260,10 +261,13 @@ const LANGUAGE_HINT: Record<NewLanguage, string> = {
   coalton: "Statically typed code in coalton-toplevel forms, with the coalton system as a dependency.",
 };
 
-export function NewProjectDialog({ onClose }: { onClose: () => void }) {
-  const [name, setName] = useState("");
+const COURSE_DEPS_HINT = "The course uses ocicl, which pins FiveAM for the tests.";
+
+export function NewProjectDialog({ onClose, course: startAsCourse = false }: { onClose: () => void; course?: boolean }) {
+  const [course, setCourse] = useState(startAsCourse);
+  const [name, setName] = useState(startAsCourse ? "learn-lisp" : "");
   const [parent, setParent] = useState("");
-  const [deps, setDeps] = useState<NewDeps>("quicklisp");
+  const [deps, setDeps] = useState<NewDeps>(startAsCourse ? "ocicl" : "quicklisp");
   const [language, setLanguage] = useState<NewLanguage>("lisp");
   const [ocicl, setOcicl] = useState<{ ready: boolean; missing: string } | null>(null);
   const [error, setError] = useState("");
@@ -290,7 +294,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
           e.preventDefault();
           setCreating(true);
           try {
-            if (await actions.newProject(parent, name, deps, language)) onClose();
+            if (await (course ? createCourse(parent, name) : actions.newProject(parent, name, deps, language))) onClose();
           } catch (err) {
             setError(String(err instanceof Error ? err.message : err));
           } finally {
@@ -299,6 +303,34 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
         }}
       >
         <h2>New Lisp Project</h2>
+        <label>Template</label>
+        <div className="segmented" role="radiogroup" aria-label="Template">
+          {([false, true] as const).map((c) => (
+            <button
+              key={String(c)}
+              type="button"
+              role="radio"
+              aria-checked={course === c}
+              className={course === c ? "active" : ""}
+              onClick={() => {
+                setCourse(c);
+                if (c) {
+                  setLanguage("lisp");
+                  setDeps("ocicl");
+                  if (!name) setName("learn-lisp");
+                } else if (name === "learn-lisp") setName("");
+              }}
+            >
+              {c ? "Lisp course" : "Empty"}
+            </button>
+          ))}
+        </div>
+        {course && (
+          <div className="dialog-hint">
+            A course in Common Lisp after <i>ANSI Common Lisp</i> and <i>On Lisp</i>: a file of exercises per lesson, FiveAM tests, and a git branch per
+            lesson that records your progress. Each lesson's files arrive when you finish the one before it.
+          </div>
+        )}
         <label>Name</label>
         {/* Names are lowercase, as ASDF systems and their folders conventionally are. */}
         <input type="text" autoFocus {...PLAIN} placeholder="my-app" value={name} onChange={(e) => setName(e.target.value.toLowerCase())} />
@@ -320,6 +352,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
               role="radio"
               aria-checked={language === l}
               className={language === l ? "active" : ""}
+              disabled={course && l === "coalton"}
               onClick={() => {
                 setLanguage(l);
                 if (l === "coalton") setDeps("ocicl");
@@ -339,7 +372,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
               role="radio"
               aria-checked={deps === d}
               className={deps === d ? "active" : ""}
-              disabled={language === "coalton" && d === "quicklisp"}
+              disabled={(language === "coalton" || course) && d === "quicklisp"}
               onClick={() => setDeps(d)}
             >
               {d === "quicklisp" ? "Quicklisp" : "ocicl"}
@@ -347,10 +380,12 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <div className="dialog-hint">
-          {deps === "ocicl" && ocicl && !ocicl.ready ? ocicl.missing : language === "coalton" ? COALTON_DEPS_HINT : DEPS_HINT[deps]}
+          {deps === "ocicl" && ocicl && !ocicl.ready ? ocicl.missing : course ? COURSE_DEPS_HINT : language === "coalton" ? COALTON_DEPS_HINT : DEPS_HINT[deps]}
         </div>
         <div style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 10 }}>
-          Creates an ASDF system with src/, a test system, and an executable build target.
+          {course
+            ? "Creates an ASDF system with lesson 1, its tests, and a git repository on main."
+            : "Creates an ASDF system with src/, a test system, and an executable build target."}
         </div>
         {error && <div className="error">{error}</div>}
         <div className="row">
@@ -453,6 +488,12 @@ export function Welcome({ onNew }: { onNew: () => void }) {
           </button>
           <button className="btn" onClick={onNew}>
             <Icon name="plus" size={12} /> New Project…
+          </button>
+        </div>
+        <div className="welcome-learn">
+          <p>New to Lisp? A course project teaches Common Lisp from your first form to writing macros, with tests for each exercise.</p>
+          <button className="btn" onClick={() => set({ newProject: "course" })}>
+            Learn Lisp…
           </button>
         </div>
         {recent.length > 0 && (

@@ -103,10 +103,12 @@ With OUTERMOST, calls made inside another such call are not captured."
 (defun fiveam-check (r)
   (let ((failed (call "FIVEAM" "TEST-FAILURE-P" r))
         (skipped (call "FIVEAM" "TEST-SKIPPED-P" r))
-        (expr (slot-value r (framework-symbol "FIVEAM" "TEST-EXPR"))))
+        ;; A skip made with SKIP never sets the slot.
+        (expr (let ((slot (framework-symbol "FIVEAM" "TEST-EXPR")))
+                (and (slot-boundp r slot) (slot-value r slot)))))
     (node :framework :fiveam :kind :check
           ;; A test that signals has no check expression.
-          :name (if expr (form expr) "error")
+          :name (if expr (form expr) (if skipped "skipped" "error"))
           :status (cond (failed :failed) (skipped :skipped) (t :passed))
           :message (and (or failed skipped)
                         (one-line (line (slot-value r (framework-symbol "FIVEAM" "REASON"))))))))

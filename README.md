@@ -43,6 +43,7 @@ Three decisions follow from that goal:
 | Edit | Vim keys, SLIME's Emacs sequences, parinfer, structural editing, rename across the project, checking as you type, go to definition, split panes and a git gutter | [Edit code](docs/editing.md) |
 | Projects | ASDF systems with Quicklisp, ocicl, qlot or vendored dependencies, a dependency editor, builds and startup images | [Projects](docs/projects.md) |
 | Coalton | Coalton projects, `.ct` and `.coal` files, types on hover, and type errors on the expression Coalton blames | [Coalton](docs/coalton.md) |
+| Learn | A course from your first form to macros, after *ANSI Common Lisp* and *On Lisp*: a project with a file and FiveAM tests per lesson, and a git branch per lesson that records your progress | [Learn Lisp](docs/learn.md) |
 | AI | An assistant that works in your image and answers with Claude or Codex, through an API key or your own Claude Code or Codex login, and an MCP server for Claude Code | [Assistant and MCP](docs/assistant.md) |
 | Extend | Plugins written in Common Lisp, and themes as JSON files | [Plugins](docs/plugins.md) |
 
@@ -162,6 +163,7 @@ Without tests and generated code, ZParen is about 12,200 lines of TypeScript,
 | [Edit code](docs/editing.md) | Keys, Vim and Emacs bindings, structural editing, checking as you type, search and files |
 | [Projects](docs/projects.md) | Opening and creating projects, dependency managers, systems and startup images |
 | [Coalton](docs/coalton.md) | Coalton projects and files, types, the manual, and type errors |
+| [Learn Lisp](docs/learn.md) | The course: lessons, exercises, checks, and progress in git |
 | [Assistant and MCP](docs/assistant.md) | Claude, OpenAI, Claude Code and Codex in the app, and Claude Code over MCP |
 | [Plugins](docs/plugins.md) | Extending ZParen in Common Lisp |
 | [How ZParen is built](docs/architecture.md) | The design and the reasons behind it |

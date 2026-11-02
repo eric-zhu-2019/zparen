@@ -84,7 +84,7 @@ export type ChatItem =
 export type Task = { output: string; running: boolean; ok: boolean | null };
 
 export type BottomPanel = "repl" | "output" | "problems" | "tests" | "trace" | "profile";
-export type RightPanel = "inspector" | "assistant" | "docs" | null;
+export type RightPanel = "inspector" | "assistant" | "docs" | "learn" | null;
 
 /** A symbol shown in the documentation panel. */
 export type DocTopic = { symbol: string; package: string };
@@ -171,7 +171,8 @@ export interface State {
   /** The getting-started list, and the steps done from it. */
   tourOpen: boolean;
   tourDone: string[];
-  newProject: boolean;
+  /** The New Project dialog is open; "course" opens it on the Lisp course template. */
+  newProject: boolean | "course";
   /** The last find-references result, shown in the search panel. */
   references: { name: string; items: Definition[] } | null;
   /** A rename across the project waiting for the user to look it over, shown in the search panel. */

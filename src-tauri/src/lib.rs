@@ -129,6 +129,7 @@ fn menu(app: &tauri::AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Submenu<taur
         MenuItem::with_id(app, "help-shortcuts", "Keyboard Shortcuts", true, Some("CmdOrCtrl+Shift+/"))?,
         MenuItem::with_id(app, "help-docs", "Lisp Documentation", true, None::<&str>)?,
         MenuItem::with_id(app, "help-tour", "Getting Started", true, None::<&str>)?,
+        MenuItem::with_id(app, "help-learn", "Learn Lisp", true, None::<&str>)?,
     ];
     let report = MenuItem::with_id(app, "help-report", "Copy Diagnostics for a Report", true, None::<&str>)?;
     let help = match menu.items()?.into_iter().find_map(|i| i.as_submenu().cloned().filter(|s| s.text().is_ok_and(|t| t == "Help"))) {

@@ -179,7 +179,7 @@ export default function App() {
       )}
       <StatusBar />
       <Palette openNew={openNew} />
-      {newOpen && <NewProjectDialog onClose={() => set({ newProject: false })} />}
+      {newOpen && <NewProjectDialog course={newOpen === "course"} onClose={() => set({ newProject: false })} />}
       <HelpScreen />
       <Tour />
       <SettingsScreen />

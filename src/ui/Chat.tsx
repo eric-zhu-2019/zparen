@@ -8,6 +8,7 @@ import type { AssistantStatus } from "../protocol/AssistantStatus";
 import type { Provider } from "../protocol/Provider";
 import { set, useStore, type ChatItem } from "../store";
 import { Icon } from "./Icon";
+import { backToLesson, useLearn } from "../learn/learn";
 import type { SessionInfo } from "../protocol/SessionInfo";
 
 function Inline({ text }: { text: string }) {
@@ -274,6 +275,7 @@ function SessionList({ onClose }: { onClose: () => void }) {
 export function Chat() {
   const chat = useStore((s) => s.chat);
   const busy = useStore((s) => s.chatBusy);
+  const askedFrom = useLearn((s) => s.askedFrom);
   const [status, setStatus] = useState<AssistantStatus | null>(null);
   const [text, setText] = useState("");
   const [withContext, setWithContext] = useState(true);
@@ -304,7 +306,13 @@ export function Chat() {
   return (
     <>
       <div className="right-header">
-        <Icon name="sparkle" />
+        {askedFrom ? (
+          <button className="learn-back" title="Back to the lesson you asked about" onClick={backToLesson}>
+            ‹ Back to Lesson
+          </button>
+        ) : (
+          <Icon name="sparkle" />
+        )}
         <span className="title">Assistant</span>
         <button className="icon-btn" title="Earlier conversations" aria-expanded={showHistory} onClick={() => setShowHistory(!showHistory)}>
           <Icon name="history" size={13} />

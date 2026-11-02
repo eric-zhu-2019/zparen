@@ -1,4 +1,5 @@
 use crate::assistant::{Assistant, AssistantConfig, AssistantEvent, AssistantStatus, EditorContext, Provider, SessionInfo};
+use crate::course::{self, CourseFile, CourseGitOp, CourseGitReply};
 use crate::files;
 use crate::search;
 use crate::ops::{Op, Reply};
@@ -29,6 +30,12 @@ pub enum Request {
     NewProject { parent: String, name: String, #[serde(default)] deps: NewDeps, #[serde(default)] language: NewLanguage },
     /// Which dependency managers a new project can use on this Mac.
     NewProjectChoices,
+    /// Makes a Lisp course project from FILES, pins FiveAM, commits, and opens it.
+    #[serde(rename_all = "camelCase")]
+    NewCourse { parent: String, name: String, files: Vec<CourseFile> },
+    /// A git step in the open course project.
+    #[serde(rename_all = "camelCase")]
+    CourseGit { op: CourseGitOp },
     CloseProject,
     ProjectSystems,
     #[serde(rename_all = "camelCase")]
@@ -185,6 +192,8 @@ pub enum Response {
     GitHead { text: Option<String> },
     #[serde(rename_all = "camelCase")]
     GitStatus { files: Vec<crate::git::GitFile> },
+    #[serde(rename_all = "camelCase")]
+    CourseGit { reply: CourseGitReply },
     Ok,
 }
 
@@ -544,6 +553,17 @@ impl Workbench {
             Request::NewProject { parent, name, deps, language } => {
                 let root = project::create(Path::new(&parent), &name, deps, language).map_err(|e| e.to_string())?;
                 self.open_project(&root).await
+            }
+            Request::NewCourse { parent, name, files } => {
+                let root = tokio::task::spawn_blocking(move || course::create(Path::new(&parent), &name, &files))
+                    .await
+                    .map_err(|e| e.to_string())??;
+                self.open_project(&root).await
+            }
+            Request::CourseGit { op } => {
+                let root = PathBuf::from(self.project().await?.root);
+                let reply = tokio::task::spawn_blocking(move || course::run(&root, &op)).await.map_err(|e| e.to_string())??;
+                Ok(Response::CourseGit { reply })
             }
             Request::NewProjectChoices => Ok(Response::NewProjectChoices {
                 ocicl: project::ocicl_runtime().is_some(),

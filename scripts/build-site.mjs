@@ -16,6 +16,7 @@ const DOCS = [
   "editing",
   "projects",
   "coalton",
+  "learn",
   "assistant",
   "plugins",
   "architecture",
