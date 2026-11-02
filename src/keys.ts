@@ -244,6 +244,27 @@ export function emacsKeyMatches(e: KeyboardEvent, token: string): boolean {
   return e.key === rest;
 }
 
+const EMACS_ARROWS: Record<string, string> = { ArrowLeft: "<left>", ArrowRight: "<right>", ArrowUp: "<up>", ArrowDown: "<down>" };
+
+/**
+ * A CodeMirror key such as "Ctrl-Alt-f" or "Alt-Shift-s" in Emacs notation,
+ * "C-M-f" or "M-S"; null for a key Emacs cannot name, such as one with ⌘.
+ */
+export function emacsNotation(key: string): string | null {
+  const parts = key.split("-");
+  let base = parts.pop()!;
+  // "Ctrl--" names the minus key.
+  if (base === "" && parts[parts.length - 1] === "") (parts.pop(), (base = "-"));
+  const mods = new Set(parts);
+  if (mods.has("Cmd") || mods.has("Mod") || mods.has("Meta")) return null;
+  if (mods.has("Shift")) {
+    if (!/^[a-z]$/.test(base)) return null;
+    base = base.toUpperCase();
+  }
+  base = EMACS_ARROWS[base] ?? Object.entries(EMACS_NAMED).find(([, k]) => k === base)?.[0] ?? base;
+  return `${mods.has("Ctrl") ? "C-" : ""}${mods.has("Alt") ? "M-" : ""}${base}`;
+}
+
 const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
 
 /** A keydown in Emacs notation, for messages such as "C-x C-q is undefined". */
@@ -273,7 +294,10 @@ export class EmacsChords {
       return { kind: "cancel" };
     }
     const depth = this.typed.length;
+    // Help shows structural editing's keys in Emacs notation, but the editor's
+    // own keymap runs them; only bindings with something to run take a key here.
     const candidates = this.table().filter((b) => {
+      if (b.scope === "elsewhere") return false;
       const seq = b.emacs?.split(" ");
       return seq && seq.length > depth && seq.slice(0, depth).join(" ") === this.typed.join(" ") && emacsKeyMatches(e, seq[depth]);
     });
@@ -365,6 +389,7 @@ bindings.push(
       category: "Structure",
       key: c.keys[0],
       vim: c.vim.join(" "),
+      emacs: (c.keys[0] && emacsNotation(c.keys[0])) || undefined,
       note: c.keys.length > 1 ? `or ${c.keys.slice(1).map(displayKey).join(", ")}` : undefined,
       scope: "elsewhere",
     }),

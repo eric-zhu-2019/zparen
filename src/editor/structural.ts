@@ -424,6 +424,10 @@ export function elementObject(state: EditorState, range: Range, around: boolean)
   return near ? pad({ from: near.from, to: near.to }) : null;
 }
 
+export function runStructural(view: EditorView, command: StructuralCommand): boolean {
+  return run(view, command);
+}
+
 function run(view: EditorView, command: StructuralCommand): boolean {
   const spec = command(view.state);
   if (!spec) return false;

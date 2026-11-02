@@ -469,6 +469,7 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.getByPlaceholder("Filter").fill("slurp");
   await expect(page.locator(".help-body tbody tr")).toHaveCount(2);
+  await expect(page.locator(".help-body tbody tr").first(), "structural keys show in Emacs notation too").toContainText("C-)");
   await page.keyboard.press("Escape");
   await expect(page.locator(".help")).toHaveCount(0);
   expect(await page.locator(".editor-host .cm-content").innerText(), "opening help leaves the buffer alone").toBe(docBefore);
@@ -484,6 +485,13 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await expect(page.locator(".editor-host .cm-activeLine")).toHaveText("(a b c)");
   await page.keyboard.type("u");
   await expect(page.locator(".editor-host .cm-activeLine")).toHaveText("(a b) c");
+  await page.keyboard.press("Meta+Shift+P");
+  await page.getByPlaceholder("Type a command…").fill("Structure: Slurp Forward");
+  await expect(page.locator(".palette .item.selected")).toContainText("Structure: Slurp Forward");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".editor-host .cm-activeLine"), "the palette runs structural edits too").toHaveText("(a b c)");
+  await page.keyboard.type("u");
+  await expect(page.locator(".editor-host .cm-activeLine"), "and the editor has the keys again").toHaveText("(a b) c");
 
   await page.keyboard.type("Go");
   await page.keyboard.type("(x (y z))");

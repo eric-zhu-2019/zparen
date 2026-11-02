@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bindings, displayKey, EmacsChords, emacsKeyMatches, matches } from "./keys";
+import { bindings, displayKey, EmacsChords, emacsKeyMatches, emacsNotation, matches } from "./keys";
 
 const key = (init: Partial<KeyboardEvent>) =>
   ({ metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, code: "", ...init }) as KeyboardEvent;
@@ -34,6 +34,21 @@ describe("Emacs key sequences", () => {
     expect(chords.feed(key({ key: "a", code: "KeyA" }))).toEqual({ kind: "pass" });
     chords.feed(ctrl("x"));
     expect(chords.feed(ctrl("q"))).toEqual({ kind: "undefined", sequence: "C-x C-q" });
+  });
+
+  it("names structural editing's keys in Emacs notation, and leaves them to the editor's keymap", () => {
+    expect(emacsNotation("Ctrl-)")).toBe("C-)");
+    expect(emacsNotation("Alt-r")).toBe("M-r");
+    expect(emacsNotation("Alt-Shift-s")).toBe("M-S");
+    expect(emacsNotation("Ctrl-Alt-ArrowLeft")).toBe("C-M-<left>");
+    expect(emacsNotation("Ctrl-Shift-Cmd-ArrowRight")).toBeNull();
+    const structure = bindings.filter((b) => b.category === "Structure");
+    expect(structure.find((b) => b.label === "Next form")?.emacs).toBe("C-M-f");
+    expect(structure.find((b) => b.label === "Raise")?.emacs).toBe("M-r");
+    expect(structure.find((b) => b.label === "Expand selection")?.emacs).toBeUndefined();
+    // The chord handler passes them on, so the structural keymap still runs them in Emacs mode.
+    expect(new EmacsChords().feed(key({ key: "ƒ", code: "KeyF", ctrlKey: true, altKey: true }))).toEqual({ kind: "pass" });
+    expect(new EmacsChords().feed(key({ key: "®", code: "KeyR", altKey: true }))).toEqual({ kind: "pass" });
   });
 
   it("never binds one sequence twice or as the prefix of another", () => {
