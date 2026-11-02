@@ -6,6 +6,16 @@ the debugger, fix the code, and restart the frame that failed.
 Claude and Codex can work in the same image, from the built-in assistant or
 over MCP.
 
+<p align="center">
+  <a href="https://github.com/eric-zhu-2019/zparen/releases/latest"><img src="https://img.shields.io/github/v/release/eric-zhu-2019/zparen?label=release&color=2f855a" alt="Latest release"/></a>
+  <a href="https://github.com/eric-zhu-2019/zparen/releases"><img src="https://img.shields.io/github/downloads/eric-zhu-2019/zparen/total?color=blue" alt="Downloads"/></a>
+  <a href="https://github.com/eric-zhu-2019/zparen/actions/workflows/release.yml"><img src="https://github.com/eric-zhu-2019/zparen/actions/workflows/release.yml/badge.svg" alt="Release build"/></a>
+  <a href="https://eric-zhu-2019.github.io/zparen/docs/getting-started.html"><img src="https://img.shields.io/badge/Docs-zparen-0b7285?style=flat&logo=readthedocs&logoColor=white" alt="Docs"/></a>
+  <a href="https://eric-zhu-2019.github.io/zparen/docs/learn.html"><img src="https://img.shields.io/badge/Learn-Common%20Lisp-7c3aed?style=flat" alt="Learn Lisp"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License: MIT"/></a>
+  <img src="https://img.shields.io/badge/macOS-13%2B%20·%20Apple%20silicon-000000?style=flat&logo=apple&logoColor=white" alt="macOS 13+, Apple silicon"/>
+</p>
+
 ![The REPL beside the debugger, with its restarts and backtrace, and the inspector on the right](docs/screenshots/debugger.png)
 
 ## Goal
