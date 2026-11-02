@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync 
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { asdFile, LESSONS, lessonSource, lessonTests, notWrittenFile, packageFile, sourceFile, supportFile, testFile, type Lesson } from "./course";
+import { asdFile, LESSONS, lessonSource, lessonTests, notWrittenFile, packageFile, sourceFile, stubWithArguments, supportFile, testFile, type Lesson } from "./course";
 
 const PKG = "learn-lisp";
 const CACHE = join(process.cwd(), "node_modules/.cache/zparen-learn");
@@ -37,9 +37,9 @@ function fiveam(): string | null {
 
 type Variant = "stub" | "wrong" | "solution";
 
+/** The stub with each NOT-WRITTEN-YET call answering NIL: a definition that exists but does nothing useful. */
 function wrongAnswer(stub: string): string {
-  const m = /\(\s*(defun|defmacro)\s+([^\s()]+)/i.exec(stub)!;
-  return `(${m[1]} ${m[2]} (&rest args)\n  (declare (ignore args))\n  nil)`;
+  return stubWithArguments(stub).replace(/\(not-written-yet\s+'[^()]*\)/g, "nil");
 }
 
 function writeProject(root: string, variant: Variant) {

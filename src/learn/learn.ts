@@ -7,6 +7,7 @@ import type { CourseGitOp } from "../protocol/CourseGitOp";
 import type { CourseGitReply } from "../protocol/CourseGitReply";
 import type { CourseState } from "../protocol/CourseState";
 import type { TestNode } from "../protocol/TestNode";
+import { recentProjects } from "../platform";
 import { get as getApp, set as setApp } from "../store";
 import {
   addMessage,
@@ -15,6 +16,7 @@ import {
   type Exercise,
   type Lesson,
   lessonBranch,
+  lessonDone,
   lessonSource,
   lessonTests,
   LESSONS,
@@ -269,21 +271,46 @@ export function finishLesson(l: Lesson) {
     } finally {
       await followDisk();
     }
-    const { pkg } = get().course!;
     const next = LESSONS[LESSONS.indexOf(l) + 1];
-    const files = (await actions.listDir(path("src"))).map((e) => e.name);
-    if (next && !files.includes(`${next.id}.lisp`)) {
-      const reached = LESSONS.filter((x) => files.includes(`${x.id}.lisp`) || x === next);
-      const writes: [string, string][] = [
-        [lessonSource(next), sourceFile(pkg, next)],
-        [lessonTests(next), testFile(pkg, next)],
-        [`${pkg}.asd`, asdFile(pkg, reached)],
-      ];
-      for (const [rel, content] of writes) await actions.request({ type: "writeFile", path: path(rel), content });
-      await git({ op: "commit", message: addMessage(next), paths: writes.map(([rel]) => rel), allowEmpty: false });
+    if (next) await addLesson(next);
+    const failed = await loadCourse();
+    if (failed) set({ notice: { tone: "error", text: `The course did not load: ${failed}` } });
+  });
+}
+
+/** Writes a lesson's files on main, lists it in the system, and commits it; nothing when it is there. */
+async function addLesson(next: Lesson) {
+  const { pkg } = get().course!;
+  const files = (await actions.listDir(path("src"))).map((e) => e.name);
+  if (files.includes(`${next.id}.lisp`)) return;
+  const reached = LESSONS.filter((x) => files.includes(`${x.id}.lisp`) || x === next);
+  const writes: [string, string][] = [
+    [lessonSource(next), sourceFile(pkg, next)],
+    [lessonTests(next), testFile(pkg, next)],
+    [`${pkg}.asd`, asdFile(pkg, reached)],
+  ];
+  for (const [rel, content] of writes) await actions.request({ type: "writeFile", path: path(rel), content });
+  await git({ op: "commit", message: addMessage(next), paths: writes.map(([rel]) => rel), allowEmpty: false });
+  await followDisk();
+  set({ arrived: next.id });
+}
+
+/** The lesson a newer ZParen brought, for a learner who finished every lesson the project has. */
+export function waitingLesson(p: ReturnType<typeof currentProgress>): Lesson | null {
+  if (p.current || !p.reached.length || !p.reached.every((l) => p.finished.has(l.id))) return null;
+  return LESSONS.find((l) => !p.reached.includes(l)) ?? null;
+}
+
+/** Adds the lesson an update brought, on main, and opens it. */
+export function addWaitingLesson(next: Lesson) {
+  return busy(`Adding lesson ${next.number}…`, async () => {
+    if (get().git?.branch !== "main") {
+      if (!(await leaveBranch("main"))) return;
+      await git({ op: "switch", branch: "main", create: false });
       await followDisk();
-      set({ arrived: next.id });
     }
+    await addLesson(next);
+    showLesson(next.id);
     const failed = await loadCourse();
     if (failed) set({ notice: { tone: "error", text: `The course did not load: ${failed}` } });
   });
@@ -347,6 +374,29 @@ export function backToLesson() {
   set({ askedFrom: null });
   if (id) showLesson(id);
   setApp({ right: "learn" });
+}
+
+/** The most recent project that is a course, and whether it has finished every lesson in the course; null when there is none. */
+export async function findCourse(): Promise<{ root: string; done: boolean } | null> {
+  for (const root of recentProjects()) {
+    const r = await actions.request({ type: "courseState", root }).catch(() => null);
+    if (r?.type !== "courseGit" || r.reply.kind !== "state") continue;
+    const p = progress(r.reply, []);
+    return { root, done: LESSONS.every((l) => lessonDone(p, l)) };
+  }
+  return null;
+}
+
+/** Opens the course project at ROOT where the learner left it, without starting a lesson. */
+export async function openCourse(root: string) {
+  if (getApp().status.project?.root !== root) {
+    if (!(await actions.leaveProject())) return;
+    await actions.openProject(root);
+  }
+  setApp({ right: "learn" });
+  await refreshCourse();
+  const lesson = currentProgress().onLesson;
+  if (lesson) await actions.openFile(path(lessonSource(lesson)));
 }
 
 /** Makes a course project, opens it, and shows the course. */
