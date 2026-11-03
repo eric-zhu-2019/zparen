@@ -302,6 +302,9 @@ function General() {
       <Row label="Parentheses" hint="Parinfer keeps them balanced from indentation as you type.">
         <Toggle label="Parinfer" checked={s.parinfer} onChange={(parinfer) => put({ parinfer })} />
       </Row>
+      <Row label="Colors" hint="Asks the running Lisp what each form's head names, so your own macros look like when and with-open-file.">
+        <Toggle label="Color macros and functions from the running Lisp" checked={s.semanticColors} onChange={(semanticColors) => put({ semanticColors })} />
+      </Row>
       <Row label="Checking" hint="Compiles the file in the background as you type, without loading it, and marks warnings and errors.">
         <Toggle label="Check code as you type" checked={s.liveCheck} onChange={(liveCheck) => put({ liveCheck })} />
       </Row>

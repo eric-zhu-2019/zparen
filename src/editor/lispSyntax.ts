@@ -86,7 +86,7 @@ export const lispHighlighter = tagHighlighter([
 // Common Lisp mode used, with let* fixed; the rest are Coalton's.
 const SPECIAL_FORM = /^(block|let\*?|return-from|catch|load-time-value|setq|eval-when|locally|symbol-macrolet|flet|macrolet|tagbody|function|multiple-value-call|the|go|multiple-value-prog1|throw|if|progn|unwind-protect|labels|progv|quote)$/;
 const ASSUME_BODY = /^with|^def|^do|^prog|case$|^cond$|bind$|when$|unless$/;
-const COALTON_FORMS = /^(coalton-toplevel|coalton|declare|match|fn|lisp|rec|for\*?|break|continue|return|derive|repr|monomorphize|specialize|inline|noinline|handle|protect|resumable|resume-to)$/;
+export const COALTON_FORMS = /^(coalton-toplevel|coalton|declare|match|fn|lisp|rec|for\*?|break|continue|return|derive|repr|monomorphize|specialize|inline|noinline|handle|protect|resumable|resume-to)$/;
 const COALTON_PACKAGE_CLAUSES = /^(import|export|import-from|shadow)$/;
 /** Heads whose next form is the name they define. */
 const DEFINER = /^(def[a-z]*|define(-[a-z0-9-]+)?)$/;

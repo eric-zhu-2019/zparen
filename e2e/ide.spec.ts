@@ -205,6 +205,15 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await expect(sum.locator(".tok-string"), "the input after the output is read as code").toHaveCount(0);
   await expect(page.locator(".repl-buffer .cm-line", { hasText: /^3$/ }).locator(".tok-number"), "and so is its result").toHaveText("3");
 
+  // Heads are colored by what the image knows: a new macro reads as syntax, and a function
+  // whose name looks like syntax reads as a call.
+  await replEval(page, "(defmacro twice-do (&body body) `(progn ,@body ,@body))");
+  await replEval(page, "(defun do-sum (a) a)");
+  await replEval(page, "(list (twice-do 1) (do-sum 2))");
+  const call = page.locator(".repl-buffer .cm-line", { hasText: "CL-USER> (list (twice-do 1) (do-sum 2))" });
+  await expect(call.locator(".tok-macro"), "the image says TWICE-DO is a macro").toHaveText("twice-do");
+  await expect(call.locator(".tok-function", { hasText: "do-sum" }), "and DO-SUM a function").toBeVisible();
+
   const clickGutter = async (text: string) => {
     const line = await page.locator(".editor-host .cm-line", { hasText: text }).boundingBox();
     const gutter = await page.locator(".editor-host .cm-breakpoint-gutter").boundingBox();

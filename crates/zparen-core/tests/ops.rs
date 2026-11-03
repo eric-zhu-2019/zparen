@@ -77,6 +77,16 @@ async fn editor_services() {
     assert!(page.title.contains("CONS"), "{}", page.title);
     assert!(page.parts.iter().any(|p| matches!(p, zparen_core::ops::InspectorPart::Value { text, .. } if text == "2")));
 
+    let names = ["if", "when", "mapcar", "zz", "no-such-name-zp", "cl-user::also-missing-zp", "nosuchpkg-zp:x", ":key"];
+    let Reply::Names { items } =
+        cl(|package| Op::ClassifySymbols { names: names.iter().map(|n| n.to_string()).collect(), package }).run(c).await.unwrap()
+    else {
+        panic!()
+    };
+    assert_eq!(items, ["special", "macro", "function", "function", "", "", "", ""]);
+    let Reply::Evaluated { value, .. } = cl(|package| Op::Eval { form: "(list (find-symbol \"NO-SUCH-NAME-ZP\") (find-symbol \"ALSO-MISSING-ZP\"))".into(), package }).run(c).await.unwrap() else { panic!() };
+    assert_eq!(value, "(NIL NIL)", "classifying a name never interns it");
+
     let Reply::Names { items } = Op::ListPackages.run(c).await.unwrap() else { panic!() };
     assert!(items.iter().any(|n| n == "COMMON-LISP-USER"));
     s.stop().await;

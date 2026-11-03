@@ -323,3 +323,18 @@ by name in its package."
                            ((boundp symbol) "variable") (t "class"))
                      home))
             (t "")))))
+
+(defun classify-symbols (names)
+  "What each name in NAMES, read in the buffer's package, names as the head of
+a form: \"special\", \"macro\", \"function\", or \"\" for none. The editor colors
+heads by it. Reading never interns, so a name typed but not yet defined adds
+no symbol to the image."
+  (swank::with-buffer-syntax ()
+    (mapcar (lambda (name)
+              (multiple-value-bind (symbol found) (ignore-errors (swank::parse-symbol name))
+                (cond ((not found) "")
+                      ((special-operator-p symbol) "special")
+                      ((macro-function symbol) "macro")
+                      ((fboundp symbol) "function")
+                      (t ""))))
+            names)))

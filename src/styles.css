@@ -645,6 +645,9 @@ button.image-chip:hover {
 .tok-def { color: var(--syn-def); font-weight: 600; }
 .tok-symbol { color: var(--syn-symbol); }
 .tok-prompt { color: var(--accent); font-weight: 600; }
+/* What the running Lisp says a head names, from src/editor/semantic.ts, over the token's own color. */
+.tok-macro, .tok-macro > span { color: var(--syn-macro, var(--syn-special)); font-weight: 600; }
+.tok-function, .tok-function > span { color: var(--syn-function, var(--syn-symbol)); font-weight: normal; }
 
 .cm-inline {
   font-family: var(--mono);

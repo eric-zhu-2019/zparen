@@ -171,6 +171,10 @@ clears whichever tab is showing.
   code blocks, the Learn panel and Markdown previews read code with the same
   reader, so strings, comments, `|symbols|` and nested `#| |#` comments look
   the same in each. Parentheses get a color for each depth.
+- Heads of forms colored by what the running Lisp knows. Your own macros
+  look like `when` and `with-open-file`, and a function named like syntax,
+  such as `do-sum`, looks like a call. Settings ▸ Colors turns this off. A
+  theme can set `syn-macro` and `syn-function` to give them their own colors.
 - In the REPL, only your input and Lisp's results are read as Lisp. A
   program's output stays plain, so a quote it prints cannot change the colors
   that follow.

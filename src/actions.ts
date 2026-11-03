@@ -9,6 +9,7 @@ import type { TestNode } from "./protocol/TestNode";
 import type { Thread } from "./protocol/Thread";
 import { activeEditor, viewPath } from "./editor/commands";
 import { forgetDocs } from "./editor/hover";
+import { forgetKinds } from "./editor/semantic";
 import { pickFolder, rememberLoaded, rememberProject } from "./platform";
 import { markTour, offerTour } from "./tour";
 import type { Debugger } from "./protocol/Debugger";
@@ -54,7 +55,7 @@ const CHANGES_CODE = new Set(["eval", "replEval", "compileForm", "compileFile", 
 const UNWINDS = new Set(["invokeRestart", "step", "debuggerAbort", "debuggerTopLevel", "debuggerContinue", "restartFrame", "returnFromFrame"]);
 
 export async function lisp(op: Op): Promise<Reply> {
-  if (CHANGES_CODE.has(op.op)) forgetDocs();
+  if (CHANGES_CODE.has(op.op)) (forgetDocs(), forgetKinds());
   if (UNWINDS.has(op.op)) {
     const r = await backend.request({ type: "lisp", op }).catch(() => null);
     return r?.type === "lisp" ? r.reply : { kind: "none" };
