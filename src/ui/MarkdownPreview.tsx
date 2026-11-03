@@ -1,8 +1,11 @@
 import { Marked } from "marked";
 import { useMemo } from "react";
 import * as actions from "../actions";
+import { highlightLispHtml } from "../editor/lispSyntax";
 import { openExternal } from "../platform";
 import { useStore } from "../store";
+
+const LISP_FENCE = /^(lisp|common-lisp|commonlisp|cl|coalton)$/i;
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -13,6 +16,8 @@ const markdown = new Marked({
   gfm: true,
   renderer: {
     html: ({ text }) => escape(text),
+    code: ({ text, lang }) =>
+      LISP_FENCE.test(lang ?? "") ? `<pre><code class="language-lisp">${highlightLispHtml(text)}</code></pre>` : false,
     image: ({ href, text }) =>
       /^https?:\/\//.test(href) ? `<img src="${escape(href)}" alt="${escape(text)}">` : `<span class="md-image">${escape(text || href)}</span>`,
   },

@@ -167,6 +167,13 @@ clears whichever tab is showing.
 
 - Split panes, side by side.
 - A git gutter with inline diffs, and a Revert button on each change.
+- Code colors that match everywhere. The editor, the REPL, the assistant's
+  code blocks, the Learn panel and Markdown previews read code with the same
+  reader, so strings, comments, `|symbols|` and nested `#| |#` comments look
+  the same in each. Parentheses get a color for each depth.
+- In the REPL, only your input and Lisp's results are read as Lisp. A
+  program's output stays plain, so a quote it prints cannot change the colors
+  that follow.
 - Word wrap (⌥Z) and Markdown preview (⇧⌘V).
 - A choice of editor and interface fonts.
 - Solarized, Nord and Gruvbox themes, picked separately for light and dark.

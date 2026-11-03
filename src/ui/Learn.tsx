@@ -1,7 +1,7 @@
 import { Marked } from "marked";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Exercise, exercisesPassed, type Lesson, lessonBranch, lessonDone, lessonSource, LESSONS, LEVELS, type Progress, progress } from "../learn/course";
-import { escapeHtml, highlightLisp } from "../learn/highlight";
+import { escapeHtml, highlightLispHtml } from "../editor/lispSyntax";
 import {
   abortMerge,
   addWaitingLesson,
@@ -40,7 +40,7 @@ function renderProse(md: string): { html: string; codes: string[] } {
         const i = codes.push(text) - 1;
         return `<div class="learn-code" tabindex="0" data-code="${i}"><div class="learn-code-actions">
 <button class="btn" data-copy="${i}" title="Copy the code">Copy</button>
-<button class="btn" data-run="${i}" title="Run it in the REPL (⌘↩)">Run <kbd>⌘↩</kbd></button></div><pre>${highlightLisp(text)}</pre></div>`;
+<button class="btn" data-run="${i}" title="Run it in the REPL (⌘↩)">Run <kbd>⌘↩</kbd></button></div><pre>${highlightLispHtml(text)}</pre></div>`;
       },
     },
   });
@@ -326,7 +326,7 @@ function Card({ l, e, p, canCheck, why }: { l: Lesson; e: Exercise; p: Progress;
       {e.hint && shown[`hint:${e.key}`] && <Prose md={e.hint} className="learn-reveal" />}
       {shown[`solution:${e.key}`] && (
         <div className="learn-reveal code">
-          <pre dangerouslySetInnerHTML={{ __html: highlightLisp(e.solution) }} />
+          <pre dangerouslySetInnerHTML={{ __html: highlightLispHtml(e.solution) }} />
           <span className="learn-dim">Shown here only. It is never written into your file.</span>
         </div>
       )}

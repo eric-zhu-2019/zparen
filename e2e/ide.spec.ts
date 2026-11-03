@@ -196,6 +196,15 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await page.keyboard.press("Control+l");
   await expect(page.locator(".repl-buffer"), "⌃L clears it too, as in a terminal").not.toContainText("444");
 
+  // A program's output is not Lisp: the quote it prints does not color the input and result after it.
+  await replEval(page, '(format t "a\\"b~%")');
+  await replEval(page, "(+ 1 2)");
+  await expect(page.locator(".repl-buffer .cm-line", { hasText: /^a"b$/ }).locator("[class*=tok-]"), "output stays plain").toHaveCount(0);
+  const sum = page.locator(".repl-buffer .cm-line", { hasText: "CL-USER> (+ 1 2)" });
+  await expect(sum.locator(".cm-paren-0").first()).toHaveText("(");
+  await expect(sum.locator(".tok-string"), "the input after the output is read as code").toHaveCount(0);
+  await expect(page.locator(".repl-buffer .cm-line", { hasText: /^3$/ }).locator(".tok-number"), "and so is its result").toHaveText("3");
+
   const clickGutter = async (text: string) => {
     const line = await page.locator(".editor-host .cm-line", { hasText: text }).boundingBox();
     const gutter = await page.locator(".editor-host .cm-breakpoint-gutter").boundingBox();
@@ -242,6 +251,8 @@ test("assistant runs tools in the live image and its code can be inserted", asyn
   await expect(page.locator(".chat-assistant strong")).toHaveText("42");
   await shots(page, "05-assistant");
 
+  await expect(page.locator(".chat-code pre .tok-special"), "the assistant's Lisp is colored as in the editor").toHaveText("defun");
+  await expect(page.locator(".chat-code pre .tok-def")).toHaveText("answer");
   await page.locator(".chat-code").getByRole("button", { name: "Insert" }).click();
   await expect(page.locator(".cm-content").first()).toContainText("(defun answer () (* 6 7))");
   await page.locator(".chat-code").getByRole("button", { name: "Eval" }).click();

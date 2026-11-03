@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as actions from "../actions";
 import { modelName } from "./modelName";
 import { ALL_PROVIDERS, FAMILY_NAMES, familyOf, isAgent, METHOD_HINTS, MODEL_KEY, providerLabel } from "./providers";
 import { toolInput } from "./toolInput";
+import { highlightLispHtml, looksLikeLisp } from "../editor/lispSyntax";
 import { editorContext, insertAtCursor } from "../editor/commands";
 import type { AssistantStatus } from "../protocol/AssistantStatus";
 import type { Provider } from "../protocol/Provider";
@@ -31,6 +32,9 @@ function Inline({ text }: { text: string }) {
 function CodeBlock({ lang, code }: { lang: string; code: string }) {
   const [done, setDone] = useState("");
   const lisp = /^(lisp|common-lisp|cl|)$/i.test(lang);
+  // A block without a language is colored only when it reads as Lisp.
+  const colored = /^(lisp|common-lisp|commonlisp|cl|coalton)$/i.test(lang) || (!lang && looksLikeLisp(code));
+  const html = useMemo(() => (colored ? highlightLispHtml(code) : null), [colored, code]);
   const flash = (msg: string) => {
     setDone(msg);
     setTimeout(() => setDone(""), 1500);
@@ -55,7 +59,7 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
           </>
         )}
       </div>
-      <pre>{code}</pre>
+      {html === null ? <pre>{code}</pre> : <pre dangerouslySetInnerHTML={{ __html: html }} />}
     </div>
   );
 }
