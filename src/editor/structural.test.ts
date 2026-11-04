@@ -81,7 +81,7 @@ const cases: Record<string, [StructuralCommand, Case[]]> = {
       ["(a|) 'b", "(a| 'b)"],
       ["(a|) #'f", "(a| #'f)"],
       ["(a|) `(b ,c)", "(a| `(b ,c))"],
-      // The app's indenter puts a line after a trailing comment under the comment.
+      // Emacs with SLIME, and so ZParen, puts a line after a trailing comment under the comment.
       ["(a|) ; note\nb", "(a| ; note\n   b)"],
       ["(when t|)\n(print x)", "(when t|\n  (print x))"],
       ['(when t|)\n"a\n  b"', '(when t|\n  "a\n  b")'],
