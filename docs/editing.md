@@ -46,6 +46,13 @@ Parinfer keeps parentheses balanced as you type, and typing `(` or `"` over
 a selection wraps it. The structural commands move code by whole forms:
 slurp, barf, raise, splice, kill, transpose, split, and join.
 
+Parinfer moves the closing parentheses at the end of a line when you change
+the indentation. To see which ones it moves, turn on Settings ▸ Parentheses ▸
+"Dim the closing parentheses parinfer moves". They keep their color, faded.
+The line with the cursor is not dimmed. Nothing is dimmed when parinfer
+refuses the text, for example because of a lone `"` in a comment, since it
+then moves nothing. The status bar says why.
+
 In Vim, these text objects work after an operator such as `d`, `c` or `y`,
 and in Visual mode:
 
@@ -167,6 +174,17 @@ clears whichever tab is showing.
 
 - Split panes, side by side.
 - A git gutter with inline diffs, and a Revert button on each change.
+- Code colors that match everywhere. The editor, the REPL, the assistant's
+  code blocks, the Learn panel and Markdown previews read code with the same
+  reader, so strings, comments, `|symbols|` and nested `#| |#` comments look
+  the same in each. Parentheses get a color for each depth.
+- Heads of forms colored by what the running Lisp knows. Your own macros
+  look like `when` and `with-open-file`, and a function named like syntax,
+  such as `do-sum`, looks like a call. Settings ▸ Colors turns this off. A
+  theme can set `syn-macro` and `syn-function` to give them their own colors.
+- In the REPL, only your input and Lisp's results are read as Lisp. A
+  program's output stays plain, so a quote it prints cannot change the colors
+  that follow.
 - Word wrap (⌥Z) and Markdown preview (⇧⌘V).
 - A choice of editor and interface fonts.
 - Solarized, Nord and Gruvbox themes, picked separately for light and dark.

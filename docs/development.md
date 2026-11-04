@@ -101,6 +101,26 @@ ZPAREN_SIGN_IDENTITY="…" scripts/release.sh
 The script writes `latest.json` beside the archive. Publish both at those
 URLs. A build without these variables has updates turned off and says so.
 
+### Updates from GitHub releases
+
+The release workflow ships updates when they are set up. Do this once:
+
+1. Make the key pair: `npx tauri signer generate -w ~/.tauri/zparen.key`.
+   Keep the private half and its password safe. A lost key means that apps
+   already installed can never update again.
+2. In the repository settings, add the variable `ZPAREN_UPDATE_PUBKEY`. Its
+   value is the content of `~/.tauri/zparen.key.pub`.
+3. In the `release` environment, add the secrets `TAURI_SIGNING_PRIVATE_KEY`
+   (the content of `~/.tauri/zparen.key`) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+
+Then each release is built to read
+`releases/latest/download/latest.json` from this repository. After the sign job
+deletes the certificate's keychain, `scripts/update-archive.sh` packs the signed
+app as `ZParen.app.tar.gz`, signs it with the update key and writes
+`latest.json`. Both files go into the release with the disk image. A build from
+before the variable was set has no updates. Its users download the next disk
+image once, and update from the app after that.
+
 ## The website
 
 The website at https://eric-zhu-2019.github.io/zparen/ is the landing page in

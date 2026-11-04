@@ -5,6 +5,12 @@ name: Release
 # the release environment, and gives the Developer ID certificate to Apple's
 # tools and scripts/sign.sh alone: no npm or cargo code runs next to it. The
 # App Store Connect key that notarizes the disk image is used in that job too.
+#
+# Updates: when the repository variable ZPAREN_UPDATE_PUBKEY holds the public
+# half of the update key, the app is built to check this repository's latest
+# release for latest.json. The sign job then deletes the certificate's
+# keychain, and only after that packs and signs the update archive with the
+# TAURI_SIGNING_PRIVATE_KEY secret. Without the variable, releases have no updates.
 on:
   push:
     tags: ["v*"]
@@ -39,8 +45,17 @@ jobs:
       - run: npx playwright install webkit
       - run: scripts/verify.sh
       - name: Build
+        env:
+          ZPAREN_UPDATE_PUBKEY: ${{ vars.ZPAREN_UPDATE_PUBKEY }}
+          ZPAREN_UPDATE_URL: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
         run: |
-          npx tauri build --bundles app --config '{"bundle":{"macOS":{"signingIdentity":"-"}}}'
+          config=$(python3 -c '
+          import json, os
+          c = {"bundle": {"macOS": {"signingIdentity": "-"}}}
+          if os.environ["ZPAREN_UPDATE_PUBKEY"]:
+              c["plugins"] = {"updater": {"pubkey": os.environ["ZPAREN_UPDATE_PUBKEY"], "endpoints": [os.environ["ZPAREN_UPDATE_URL"]]}}
+          print(json.dumps(c))')
+          npx tauri build --bundles app --config "$config"
           tar -czf ZParen.app.tgz -C target/release/bundle/macos ZParen.app
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -89,6 +104,10 @@ jobs:
         run: |
           tar -xzf ZParen.app.tgz
           scripts/sign.sh ZParen.app "ZParen_${GITHUB_REF_NAME#v}_aarch64.dmg"
+      # The certificate is done with: nothing after this step can reach it.
+      - name: Remove the keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/sign.keychain-db" || true
       # Without the App Store Connect key the release ships signed but not notarized, as before.
       - name: Notarize
         env:
@@ -120,12 +139,25 @@ jobs:
           xcrun stapler staple "$dmg"
           xcrun stapler validate "$dmg"
           echo "NOTES=Signed with a Developer ID and notarized by Apple." >> "$GITHUB_ENV"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: vars.ZPAREN_UPDATE_PUBKEY != ''
+        with:
+          node-version: 26.12.1
+          cache: npm
+      - name: Update archive
+        if: vars.ZPAREN_UPDATE_PUBKEY != ''
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          npm ci --ignore-scripts
+          scripts/update-archive.sh ZParen.app "${GITHUB_REF_NAME#v}" \
+            "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/ZParen.app.tar.gz"
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" ZParen_*_aarch64.dmg \
+          files=(ZParen_*_aarch64.dmg)
+          if [ -f latest.json ]; then files+=(ZParen.app.tar.gz latest.json); fi
+          gh release create "$GITHUB_REF_NAME" "${files[@]}" \
             --title "ZParen ${GITHUB_REF_NAME#v}" --generate-notes --notes "$NOTES"
-      - name: Remove the keychain
-        if: always()
-        run: security delete-keychain "$RUNNER_TEMP/sign.keychain-db" || true

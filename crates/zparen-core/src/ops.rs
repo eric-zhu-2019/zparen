@@ -25,6 +25,9 @@ pub enum Op {
     Autodoc { form: Vec<AutodocArg>, package: String },
     #[serde(rename_all = "camelCase")]
     Describe { symbol: String, package: String },
+    /// What each name names as a form's head: "special", "macro", "function" or "". Never interns.
+    #[serde(rename_all = "camelCase")]
+    ClassifySymbols { names: Vec<String>, package: String },
     #[serde(rename_all = "camelCase")]
     FindDefinitions { name: String, package: String },
     #[serde(rename_all = "camelCase")]
@@ -537,6 +540,7 @@ impl Op {
                 t,
             ),
             Describe { symbol, .. } => (rpc("swank:documentation-symbol", [s(symbol)]), t),
+            ClassifySymbols { names, .. } => (rpc("zparen::classify-symbols", [quote(Sexp::list(names.iter().map(|n| s(n))))]), t),
             FindDefinitions { name, .. } => (rpc("swank:find-definitions-for-emacs", [s(name)]), t),
             Apropos { query, package } => (
                 rpc(
@@ -674,6 +678,7 @@ impl Op {
             | Complete { package, .. }
             | Autodoc { package, .. }
             | Describe { package, .. }
+            | ClassifySymbols { package, .. }
             | FindDefinitions { package, .. }
             | Xref { package, .. }
             | Macroexpand { package, .. }
@@ -747,6 +752,7 @@ impl Op {
                     })
                     .collect(),
             },
+            ClassifySymbols { .. } => Reply::Names { items: v.items().iter().map(|n| n.as_str().unwrap_or_default().to_string()).collect() },
             ListPackages => Reply::Names {
                 items: {
                     let mut names: Vec<String> = v.items().iter().filter_map(|n| n.as_str().map(String::from)).collect();
@@ -1023,7 +1029,8 @@ fn parse_test_node(v: &Sexp) -> TestNode {
     }
 }
 
-fn parse_test_run(v: &Sexp) -> TestRun {
+/// A test run as RECORD-TESTS returns it.
+pub fn parse_test_run(v: &Sexp) -> TestRun {
     let int = |k| v.plist_get(k).and_then(Sexp::as_int).unwrap_or_default();
     TestRun {
         passed: int("passed"),

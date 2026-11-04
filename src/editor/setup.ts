@@ -24,6 +24,8 @@ import { symbolAt } from "../lisp/forms";
 import { bufferPackage, compileFile, lispCompletions, updateArglist, viewPath } from "./commands";
 import { docTips, lispHover } from "./hover";
 import { lispIndentation } from "./indent";
+import { dimParenTrails } from "./parenTrail";
+import { semanticHeads } from "./semantic";
 import { inlineResults } from "./inline";
 import { configureStructuralVim, optionKeys, structuralKeymap } from "./structural";
 import { lisp } from "./lisp";
@@ -161,6 +163,8 @@ export function editorExtensions(opts: {
     Prec.lowest(oneProblemBox),
     problemsCompartment.of(problemsExtension(opts.problems ?? "inline")),
     lisp(),
+    semanticHeads,
+    dimParenTrails,
     lispIndentation(() => useStore.getState().indentSpecs),
     structureCompartment.of(opts.structure),
     inlineResults(),

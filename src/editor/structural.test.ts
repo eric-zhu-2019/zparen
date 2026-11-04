@@ -4,6 +4,7 @@ import { EditorSelection, EditorState, type Extension, type TransactionSpec } fr
 import type { EditorView } from "@codemirror/view";
 import type { CodeMirrorV, InputStateInterface, MotionArgs, vimState } from "@replit/codemirror-vim";
 import { beforeAll, describe, expect, it } from "vitest";
+import { lispIndentation } from "./indent";
 import { lisp } from "./lisp";
 import { initParinferSync, parinfer } from "./parinfer";
 import {
@@ -42,13 +43,13 @@ function load(fixture: string, extensions: Extension[] = []): EditorState {
   if (sel >= 0) {
     const doc = fixture.replace("<sel>", "").replace("</sel>", "");
     const end = fixture.indexOf("</sel>") - "<sel>".length;
-    return EditorState.create({ doc, selection: EditorSelection.single(sel, end), extensions: [lisp(), ...extensions] });
+    return EditorState.create({ doc, selection: EditorSelection.single(sel, end), extensions: [lisp(), lispIndentation(() => ({})), ...extensions] });
   }
   const at = fixture.indexOf("|");
   return EditorState.create({
     doc: fixture.replace("|", ""),
     selection: EditorSelection.cursor(at),
-    extensions: [lisp(), ...extensions],
+    extensions: [lisp(), lispIndentation(() => ({})), ...extensions],
   });
 }
 
@@ -80,7 +81,8 @@ const cases: Record<string, [StructuralCommand, Case[]]> = {
       ["(a|) 'b", "(a| 'b)"],
       ["(a|) #'f", "(a| #'f)"],
       ["(a|) `(b ,c)", "(a| `(b ,c))"],
-      ["(a|) ; note\nb", "(a| ; note\n b)"],
+      // Emacs with SLIME, and so ZParen, puts a line after a trailing comment under the comment.
+      ["(a|) ; note\nb", "(a| ; note\n   b)"],
       ["(when t|)\n(print x)", "(when t|\n  (print x))"],
       ['(when t|)\n"a\n  b"', '(when t|\n  "a\n  b")'],
       ["(when t|)\n#| a\n  b |#\nc", "(when t|\n  #| a\n  b |#\n  c)"],
@@ -173,7 +175,7 @@ const cases: Record<string, [StructuralCommand, Case[]]> = {
       ["(a b|)", "(b a|)"],
       ["('a |#'f)", "(#'f 'a|)"],
       ["(fo|o bar)", "(bar foo|)"],
-      ["(a ; c\n |b)", "(b ; c\n a|)"],
+      ["(a ; c\n |b)", "(b ; c\n   a|)"],
       ["(|a)", null],
     ],
   ],

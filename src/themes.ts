@@ -9,6 +9,8 @@ export const TOKENS = [
   "border", "border-strong", "text", "text-dim", "text-faint",
   "accent", "accent-text", "danger", "danger-bg", "warning", "success", "shadow", "keycap-bg", "keycap-edge",
   "syn-comment", "syn-string", "syn-number", "syn-keyword-arg", "syn-special", "syn-def", "syn-symbol", "syn-meta", "syn-paren",
+  // Unset, a macro keeps the special color and a function the symbol color.
+  "syn-macro", "syn-function",
   "paren-0", "paren-1", "paren-2", "paren-3", "paren-4", "paren-5",
 ] as const;
 

@@ -97,7 +97,7 @@ export function parinfer(opts: ParinferOptions = {}): Extension {
 
 // Vim edits arrive as "input.type.compose"; "move" is drag-and-drop. Undo and redo are left
 // alone so they restore exactly the state history recorded.
-const USER_EDITS = ["input", "delete", "move"];
+export const USER_EDITS = ["input", "delete", "move"];
 
 function correct(tr: Transaction): Transaction | readonly (Transaction | TransactionSpec)[] {
   if (!tr.docChanged || !USER_EDITS.some((event) => tr.isUserEvent(event))) return tr;

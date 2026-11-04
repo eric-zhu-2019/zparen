@@ -3,9 +3,11 @@
 // searched, selected and copied like any text.
 
 import { insertNewlineAndIndent } from "@codemirror/commands";
-import { Annotation, EditorSelection, EditorState, type Extension, Facet, Prec, RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
+import { Annotation, EditorSelection, EditorState, type Extension, Facet, Prec, RangeSetBuilder, StateEffect, StateField, type Transaction } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, keymap } from "@codemirror/view";
 import { isComplete } from "../lisp/forms";
+import { lispRegions } from "../editor/lisp";
+import { type Region, regionTree } from "../editor/lispSyntax";
 import type { TranscriptItem } from "../store";
 
 /** Marks transactions that write the transcript, which the read-only guard lets through. */
@@ -21,16 +23,42 @@ type Layout = {
   /** Past inputs, so Enter on one copies it down to the prompt. */
   inputs: { from: number; to: number }[];
   marks: DecorationSet;
+  /** The transcript's Lisp: past inputs as code and results as data, each read once into its own tree. */
+  regions: Region[];
 };
 
-type Append = { at: number; marks: Mark[]; inputs: { from: number; to: number }[] };
+type Piece = { from: number; to: number; mode: "code" | "data" };
+
+type Append = { at: number; marks: Mark[]; inputs: { from: number; to: number }[]; regions?: Piece[] };
+
+/** Maps the transcript's regions through a change. A region whose text changed loses its tree. */
+function mapRegions(regions: Region[], tr: Transaction): Region[] {
+  return regions.flatMap((r) => {
+    const from = tr.changes.mapPos(r.from, 1);
+    const to = tr.changes.mapPos(r.to, -1);
+    if (to <= from) return [];
+    return [from === r.from && to === r.to ? r : to - from === r.to - r.from ? { ...r, from, to } : { from, to, mode: r.mode }];
+  });
+}
+
+/** Adds new regions, each read now. A result that grows continues its region. */
+function addRegions(regions: Region[], pieces: Piece[], state: EditorState): Region[] {
+  const out = [...regions];
+  for (const p of pieces) {
+    const last = out[out.length - 1];
+    const from = last && last.mode === "data" && p.mode === "data" && last.to === p.from ? last.from : p.from;
+    if (from !== p.from) out.pop();
+    out.push({ from, to: p.to, mode: p.mode, tree: regionTree(state.doc.sliceString(from, p.to), p.mode) });
+  }
+  return out;
+}
 
 const appended = StateEffect.define<Append>();
 const promptChanged = StateEffect.define<{ promptFrom: number; inputStart: number }>();
 const cleared = StateEffect.define<{ inputStart: number }>();
 
 export const layout = StateField.define<Layout>({
-  create: (state) => ({ promptFrom: 0, inputStart: state.doc.length, inputs: [], marks: Decoration.none }),
+  create: (state) => ({ promptFrom: 0, inputStart: state.doc.length, inputs: [], marks: Decoration.none, regions: [] }),
   update(l, tr) {
     let next: Layout = tr.docChanged
       ? {
@@ -45,6 +73,7 @@ export const layout = StateField.define<Layout>({
             return to > from ? [{ from, to }] : [];
           }),
           marks: l.marks.map(tr.changes),
+          regions: mapRegions(l.regions, tr),
         }
       : l;
     for (const e of tr.effects) {
@@ -55,11 +84,11 @@ export const layout = StateField.define<Layout>({
         all.push(...e.value.marks);
         all.sort((a, z) => a.from - z.from || a.deco.startSide - z.deco.startSide);
         for (const m of all) b.add(m.from, m.to, m.deco);
-        next = { ...next, marks: b.finish(), inputs: [...next.inputs, ...e.value.inputs] };
+        next = { ...next, marks: b.finish(), inputs: [...next.inputs, ...e.value.inputs], regions: addRegions(next.regions, e.value.regions ?? [], tr.state) };
       }
       // A prompt rewrite starts exactly at promptFrom, which mapping would push past it.
       if (e.is(promptChanged)) next = { ...next, promptFrom: e.value.promptFrom, inputStart: e.value.inputStart };
-      if (e.is(cleared)) next = { promptFrom: 0, inputStart: e.value.inputStart, inputs: [], marks: Decoration.none };
+      if (e.is(cleared)) next = { promptFrom: 0, inputStart: e.value.inputStart, inputs: [], marks: Decoration.none, regions: [] };
     }
     return next;
   },
@@ -80,7 +109,9 @@ export function promptText(pkg: string) {
 }
 
 /** The text an item adds to the transcript, and how to style it. */
-function render(item: TranscriptItem): { text: string; marks: (at: number) => Mark[]; input?: [number, number] } {
+type Rendered = { text: string; marks: (at: number) => Mark[]; input?: [number, number]; lisp?: [number, number, "code" | "data"] };
+
+function render(item: TranscriptItem): Rendered {
   switch (item.kind) {
     case "input": {
       // Input typed while Lisp was reading has no prompt, as in SBCL.
@@ -90,6 +121,8 @@ function render(item: TranscriptItem): { text: string; marks: (at: number) => Ma
         text,
         marks: (at) => [{ from: at, to: at + shown.length, deco: mark("repl-prompt") }],
         input: [shown.length, shown.length + item.text.length],
+        // Text typed while a program read a line is not Lisp.
+        lisp: item.package === "" ? undefined : [shown.length, shown.length + item.text.length, "code"],
       };
     }
     case "output":
@@ -100,7 +133,7 @@ function render(item: TranscriptItem): { text: string; marks: (at: number) => Ma
         item.presentation === null
           ? mark("repl-result")
           : mark("presentation", { "data-presentation": String(item.presentation), title: "Click to use in the input, ⌘-click to inspect" });
-      return { text: item.text, marks: (at) => (body ? [{ from: at, to: at + body.length, deco }] : []) };
+      return { text: item.text, marks: (at) => (body ? [{ from: at, to: at + body.length, deco }] : []), lisp: [0, body.length, "data"] };
     }
     case "condition": {
       const type = item.type.replace(/^\[|\]$/g, "").replace(/Condition of type /, "");
@@ -172,6 +205,7 @@ export class TranscriptRenderer {
     let text = "";
     const marks: Mark[] = [];
     const inputs: { from: number; to: number }[] = [];
+    const regions: Piece[] = [];
     const l = view.state.field(layout);
     let from = 0;
     if (this.last) {
@@ -185,7 +219,7 @@ export class TranscriptRenderer {
     const at = continuing ? l.promptFrom - 1 : l.promptFrom;
     let lastChar = view.state.doc.sliceString(Math.max(0, at - 1), at);
 
-    const add = (piece: { text: string; marks: (at: number) => Mark[]; input?: [number, number] }, freshLine: boolean) => {
+    const add = (piece: Rendered, freshLine: boolean) => {
       if (freshLine && lastChar && lastChar !== "\n") {
         text += "\n";
         lastChar = "\n";
@@ -193,6 +227,7 @@ export class TranscriptRenderer {
       const start = at + text.length;
       marks.push(...piece.marks(start));
       if (piece.input) inputs.push({ from: start + piece.input[0], to: start + piece.input[1] });
+      if (piece.lisp && piece.lisp[1] > piece.lisp[0]) regions.push({ from: start + piece.lisp[0], to: start + piece.lisp[1], mode: piece.lisp[2] });
       text += piece.text;
       if (piece.text) lastChar = piece.text[piece.text.length - 1];
     };
@@ -221,7 +256,7 @@ export class TranscriptRenderer {
     const end = view.state.doc.length + text.length - (continuing ? l.promptFrom - at : 0);
     view.dispatch({
       changes: { from: at, to: continuing ? l.promptFrom : at, insert: text },
-      effects: [appended.of({ at, marks, inputs }), ...(stick ? [EditorView.scrollIntoView(end, { y: "end" })] : [])],
+      effects: [appended.of({ at, marks, inputs, regions }), ...(stick ? [EditorView.scrollIntoView(end, { y: "end" })] : [])],
       annotations: [transcriptWrite.of(true)],
     });
     if (view.state.field(layout).promptFrom > this.limit) this.trim(view);
@@ -447,6 +482,12 @@ export function replBuffer(handlers: ReplHandlers): Extension {
   return [
     handlersFacet.of(handlers),
     layout,
+    // Only inputs and results are Lisp. Output, prompts and notices are read as plain text,
+    // so a quote or paren a program prints never colors what follows it.
+    lispRegions.of((s) => {
+      const l = s.field(layout);
+      return handlers.reading() ? l.regions : [...l.regions, { from: l.inputStart, to: s.doc.length, mode: "code" }];
+    }),
     refs,
     readOnlyTranscript,
     Prec.high(

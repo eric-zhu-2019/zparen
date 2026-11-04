@@ -633,6 +633,23 @@ button.image-chip:hover {
 .cm-paren-3 { color: var(--paren-3); }
 .cm-paren-4 { color: var(--paren-4); }
 .cm-paren-5 { color: var(--paren-5); }
+/* Parens parinfer moves keep their depth color, faded. */
+.cm-paren-trail { opacity: 0.45; }
+
+/* Lisp tokens, from src/editor/lispSyntax.ts: the editor, the REPL, and code shown in
+   the assistant, the Learn panel and the Markdown preview all use these. */
+.tok-comment { color: var(--syn-comment); font-style: italic; }
+.tok-string { color: var(--syn-string); }
+.tok-number { color: var(--syn-number); }
+.tok-atom { color: var(--syn-keyword-arg); }
+.tok-meta { color: var(--syn-meta); }
+.tok-special { color: var(--syn-special); font-weight: 600; }
+.tok-def { color: var(--syn-def); font-weight: 600; }
+.tok-symbol { color: var(--syn-symbol); }
+.tok-prompt { color: var(--accent); font-weight: 600; }
+/* What the running Lisp says a head names, from src/editor/semantic.ts, over the token's own color. */
+.tok-macro, .tok-macro > span { color: var(--syn-macro, var(--syn-special)); font-weight: 600; }
+.tok-function, .tok-function > span { color: var(--syn-function, var(--syn-symbol)); font-weight: normal; }
 
 .cm-inline {
   font-family: var(--mono);
@@ -3966,37 +3983,6 @@ body.resizing * {
   background: var(--bg-panel);
   color: var(--text-dim);
   line-height: 1.45;
-}
-.tok-comment {
-  color: var(--syn-comment);
-}
-.tok-string {
-  color: var(--syn-string);
-}
-.tok-number {
-  color: var(--syn-number);
-}
-.tok-keyword {
-  color: var(--syn-keyword-arg);
-}
-.tok-special {
-  color: var(--syn-special);
-}
-.tok-def {
-  color: var(--syn-def);
-  font-weight: 600;
-}
-.tok-paren-0 {
-  color: var(--paren-0);
-}
-.tok-paren-1 {
-  color: var(--paren-1);
-}
-.tok-paren-2 {
-  color: var(--paren-2);
-}
-.tok-paren-3 {
-  color: var(--paren-3);
 }
 @media (prefers-reduced-motion: reduce) {
   .learn-disclosure .chev {
