@@ -1075,7 +1075,7 @@ file can still be read and compiled."
 
 ;;; What the name being typed names, for completion: a package or an ASDF
 ;;; system where code names one, as in (:use #:alexan, (in-package :my- or
-;;; :depends-on ("cl-pp, which Swank's symbol completion does not offer.
+;;; (:depends-on ("cl-pp", which Swank's symbol completion does not offer.
 
 (defun cursor-lists (text)
   "The lists still open at the end of TEXT, innermost first, and the atom being
