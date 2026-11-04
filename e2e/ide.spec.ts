@@ -2208,6 +2208,47 @@ test("word wrap turns on and off from ⌥Z and Settings", async ({ page }) => {
   await expect(content, "and Settings turns it off").not.toHaveClass(/cm-lineWrapping/);
 });
 
+test("the closing parens parinfer moves are dimmed, when Settings asks and parinfer accepts the text", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-trail");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  const trails = page.locator(".editor-host .cm-paren-trail");
+  await expect(trails, "nothing is dimmed at first").toHaveCount(0);
+
+  const dim = page.getByTestId("settings").getByRole("switch", { name: "Dim the closing parentheses parinfer moves" });
+  await page.keyboard.press("Meta+,");
+  await dim.check();
+  await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
+
+  await page.locator(".editor-host .cm-content").click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("Go");
+  await page.keyboard.type("(when t\n(print 1");
+  const print = page.locator(".editor-host .cm-line", { hasText: "(print 1" });
+  await expect(print).toHaveText("  (print 1))");
+  await expect(print.locator(".cm-paren-trail"), "the cursor's line keeps its parens as they are").toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("o");
+  await expect(print.locator(".cm-paren-trail"), "they dim once the cursor leaves the line").toHaveText("))");
+  await expect(print.locator(".cm-paren-trail .cm-paren-0"), "and keep their depth color").toHaveCount(1);
+
+  await page.keyboard.type('; "');
+  await expect(page.locator(".statusbar"), "a lone quote in a comment stops parinfer").toContainText("Quotes must balanced");
+  await expect(trails, "so nothing is dimmed").toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("u");
+  await expect(print.locator(".cm-paren-trail"), "undo brings the dimming back").toHaveText("))");
+
+  await page.keyboard.press("Meta+,");
+  await dim.uncheck();
+  await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
+  await expect(trails, "and Settings turns it off").toHaveCount(0);
+});
+
 test("K shows a symbol's documentation in a popup at the cursor", async ({ page }) => {
   const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
   await fresh(page);

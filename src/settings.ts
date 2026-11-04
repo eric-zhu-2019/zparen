@@ -19,6 +19,8 @@ export type Settings = {
   learnOnWelcome: boolean;
   /** Heads of forms are colored by what the running Lisp knows of them: macro, function or special operator. */
   semanticColors: boolean;
+  /** The closing parens that end a line, which parinfer moves, are dimmed. */
+  dimParenTrails: boolean;
   fontSize: number;
   /** Long lines wrap at the editor's edge instead of scrolling sideways. */
   wordWrap: boolean;
@@ -43,7 +45,7 @@ export const SIDEBAR_WIDTH = 240;
 export const RIGHT_WIDTH = 360;
 
 function load(): Settings {
-  const defaults: Settings = { vim: true, emacs: true, parinfer: true, liveCheck: true, compileOnSave: true, compileOnChange: true, reloadSystems: true, autoImage: false, learnOnWelcome: true, semanticColors: true, fontSize: 13, wordWrap: false, problems: "inline", editorFont: "", uiFont: "", theme: "system", lightTheme: "zparen-light", darkTheme: "zparen-dark", sidebarWidth: SIDEBAR_WIDTH, rightWidth: RIGHT_WIDTH };
+  const defaults: Settings = { vim: true, emacs: true, parinfer: true, liveCheck: true, compileOnSave: true, compileOnChange: true, reloadSystems: true, autoImage: false, learnOnWelcome: true, semanticColors: true, dimParenTrails: false, fontSize: 13, wordWrap: false, problems: "inline", editorFont: "", uiFont: "", theme: "system", lightTheme: "zparen-light", darkTheme: "zparen-dark", sidebarWidth: SIDEBAR_WIDTH, rightWidth: RIGHT_WIDTH };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {

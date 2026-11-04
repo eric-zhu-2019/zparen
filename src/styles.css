@@ -633,6 +633,8 @@ button.image-chip:hover {
 .cm-paren-3 { color: var(--paren-3); }
 .cm-paren-4 { color: var(--paren-4); }
 .cm-paren-5 { color: var(--paren-5); }
+/* Parens parinfer moves keep their depth color, faded. */
+.cm-paren-trail { opacity: 0.45; }
 
 /* Lisp tokens, from src/editor/lispSyntax.ts: the editor, the REPL, and code shown in
    the assistant, the Learn panel and the Markdown preview all use these. */

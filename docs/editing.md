@@ -46,6 +46,13 @@ Parinfer keeps parentheses balanced as you type, and typing `(` or `"` over
 a selection wraps it. The structural commands move code by whole forms:
 slurp, barf, raise, splice, kill, transpose, split, and join.
 
+Parinfer moves the closing parentheses at the end of a line when you change
+the indentation. To see which ones it moves, turn on Settings ▸ Parentheses ▸
+"Dim the closing parentheses parinfer moves". They keep their color, faded.
+The line with the cursor is not dimmed. Nothing is dimmed when parinfer
+refuses the text, for example because of a lone `"` in a comment, since it
+then moves nothing. The status bar says why.
+
 In Vim, these text objects work after an operator such as `d`, `c` or `y`,
 and in Visual mode:
 

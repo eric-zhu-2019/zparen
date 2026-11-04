@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as actions from "../actions";
 import { lispCompletions, updateArglist } from "../editor/commands";
 import { lispIndentation } from "../editor/indent";
+import { dimParenTrails } from "../editor/parenTrail";
 import { semanticHeads } from "../editor/semantic";
 import { lisp } from "../editor/lisp";
 import { lispPackage, lispRegionStart } from "../editor/region";
@@ -116,6 +117,7 @@ function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void
           history(),
           lisp(),
           semanticHeads,
+          dimParenTrails,
           lispIndentation(() => useStore.getState().indentSpecs),
           EditorView.lineWrapping,
           // A drawn cursor, styled to be seen; the native caret is thin and pale.
