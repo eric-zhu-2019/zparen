@@ -57,7 +57,13 @@ To work on a lesson:
    file, compiles and loads it, and runs the exercise's test. A stub shows as
    **Not written**. A failing check shows FiveAM's reason. Compiler notes go
    to Problems.
-4. When the test passes, ZParen commits your file as "Pass 1.1: Twice".
+4. When the test passes, ZParen runs it again in a new SBCL that has only
+   your files, then commits your file as "Pass 1.1: Twice". Your running Lisp
+   can hold definitions the files do not, such as one typed in the REPL or
+   deleted from the file since. When the test passes only because of one of
+   those, the card says so and nothing is recorded. The new SBCL uses the
+   files your Lisp already compiled, so this takes about a quarter of a
+   second, and it leaves your running Lisp as it was.
 5. When every exercise passes, click **Finish Lesson**. ZParen merges the
    branch into `main` and adds the next lesson's files there.
 

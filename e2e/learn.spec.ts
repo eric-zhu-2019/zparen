@@ -21,6 +21,15 @@ async function fresh(page: Page) {
   await page.evaluate(() => localStorage.setItem("zparen.tour", JSON.stringify({ done: [], dismissed: true })));
 }
 
+async function replEval(page: Page, form: string) {
+  await page.getByTestId("repl-input").locator(".cm-content").click();
+  await page.keyboard.press("Meta+ArrowDown");
+  await page.keyboard.type(form);
+  await page.keyboard.press("Enter");
+}
+
+const replText = (page: Page) => page.evaluate(() => (window as unknown as { zenRepl: { state: { doc: { toString(): string } } } }).zenRepl.state.doc.toString());
+
 // Needs ocicl set up, and the network the first time ocicl fetches FiveAM.
 test.skip(!existsSync(join(process.env.HOME ?? "", ".local/share/ocicl/ocicl-runtime.lisp")), "ocicl is not set up");
 
@@ -64,6 +73,21 @@ test("a course: start a lesson, check, pass, finish, and the next lesson arrives
   await expect(twice.locator(".learn-pill")).toHaveText("✕ Not yet", { timeout: 60_000 });
   await expect(twice.locator(".learn-result")).toContainText("TWICE 2");
   await shots(page, "learn-03-failed");
+
+  // A definition only the running Lisp has, here one typed in the REPL, passes
+  // there, but a new Lisp with only the files fails it, so it is not recorded.
+  const withoutTwice = stubbed.replace(/\(defun twice \(x\)\s*\(not-written-yet 'twice x\)\)/, "");
+  expect(withoutTwice).not.toContain("defun twice");
+  writeFileSync(file, withoutTwice);
+  await expect(page.locator(".editor-host .cm-content")).not.toContainText("defun twice");
+  await replEval(page, "(defun learn-lisp::twice (x) (* 2 x))");
+  await expect.poll(() => replText(page)).toMatch(/\nLEARN-LISP::TWICE\b|\nTWICE\b/);
+  await twice.getByRole("button", { name: /Check/ }).click();
+  await expect(twice.locator(".learn-pill")).toHaveText("✕ Not yet", { timeout: 60_000 });
+  await expect(twice.locator(".learn-result")).toContainText("a new Lisp with only your files does not");
+  await expect(twice.locator(".learn-result")).toContainText("from the REPL, not from src/01-forms.lisp");
+  expect(git(root, "log", "--format=%(trailers:key=Exercise,valueonly)").trim(), "no pass is recorded").toBe("");
+  await shots(page, "learn-03b-not-from-files");
 
   // Right answers pass, and each pass is a commit with its trailer.
   writeFileSync(

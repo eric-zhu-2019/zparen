@@ -113,6 +113,11 @@ pub enum Request {
     #[serde(rename_all = "camelCase")]
     SaveImage { systems: Vec<String> },
     DeleteImage,
+    /// Loads `system` in a new SBCL, from the project's files alone, and runs
+    /// `tests` there. The running Lisp is not touched, and what it holds that the
+    /// files do not, such as a definition typed in the REPL, cannot pass a test.
+    #[serde(rename_all = "camelCase")]
+    CleanTests { system: String, tests: Vec<crate::ops::TestRef> },
     /// Deletes every project's startup image and the cached base cores, so each is built afresh.
     CleanImages,
     /// A file's text in the last git commit.
@@ -838,6 +843,39 @@ impl Workbench {
                     }
                 });
                 Ok(Response::Ok)
+            }
+            Request::CleanTests { system, tests } => {
+                let p = self.project().await?;
+                let cfg = self.configured();
+                // ZParen's own core, not the project's startup image, which holds the project as it was.
+                let core = crate::session::ensure_core(&cfg).await.map_err(|e| e.to_string())?;
+                let mut cmd = cfg.sbcl_command();
+                cmd.arg("--core").arg(&core).args(["--noinform", "--non-interactive", "--no-userinit"]);
+                // The session's fasls and policy, so files the session compiled load without compiling again.
+                let debug = if cfg.debug_code { "t" } else { "nil" };
+                cmd.arg("--eval").arg(Sexp::list([Sexp::sym("zparen::compile-as-session"), Sexp::sym(debug)]).to_string());
+                for form in p.setup_forms() {
+                    cmd.arg("--eval").arg(form.to_string());
+                }
+                let refs = Sexp::list(tests.iter().map(|r| Sexp::list([Sexp::str(&r.framework), Sexp::str(&r.id)])));
+                let check = Sexp::list([Sexp::sym("zparen::clean-check"), Sexp::str(&system), Sexp::list([Sexp::sym("quote"), refs])]);
+                cmd.arg("--eval").arg(check.to_string());
+                cmd.current_dir(&p.root).stdin(Stdio::null()).kill_on_drop(true);
+                let out = tokio::time::timeout(std::time::Duration::from_secs(300), cmd.output())
+                    .await
+                    .map_err(|_| "The fresh Lisp took over five minutes".to_string())?
+                    .map_err(|e| format!("sbcl: {e}"))?;
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                let Some(at) = stdout.rfind("ZPAREN-RESULT ") else {
+                    let log = format!("{stdout}{}", String::from_utf8_lossy(&out.stderr));
+                    let tail: String = log.lines().rev().take(20).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
+                    return Err(format!("The fresh Lisp stopped before it ran the tests:\n{tail}"));
+                };
+                let v = Sexp::parse(stdout[at + "ZPAREN-RESULT ".len()..].trim()).map_err(|e| format!("{e:?}"))?;
+                if v.items().first().is_some_and(|k| k.is_kw("error")) {
+                    return Err(v.items().get(1).and_then(Sexp::as_str).unwrap_or("The system did not load").to_string());
+                }
+                Ok(Response::Lisp { reply: Reply::Tests(crate::ops::parse_test_run(&v)) })
             }
             Request::LispOptions => {
                 let options = self.options.lock().unwrap().clone();

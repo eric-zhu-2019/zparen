@@ -3,6 +3,7 @@
 
 import { create } from "zustand";
 import * as actions from "../actions";
+import { backend } from "../backend";
 import type { CourseGitOp } from "../protocol/CourseGitOp";
 import type { CourseGitReply } from "../protocol/CourseGitReply";
 import type { CourseState } from "../protocol/CourseState";
@@ -224,7 +225,45 @@ function reasons(n: TestNode): string {
   return [...own, ...checks].join("\n\n").trim();
 }
 
-/** Saves the lesson's file, loads it, runs the exercise's test, and commits a pass. */
+/** Where the running Lisp has NAME defined, when that is not the lesson's file, for the learner. */
+async function definedElsewhere(l: Lesson, name: string, pkg: string): Promise<string> {
+  const op = { op: "findDefinitions" as const, name, package: pkg.toUpperCase() };
+  const r = await backend.request({ type: "lisp", op }).catch(() => null);
+  if (r?.type !== "lisp" || r.reply.kind !== "definitions" || !r.reply.items.length) return "";
+  const file = lessonSource(l);
+  const files = r.reply.items.map((d) => d.location?.file ?? null);
+  if (files.some((f) => f?.endsWith(`/${file}`))) return `${name} is in ${file}. Something it uses may be defined only in your Lisp, for example in the REPL.`;
+  const others = [...new Set(files.filter((f): f is string => !!f).map((f) => f.split("/").pop()))];
+  return others.length ? `Your Lisp has ${name} from ${others.join(", ")}, not from ${file}.` : `Your Lisp has ${name} from the REPL, not from ${file}.`;
+}
+
+/**
+ * Runs the exercise's test again in a new Lisp that has only the project's
+ * files, so that a definition only the running Lisp has, such as one typed in
+ * the REPL or since deleted from the file, cannot pass it. Null when it passes there too.
+ */
+async function fromFilesAlone(l: Lesson, e: Exercise, pkg: string): Promise<CheckResult | null> {
+  const tests = [{ framework: "fiveam", id: testId(pkg, e) }];
+  let nodes: TestNode[];
+  try {
+    const r = await backend.request({ type: "cleanTests", system: `${pkg}/tests`, tests });
+    if (r.type !== "lisp" || r.reply.kind !== "tests") return { status: "error", message: "The check from your files alone did not run." };
+    nodes = r.reply.tests;
+  } catch (err) {
+    const why = String(err instanceof Error ? err.message : err);
+    return { status: "error", message: `Your Lisp passes the test, but a new Lisp could not load your files:\n${why}` };
+  }
+  const node = findTest(nodes, e.name);
+  if (node?.status === "passed") return null;
+  const lines = [
+    "Your Lisp passes the test, but a new Lisp with only your files does not, so the pass is not recorded.",
+    await definedElsewhere(l, e.name, pkg),
+    node ? reasons(node) : `No test named ${e.name} ran there.`,
+  ];
+  return { status: "failed", message: lines.filter(Boolean).join("\n\n") };
+}
+
+/** Saves the lesson's file, loads it, runs the exercise's test, and commits a pass that the files alone also give. */
 export async function check(l: Lesson, e: Exercise) {
   if (get().checking || get().busy) return;
   const { pkg } = get().course!;
@@ -249,6 +288,8 @@ export async function check(l: Lesson, e: Exercise) {
     if (!node) return result({ status: "error", message: `No test named ${e.name} ran.` });
     const message = reasons(node);
     if (node.status === "passed") {
+      const unclean = await fromFilesAlone(l, e, pkg);
+      if (unclean) return result(unclean);
       // A pass is recorded once, even when an earlier pass already committed this code.
       await git({ op: "commit", message: passMessage(e), paths: [lessonSource(l)], allowEmpty: !currentProgress().passed.has(e.key) });
       result({ status: "passed", message: "" });

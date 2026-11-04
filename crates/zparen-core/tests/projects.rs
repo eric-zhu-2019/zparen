@@ -286,3 +286,41 @@ async fn requests_during_a_restart_share_the_new_lisp() {
         assert_eq!(d.await.unwrap(), after, "a request made during the restart used another Lisp");
     }
 }
+
+/// Needs FiveAM installed through Quicklisp.
+#[tokio::test]
+async fn clean_tests_pass_only_on_what_the_files_define() {
+    use zparen_core::ops::{Op, Reply, TestRef};
+    let root = tmp("clean");
+    std::fs::write(root.join("ct.asd"), "(defsystem \"ct\" :depends-on (\"fiveam\") :components ((:file \"ct\")))").unwrap();
+    let source = "(defpackage #:ct (:use #:cl #:fiveam))\n(in-package #:ct)\n(def-suite ct)\n(in-suite ct)\n(test uses-helper (is (= 7 (helper))))\n";
+    std::fs::write(root.join("ct.lisp"), source).unwrap();
+    let wb = workbench();
+    let mut rx = wb.subscribe();
+    wb.handle(Request::OpenProject { root: root.display().to_string() }).await.unwrap();
+    wb.handle(Request::LoadSystem { name: "ct".into() }).await.unwrap();
+    let (ok, out) = finish(&mut rx, "load ct").await;
+    assert!(ok, "{out}");
+    // Defined in the REPL only: the running Lisp has it, the files do not.
+    eval(&wb, "(defun ct::helper () 7)").await;
+    let tests = vec![TestRef { framework: "fiveam".into(), id: "CT::USES-HELPER".into() }];
+    let run = |r: Response| match r {
+        Response::Lisp { reply: Reply::Tests(run) } => (run.passed, run.failed),
+        other => panic!("{other:?}"),
+    };
+
+    let live = wb.handle(Request::Lisp { op: Op::RerunTests { tests: tests.clone() } }).await.unwrap();
+    assert_eq!(run(live), (1, 0), "the running Lisp passes on the REPL's definition");
+    let clean = wb.handle(Request::CleanTests { system: "ct".into(), tests: tests.clone() }).await.unwrap();
+    assert_eq!(run(clean), (0, 1), "a fresh Lisp has only the files");
+
+    std::fs::write(root.join("ct.lisp"), format!("{source}(defun helper () 7)\n")).unwrap();
+    let clean = wb.handle(Request::CleanTests { system: "ct".into(), tests: tests.clone() }).await.unwrap();
+    assert_eq!(run(clean), (1, 0), "and passes once a file defines it");
+    assert_eq!(eval(&wb, "(and (fboundp 'ct::helper) t)").await, "T", "the running Lisp keeps its own definitions");
+
+    std::fs::write(root.join("ct.lisp"), format!("{source}(defun helper (\n")).unwrap();
+    let err = wb.handle(Request::CleanTests { system: "ct".into(), tests }).await.unwrap_err();
+    assert!(!err.is_empty(), "a file that does not load says why");
+    wb.stop().await;
+}

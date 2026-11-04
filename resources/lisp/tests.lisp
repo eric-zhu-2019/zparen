@@ -253,3 +253,31 @@ tests whose parent test is not in the report."
                     ((string-equal framework "parachute") (call "PARACHUTE" "TEST" test))
                     ;; Rove's report of a failing test run alone breaks its default reporter.
                     ((string-equal framework "rove") (call "ROVE" "RUN-TESTS" (list test) :style :none)))))))
+
+(defun drop-unsure-fasls (system)
+  "Deletes the fasls of SYSTEM and what it needs that are not newer than their
+source. ASDF counts write dates in whole seconds and takes a fasl written in the
+same second as its source for current, so a file saved just after the last
+compile would load as it was."
+  (dolist (c (asdf:required-components (asdf:find-system system) :other-systems t
+                                       :component-type 'asdf:cl-source-file
+                                       :keep-component 'asdf:cl-source-file))
+    (let ((source (asdf:component-pathname c))
+          (fasl (first (asdf:output-files 'asdf:compile-op c))))
+      (when (and fasl (probe-file fasl) (probe-file source)
+                 (>= (file-write-date source) (file-write-date fasl)))
+        (delete-file fasl)))))
+
+(defun clean-check (system tests)
+  "Loads SYSTEM in this SBCL, started fresh to check TESTS against the files
+alone, and runs TESTS as RERUN-TESTS does. Prints the result last, after
+ZPAREN-RESULT, for the process that started this one. A system that does not
+load prints (:ERROR message) there."
+  (let ((result (handler-case
+                    (progn (drop-unsure-fasls system)
+                           (handler-bind ((warning #'muffle-warning))
+                             (asdf:load-system system))
+                           (rerun-tests tests))
+                  (error (e) (list :error (princ-to-string e))))))
+    (format t "~&ZPAREN-RESULT ~a~%" (swank/rpc::prin1-to-string-for-emacs result (find-package :keyword)))
+    (finish-output)))

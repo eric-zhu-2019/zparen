@@ -1029,7 +1029,8 @@ fn parse_test_node(v: &Sexp) -> TestNode {
     }
 }
 
-fn parse_test_run(v: &Sexp) -> TestRun {
+/// A test run as RECORD-TESTS returns it.
+pub fn parse_test_run(v: &Sexp) -> TestRun {
     let int = |k| v.plist_get(k).and_then(Sexp::as_int).unwrap_or_default();
     TestRun {
         passed: int("passed"),
