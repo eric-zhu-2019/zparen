@@ -67,8 +67,9 @@ open it, and drag ZParen to Applications. It needs a Mac with Apple silicon
 and macOS 13 or later. Releases are signed with a Developer ID and notarized
 by Apple, and they carry their own SBCL, so you do not need to install one.
 
-Releases from GitHub do not update themselves yet. To update, download the
-new disk image.
+ZParen checks for a newer release when it starts, and from ZParen ▸ Check
+for Updates…. It installs the update and restarts when you agree. Releases up
+to 0.1.8 cannot do this, so download the next disk image once by hand.
 
 [Getting started](docs/getting-started.md) covers the first start and the
 keys to learn first. To build from the source, see
