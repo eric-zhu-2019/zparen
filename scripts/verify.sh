@@ -23,7 +23,11 @@ for l in sys.stdin:
         print(m["executable"])')
 for b in $bins; do
   printf '%s: ' "$(basename "$b")"
-  if ! out=$(limit 300 "$b" -q ${extra[@]+"${extra[@]}"} 2>&1); then
+  # One test at a time: Lisps that compile the same file into the shared fasl
+  # cache at once can delete each other's fasl, since ASDF deletes the old fasl
+  # before it renames the new one. With an empty cache, as in CI, that stops a
+  # Lisp in the debugger and the test hangs.
+  if ! out=$(limit 300 "$b" -q --test-threads=1 ${extra[@]+"${extra[@]}"} 2>&1); then
     echo "FAILED"
     echo "$out" | tail -30
     exit 1
