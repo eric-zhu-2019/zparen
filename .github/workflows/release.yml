@@ -61,7 +61,7 @@ jobs:
         with:
           name: app
           path: ZParen.app.tgz
-          retention-days: 1
+          retention-days: 7
 
   sign:
     needs: build
