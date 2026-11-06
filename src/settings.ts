@@ -21,7 +21,11 @@ export type Settings = {
   semanticColors: boolean;
   /** The closing parens that end a line, which parinfer moves, are dimmed. */
   dimParenTrails: boolean;
+  /** Thin lines in the indentation, under the open paren of each form that spans lines. */
+  indentGuides: boolean;
   fontSize: number;
+  /** The text size of the Assistant and Learn Lisp panels. */
+  panelFontSize: number;
   /** Long lines wrap at the editor's edge instead of scrolling sideways. */
   wordWrap: boolean;
   /** Where warnings and errors show: at the end of their lines, or in a box when the cursor reaches them. */
@@ -45,7 +49,7 @@ export const SIDEBAR_WIDTH = 240;
 export const RIGHT_WIDTH = 360;
 
 function load(): Settings {
-  const defaults: Settings = { vim: true, emacs: true, parinfer: true, liveCheck: true, compileOnSave: true, compileOnChange: true, reloadSystems: true, autoImage: false, learnOnWelcome: true, semanticColors: true, dimParenTrails: false, fontSize: 13, wordWrap: false, problems: "inline", editorFont: "", uiFont: "", theme: "system", lightTheme: "zparen-light", darkTheme: "zparen-dark", sidebarWidth: SIDEBAR_WIDTH, rightWidth: RIGHT_WIDTH };
+  const defaults: Settings = { vim: true, emacs: true, parinfer: true, liveCheck: true, compileOnSave: true, compileOnChange: true, reloadSystems: true, autoImage: false, learnOnWelcome: true, semanticColors: true, dimParenTrails: false, indentGuides: true, fontSize: 13, panelFontSize: 13, wordWrap: false, problems: "inline", editorFont: "", uiFont: "", theme: "system", lightTheme: "zparen-light", darkTheme: "zparen-dark", sidebarWidth: SIDEBAR_WIDTH, rightWidth: RIGHT_WIDTH };
   try {
     return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {

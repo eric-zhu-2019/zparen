@@ -10,6 +10,10 @@
 (defvar *breakpoints* (make-hash-table :test 'equal)
   "File path to the sb-di breakpoints installed for it.")
 
+(defvar *breakpoint-ranges* (make-hash-table :test 'equal)
+  "File path to its breakpoints as the editor sent them, (FROM TO LABEL) each,
+so that code loaded again from the file gets them back.")
+
 (defvar *breakpoint-lock* (sb-thread:make-mutex :name "zparen breakpoints"))
 
 ;; The debugger shows a breakpoint's frame source the way it shows a step's.
@@ -23,9 +27,15 @@
 (defun stop-at-breakpoint (frame label)
   ;; Like BREAK: enter the debugger without signalling.
   (let ((sb-debug:*stack-top-hint* frame))
-    (with-simple-restart (continue "Continue from the breakpoint.")
-      (invoke-debugger (make-condition 'breakpoint-hit :format-control "Breakpoint at ~a"
-                                                       :format-arguments (list label))))))
+    ;; A time limit around the code, such as the Lisp course's 5 seconds per
+    ;; check, would end the stop and fail the code it stopped. While stopped,
+    ;; the time limit is passed by, as its Continue restart does.
+    (handler-bind ((sb-ext:timeout (lambda (c)
+                                     (let ((continue (find-restart 'continue c)))
+                                       (when continue (invoke-restart continue))))))
+      (with-simple-restart (continue "Continue from the breakpoint.")
+        (invoke-debugger (make-condition 'breakpoint-hit :format-control "Breakpoint at ~a"
+                                                         :format-arguments (list label)))))))
 
 (defun source-offset (location)
   "LOCATION's 0-based character offset in its file or editor buffer, as the editor counts it."
@@ -72,6 +82,9 @@
     (sb-thread:with-mutex (*breakpoint-lock*)
       (mapc #'sb-di:delete-breakpoint (gethash path *breakpoints*))
       (remhash path *breakpoints*)
+      (if ranges
+          (setf (gethash path *breakpoint-ranges*) ranges)
+          (remhash path *breakpoint-ranges*))
       (let ((sites (and ranges (call-sites names)))
             (bound '()))
         (loop for (from to label) in ranges
@@ -89,3 +102,20 @@
                                   (push bp (gethash path *breakpoints*))))
                      (push from bound)))
         (nreverse bound)))))
+
+(defun reinstall-breakpoints (file)
+  "Installs FILE's breakpoints again, on the code just loaded from it."
+  (let* ((true (ignore-errors (namestring (truename file))))
+         (paths (and true
+                     (sb-thread:with-mutex (*breakpoint-lock*)
+                       (loop for path being the hash-keys of *breakpoint-ranges* using (hash-value ranges)
+                             when (equal (ignore-errors (namestring (truename path))) true)
+                               collect (cons path ranges))))))
+    (loop for (path . ranges) in paths
+          do (ignore-errors (set-breakpoints path ranges)))))
+
+;; A load or a test run loads a file's fasl again, which makes new code
+;; without the breakpoints. They go back in before that code runs.
+(defmethod asdf:perform :after ((o asdf:load-op) (c asdf:cl-source-file))
+  (when (plusp (hash-table-count *breakpoint-ranges*))
+    (reinstall-breakpoints (asdf:component-pathname c))))

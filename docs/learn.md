@@ -48,6 +48,9 @@ A lesson has prose, examples and exercises. Hover over an example and click
 **Run**, or focus it and press ⌘↩, to send it to the REPL. ⌘[ and ⌘] move to
 the previous and next lesson while the panel has focus.
 
+To make the panel's text larger or smaller, use Settings ▸ General ▸ Panel
+font size. The Assistant uses the same size.
+
 To work on a lesson:
 
 1. Click **Start Lesson**. ZParen saves your files, makes the branch

@@ -934,6 +934,49 @@ test("history search, a second REPL while the first is busy, and a long transcri
   await expect(repl.locator(".presentation", { hasText: /^9$/ }), "the REPL still answers").toBeVisible();
 });
 
+test("Vim keys in the REPL: insert mode at the prompt, normal mode to run, recall and move", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-vim-repl");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  const repl = page.locator(".repl-buffer");
+  const normal = repl.locator(".cm-scroller.cm-vimMode");
+
+  await replEval(page, "(+ 1 2)");
+  await expect(repl.locator(".presentation", { hasText: /^3$/ }), "the REPL starts in insert mode, so typing works as before").toBeVisible();
+  await expect(normal).toHaveCount(0);
+
+  await page.keyboard.type("(* 6 7");
+  await page.keyboard.press("Escape");
+  await expect(normal, "Escape goes to normal mode").toHaveCount(1);
+  await page.keyboard.press("Enter");
+  await expect(repl.locator(".presentation", { hasText: /^42$/ }), "Enter in normal mode runs the input").toBeVisible();
+  await expect(normal, "and the next prompt is in insert mode").toHaveCount(0);
+
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("ArrowUp");
+  await expect.poll(() => replInputText(page), { message: "Up in normal mode recalls the last input" }).toBe("(* 6 7)");
+  await page.keyboard.type("dd");
+  await expect.poll(() => replInputText(page), { message: "dd clears the input" }).toBe("");
+  await expect(repl.locator(".cm-line").last(), "but not the prompt").toHaveText("CL-USER>");
+
+  await page.keyboard.type("kk$");
+  await page.keyboard.press("Enter");
+  await expect.poll(() => replInputText(page), { message: "k moves into the transcript, where Enter copies an earlier input down" }).toBe("(* 6 7)");
+  await expect(normal, "ready to edit in insert mode").toHaveCount(0);
+
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+r");
+  await expect(page.getByTestId("history-search"), "⌃R in normal mode searches history, not Vim's redo").toBeVisible();
+  await page.keyboard.type("(+ 1");
+  await page.keyboard.press("Enter");
+  await expect.poll(() => replInputText(page)).toBe("(+ 1 2)");
+  await expect(normal, "a found input is ready to edit in insert mode").toHaveCount(0);
+});
+
 test("documentation that follows the cursor, HyperSpec pages, and apropos", async ({ page }) => {
   const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
   await fresh(page);
@@ -2206,6 +2249,142 @@ test("word wrap turns on and off from ⌥Z and Settings", async ({ page }) => {
   await page.getByTestId("settings").getByRole("switch", { name: "Wrap long lines" }).uncheck();
   await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
   await expect(content, "and Settings turns it off").not.toHaveClass(/cm-lineWrapping/);
+});
+
+test("the panel font size sets the text of the Assistant and Learn Lisp panels, and nothing else", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-panel-font");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  const size = (selector: string) => page.locator(selector).first().evaluate((e) => getComputedStyle(e).fontSize);
+  const palette = async (name: string) => {
+    await page.keyboard.press("Meta+Shift+P");
+    await page.getByPlaceholder("Type a command…").fill(name);
+    await expect(page.locator(".palette .item.selected")).toContainText(name);
+    await page.keyboard.press("Enter");
+  };
+
+  await palette("Toggle AI Assistant");
+  expect(await size(".chat-scroll"), "the panels start at 13 px, as before").toBe("13px");
+  const header = await size(".right-header .title");
+  const editor = await size(".editor-host .cm-content");
+
+  await page.keyboard.press("Meta+,");
+  const settings = page.getByTestId("settings");
+  await settings.getByRole("button", { name: "Increase panel font size" }).click();
+  await settings.getByRole("button", { name: "Increase panel font size" }).click();
+  await settings.getByRole("button", { name: "Increase panel font size" }).click();
+  await expect(settings.getByText("16 pt")).toBeVisible();
+  await settings.getByRole("button", { name: "Done" }).click();
+  expect(await size(".chat-scroll"), "the Assistant's text follows").toBe("16px");
+  expect(await size(".chat-input textarea"), "and so does its input").toBe("16px");
+  expect(await size(".right-header .title"), "the panel's header keeps its size").toBe(header);
+  expect(await size(".editor-host .cm-content"), "and so does the editor").toBe(editor);
+
+  await palette("Toggle Learn Lisp");
+  await expect(page.getByTestId("learn")).toBeVisible();
+  expect(await size(".learn-body"), "the Learn panel's text follows").toBe("16px");
+  const dim = page.locator(".learn-body .learn-dim").first();
+  const dimSize = parseFloat(await dim.evaluate((e) => getComputedStyle(e).fontSize));
+  expect(dimSize, "with its smaller text scaled the same").toBeCloseTo((12 * 16) / 13, 1);
+});
+
+test("a breakpoint stops the tests, Run and the REPL, though each loads the file again", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-bp-run");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  await replEval(page, '(asdf:load-system "zen-bp-run")');
+  await expect(page.locator(".repl-buffer .cm-line", { hasText: /^T$/ })).toBeVisible({ timeout: 30_000 });
+  const line = await page.locator(".editor-host .cm-line", { hasText: "(format nil" }).boundingBox();
+  const gutter = await page.locator(".editor-host .cm-breakpoint-gutter").boundingBox();
+  await page.mouse.click(gutter!.x + gutter!.width / 2, line!.y + line!.height / 2);
+  await expect(page.locator(".editor-host .cm-breakpoint.bound"), "the breakpoint binds to GREET").toHaveCount(1);
+  const stop = page.getByTestId("stepper");
+
+  // The test run loads the file's fasl again before the tests call GREET.
+  await page.locator(".panel-tab", { hasText: "Tests" }).click();
+  await page.locator(".editor-host .cm-content").click();
+  await page.keyboard.press("Meta+u");
+  await expect(stop, "the tests stop at the breakpoint").toContainText('Breakpoint at (format nil "Hello, ~a!" name)', { timeout: 30_000 });
+  await expect(page.locator(".panel-tab.active"), "and the debugger's tab shows, though the Tests tab was open").toContainText("REPL");
+  await expect(page.getByTestId("debugger"), "called from the test").toContainText("ZEN-BP-RUN/TESTS:RUN");
+  await expect(page.locator(".editor-host .cm-debug-form")).toHaveText('(format nil "Hello, ~a!" name)');
+  await page.keyboard.press("F9");
+  await expect(stop).toHaveCount(0);
+  await expect(page.locator(".repl-buffer"), "and finish once it continues").toContainText("All tests passed.");
+
+  await page.locator(".system", { hasText: "zen-bp-run" }).first().getByRole("button", { name: "Run" }).click();
+  await expect(stop, "Run stops there too").toContainText("Breakpoint", { timeout: 30_000 });
+  await expect(page.getByTestId("debugger"), "called from MAIN").toContainText("ZEN-BP-RUN:MAIN");
+  await page.keyboard.press("F9");
+  await expect(stop).toHaveCount(0);
+
+  await replEval(page, '(zen-bp-run:greet "again")');
+  await expect(stop, "and so does a call from the REPL").toContainText("Breakpoint");
+  await page.keyboard.press("F9");
+  await expect(page.locator(".repl-buffer .cm-line", { hasText: '"Hello, again!"' })).toBeVisible();
+
+  // A time limit around the call, as the Lisp course puts on each check, does not end the stop.
+  await replEval(page, '(sb-ext:with-timeout 2 (zen-bp-run:greet "later"))');
+  await expect(stop).toContainText("Breakpoint");
+  await page.waitForTimeout(3000);
+  await expect(stop, "still stopped after the time limit").toContainText("Breakpoint");
+  await page.keyboard.press("F9");
+  await expect(page.locator(".repl-buffer .cm-line", { hasText: '"Hello, later!"' }), "and the call ends as usual").toBeVisible();
+});
+
+test("indent guides run under the open paren of each form that spans lines, until Settings turns them off", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-guides");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+
+  await page.locator(".editor-host .cm-content").click();
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("Go");
+  await page.keyboard.type("(when t\n(print 1");
+  const when = page.locator(".editor-host .cm-line", { hasText: "(when t" });
+  const print = page.locator(".editor-host .cm-line", { hasText: "(print 1" });
+  await expect(print).toHaveText("  (print 1))");
+  await expect(when, "the form's own line has no guide").not.toHaveAttribute("style", /linear-gradient/);
+  await expect(print, "the line below has one, in the color of the cursor's form").toHaveAttribute("style", /linear-gradient\(color-mix\(in srgb, var\(--paren-\d\)/);
+  const guideX = await print.evaluate((line) => {
+    const style = getComputedStyle(line);
+    return line.getBoundingClientRect().left + parseFloat(style.paddingLeft) + parseFloat(style.backgroundPositionX);
+  });
+  const paren = await when.evaluate((line) => {
+    const range = document.createRange();
+    const text = [...line.querySelectorAll("span")].find((s) => s.textContent === "(")!.firstChild!;
+    range.setStart(text, 0);
+    range.setEnd(text, 1);
+    const r = range.getBoundingClientRect();
+    return { left: r.left, right: r.right };
+  });
+  expect(guideX, "under the open paren").toBeGreaterThan(paren.left);
+  expect(guideX).toBeLessThan(paren.right);
+
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("o\n(list 2)");
+  const list = page.locator(".editor-host .cm-line", { hasText: "(list 2)" });
+  await expect(list, "outside the form, no guide").not.toHaveAttribute("style", /linear-gradient/);
+  await expect(print, "and the form's guide is plain again").toHaveAttribute("style", /linear-gradient\(var\(--indent-guide\)/);
+
+  const guides = page.getByTestId("settings").getByRole("switch", { name: "Show indent guides under open parentheses" });
+  await page.keyboard.press("Meta+,");
+  await expect(guides, "they are on at first").toBeChecked();
+  await guides.uncheck();
+  await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
+  await expect(print, "and Settings turns them off").not.toHaveAttribute("style", /linear-gradient/);
 });
 
 test("the closing parens parinfer moves are dimmed, when Settings asks and parinfer accepts the text", async ({ page }) => {

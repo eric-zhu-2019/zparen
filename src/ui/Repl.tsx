@@ -1,21 +1,25 @@
 import { autocompletion, completionKeymap, moveCompletionSelection } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { bracketMatching } from "@codemirror/language";
-import { EditorState, Prec } from "@codemirror/state";
+import { Compartment, EditorState, Prec } from "@codemirror/state";
 import { drawSelection, EditorView, keymap } from "@codemirror/view";
+import { getCM, Vim, vim } from "@replit/codemirror-vim";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as actions from "../actions";
 import { lispCompletions, updateArglist } from "../editor/commands";
+import { docTips } from "../editor/hover";
 import { lispIndentation } from "../editor/indent";
 import { dimParenTrails } from "../editor/parenTrail";
 import { semanticHeads } from "../editor/semantic";
 import { lisp } from "../editor/lisp";
 import { lispPackage, lispRegionStart } from "../editor/region";
+import { configureVim } from "../editor/setup";
 import { structureExtension } from "../editor/structure";
 import { optionKeys, structuralKeymap } from "../editor/structural";
+import { useSettings } from "../settings";
 import { type State, type TranscriptItem, set, useStore } from "../store";
 import { Icon } from "./Icon";
-import { layout, promptText, replBuffer, runInput, searchHistory, setInput, TranscriptRenderer } from "./replBuffer";
+import { layout, promptText, recallInput, replBuffer, runInput, runOrCopy, searchHistory, setInput, TranscriptRenderer } from "./replBuffer";
 
 const HISTORY = "zparen.replHistory";
 
@@ -72,6 +76,69 @@ function extraSource(replId: number): Source {
   };
 }
 
+/** Vim's state in a REPL buffer, when the Vim setting is on. */
+function vimState(view: EditorView): { insertMode?: boolean; visualMode?: boolean } | null {
+  return (getCM(view)?.state as { vim?: { insertMode?: boolean; visualMode?: boolean } } | undefined)?.vim ?? null;
+}
+
+/** With Vim on, goes to insert mode at the end of the input, as a shell's vi mode does at each new prompt. */
+function typeAtEnd(view: EditorView) {
+  const cm = getCM(view);
+  if (cm) {
+    const state = vimState(view);
+    if (state?.visualMode) Vim.handleKey(cm, "<Esc>", "mapping");
+    if (!state?.insertMode) Vim.handleKey(cm, "i", "mapping");
+  }
+  view.dispatch({ selection: { anchor: view.state.doc.length }, scrollIntoView: true });
+}
+
+/**
+ * After a Vim command, such as dd, that edits the input, puts back at the
+ * prompt a cursor that Vim moved into the transcript. Vim does not know that
+ * the prompt line stays when the input is deleted.
+ */
+function keepAtPrompt(view: EditorView) {
+  const before = view.state;
+  if (before.selection.main.head < before.field(layout).promptFrom) return;
+  // Vim handles the key after this handler, in the same event.
+  queueMicrotask(() => {
+    const s = view.state;
+    const { promptFrom } = s.field(layout);
+    if (s.doc === before.doc || s.selection.main.head >= promptFrom) return;
+    view.dispatch({ selection: { anchor: Math.max(promptFrom, s.doc.length - 1) }, scrollIntoView: true });
+  });
+}
+
+/**
+ * The REPL's keys that Vim would otherwise take. ⌃C, ⌃R and ⌃L keep their
+ * REPL meaning in every mode. In normal mode, Enter runs the input and Up and
+ * Down at its edge lines recall history, as they do while typing. Ahead of Vim,
+ * which comes ahead of every keymap so that Escape leaves insert mode.
+ */
+function vimReplKeys(source: Source, search: () => void) {
+  return Prec.highest(
+    EditorView.domEventHandlers({
+      keydown(e, view) {
+        const state = vimState(view);
+        if (!state) return false;
+        let done = false;
+        if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+          if (e.code === "KeyC") done = (actions.interrupt(), true);
+          else if (e.code === "KeyR") done = (search(), true);
+          else if (e.code === "KeyL") done = (clearTranscript(source), true);
+        } else if (!state.insertMode && !state.visualMode && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+          if (e.key === "Enter") done = runOrCopy(view) && (typeAtEnd(view), true);
+          else if (e.key === "ArrowUp") done = recallInput(view, -1, true);
+          else if (e.key === "ArrowDown") done = recallInput(view, 1, true);
+        }
+        if (done) e.preventDefault();
+        else if (!state.insertMode) keepAtPrompt(view);
+        return done;
+      },
+    }),
+  );
+}
+
 /** Input typed but not yet run, per REPL, kept while its buffer is hidden. */
 const drafts = new Map<string, string>();
 
@@ -88,12 +155,18 @@ function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void
     let cursor = past.length;
     let pending = "";
     const now = () => source.read(useStore.getState());
+    configureVim();
+    const vimKeys = new Compartment();
+    const vimOn = () => (useSettings.getState().vim ? vim({ status: false }) : []);
 
     const view = new EditorView({
       parent: host.current,
       state: EditorState.create({
         doc: promptText(now().package),
         extensions: [
+          vimReplKeys(source, () => searchRef.current()),
+          // First among keymaps, as in the editor, so Escape leaves insert mode.
+          vimKeys.of(vimOn()),
           replBuffer({
             reading: () => now().reading,
             submit: (code, text) => {
@@ -127,6 +200,8 @@ function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void
           Prec.highest(keymap.of(structuralKeymap)),
           optionKeys,
           autocompletion({ override: [lispCompletions], activateOnTypingDelay: 120 }),
+          // Vim's K shows a symbol's documentation here, as in the editor.
+          docTips,
           Prec.high(
             keymap.of([
               { key: "Ctrl-n", run: moveCompletionSelection(true) },
@@ -161,16 +236,21 @@ function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void
       const { inputStart } = view.state.field(layout);
       view.dispatch({ changes: { from: inputStart, to: view.state.doc.length, insert: draft } });
     }
-    view.dispatch({ selection: { anchor: view.state.doc.length }, scrollIntoView: true });
+    typeAtEnd(view);
     let before = now();
     const unsubscribe = useStore.subscribe(() => {
       const s = now();
       if (s.transcript !== before.transcript || s.package !== before.package || s.reading !== before.reading) sync();
       if (s.reading && !before.reading) {
         view.focus();
-        view.dispatch({ selection: { anchor: view.state.doc.length }, scrollIntoView: true });
+        typeAtEnd(view);
       }
       before = s;
+    });
+    const unwatchVim = useSettings.subscribe((s, prev) => {
+      if (s.vim === prev.vim) return;
+      view.dispatch({ effects: vimKeys.reconfigure(vimOn()) });
+      typeAtEnd(view);
     });
     shown.view = view;
     (window as unknown as { zenRepl?: EditorView }).zenRepl = view;
@@ -178,6 +258,7 @@ function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void
     return () => {
       drafts.set(source.key, view.state.doc.sliceString(view.state.field(layout).inputStart));
       unsubscribe();
+      unwatchVim();
       if (shown.view === view) shown.view = null;
       view.destroy();
     };
@@ -204,6 +285,7 @@ function HistorySearch({ onClose }: { onClose: () => void }) {
     setInput(view, code);
     view.focus();
     if (run) runInput(view);
+    typeAtEnd(view);
   };
   const move = (by: number) => setIndex((i) => Math.max(0, Math.min(matches.length - 1, i + by)));
 

@@ -325,8 +325,11 @@ glass and no shadow.
 | Section heading | 15 px, semibold |
 | Prose | 13 px, line height 1.5 |
 | Meta and branch lines | 11 px, `--text-dim` |
-| Code | the editor's font size |
+| Code | 12.5 px, `--mono` |
 | Smallest text | 11 px |
+
+These sizes are for the default panel font size, 13 pt. Settings ▸ General ▸
+Panel font size scales all of them by the same factor.
 
 Spacing:
 

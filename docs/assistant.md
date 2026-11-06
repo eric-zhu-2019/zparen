@@ -3,7 +3,8 @@
 ## The assistant
 
 Open the assistant with ⌘L. You make two choices: the assistant, Claude or
-Codex, and how it signs in.
+Codex, and how it signs in. Settings ▸ General ▸ Panel font size sets the
+size of its text.
 
 | Assistant | Sign in with | What ZParen does | Who pays |
 | --- | --- | --- | --- |

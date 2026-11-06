@@ -65,6 +65,8 @@ backend.onEvent((e) => {
     for (const t of get().tabs) checkSoon(t.path, 0);
   if (e.type === "lisp" && e.event.kind === "debug" && e.event.stepping) showFrame(e.event, 0, { remember: false });
   if (e.type === "lisp" && e.event.kind === "debug" && !e.event.stepping) markTour("debug");
+  // The debugger shows in the REPL tab, so a stop shows that tab, as when tests run in the Tests tab.
+  if (e.type === "lisp" && e.event.kind === "debug" && get().bottom !== "repl") set({ bottom: "repl" });
 });
 
 // Commits and checkouts happen outside ZParen, and .git is not watched.
