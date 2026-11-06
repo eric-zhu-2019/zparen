@@ -5,10 +5,53 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ZParen</title>
+    <script>
+      // The theme chosen in Settings, so the splash below has the app's colors before the app loads.
+      try {
+        const theme = JSON.parse(localStorage.getItem("zparen.settings") || "{}").theme;
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.splash = theme;
+      } catch {}
+    </script>
+    <style>
+      /* What the window shows while the app loads. React replaces it when it first renders. */
+      .splash {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #fbfbfa;
+        color: #2b8a6e;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-splash="light"]) .splash { background: #1c1c1e; color: #4fc29f; }
+      }
+      :root[data-splash="dark"] .splash { background: #1c1c1e; color: #4fc29f; }
+      .splash svg {
+        width: 88px;
+        height: 88px;
+        animation: splash-in 0.3s ease-out both, splash-breathe 2.4s ease-in-out 0.3s infinite;
+      }
+      @keyframes splash-in {
+        from { opacity: 0; transform: scale(0.94); }
+      }
+      @keyframes splash-breathe {
+        50% { opacity: 0.55; transform: scale(0.94); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .splash svg { animation: none; }
+      }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="splash" aria-label="ZParen is starting" role="status">
+        <svg viewBox="192 192 640 640" aria-hidden="true">
+          <circle cx="512" cy="512" r="300" fill="none" stroke="currentColor" stroke-opacity="0.3" stroke-width="18" />
+          <path d="M380 290 h70 l200 444 M520 520 L400 734" fill="none" stroke="currentColor" stroke-width="64" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
