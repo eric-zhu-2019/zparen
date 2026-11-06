@@ -1,3 +1,5 @@
+mod window_state;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -211,7 +213,9 @@ pub fn run() {
         .setup(|app| {
             // A Mac without SBCL uses the one the app carries, if it was built with one.
             let bundled = app.path().resource_dir().map(|d| d.join("sbcl")).unwrap_or_default();
-            let wb = Workbench::new(SessionConfig::new(resources_dir(app)).with_bundled_sbcl(&bundled));
+            let config = SessionConfig::new(resources_dir(app)).with_bundled_sbcl(&bundled);
+            window_state::create_main_window(app, &config.data_dir)?;
+            let wb = Workbench::new(config);
             let mut events = wb.subscribe();
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -255,6 +259,7 @@ pub fn run() {
             });
             Ok(())
         })
+        .on_window_event(window_state::track)
         .invoke_handler(tauri::generate_handler![rpc, quit, install_update, set_recent_projects])
         .build(tauri::generate_context!())
         .expect("error while building ZParen")
@@ -266,6 +271,9 @@ pub fn run() {
                 return;
             }
             if let tauri::RunEvent::Exit = event {
+                if let Some(last) = app.try_state::<window_state::LastFrame>() {
+                    last.save();
+                }
                 let wb = app.state::<AppState>().0.clone();
                 tauri::async_runtime::block_on(wb.stop());
             }
