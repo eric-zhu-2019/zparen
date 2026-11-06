@@ -43,3 +43,6 @@ bindings/
 
 # The Pages site, built by scripts/build-site.mjs.
 /_site/
+
+# Signing certificates and keys stay out of git.
+cert.p12

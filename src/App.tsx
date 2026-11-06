@@ -42,6 +42,7 @@ function useAppearance() {
   const userThemes = useThemes((s) => s.user);
   const [systemDark, setSystemDark] = useState(() => matchMedia("(prefers-color-scheme: dark)").matches);
   const fontSize = useSettings((s) => s.fontSize);
+  const panelFontSize = useSettings((s) => s.panelFontSize);
   const editorFont = useSettings((s) => s.editorFont);
   const uiFont = useSettings((s) => s.uiFont);
   useEffect(() => {
@@ -62,6 +63,10 @@ function useAppearance() {
   useEffect(() => {
     document.documentElement.style.setProperty("--editor-font-size", `${fontSize}px`);
   }, [fontSize]);
+  useEffect(() => {
+    // The panels' sizes are written for 13 px text, and each is scaled by this.
+    document.documentElement.style.setProperty("--panel-scale", String(panelFontSize / 13));
+  }, [panelFontSize]);
   useEffect(() => setFont("--mono", fontStack(editorFont, "monospace")), [editorFont]);
   useEffect(() => setFont("--sans", fontStack(uiFont, "sans-serif")), [uiFont]);
 }

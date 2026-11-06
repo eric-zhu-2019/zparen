@@ -254,14 +254,30 @@ tests whose parent test is not in the report."
                     ;; Rove's report of a failing test run alone breaks its default reporter.
                     ((string-equal framework "rove") (call "ROVE" "RUN-TESTS" (list test) :style :none)))))))
 
+(defun asd-source-files (system)
+  "The Lisp source files of every system defined in SYSTEM's .asd file."
+  (let ((asd (asdf:system-source-file (asdf:find-system system)))
+        (files '()))
+    (labels ((walk (c)
+               (typecase c
+                 (asdf:parent-component (mapc #'walk (asdf:component-children c)))
+                 (asdf:cl-source-file (push c files)))))
+      (dolist (name (asdf:registered-systems))
+        (let ((s (asdf:registered-system name)))
+          (when (and s asd (equal (asdf:system-source-file s) asd))
+            (walk s)))))
+    files))
+
 (defun drop-unsure-fasls (system)
   "Deletes the fasls of SYSTEM and what it needs that are not newer than their
 source. ASDF counts write dates in whole seconds and takes a fasl written in the
 same second as its source for current, so a file saved just after the last
-compile would load as it was."
-  (dolist (c (asdf:required-components (asdf:find-system system) :other-systems t
-                                       :component-type 'asdf:cl-source-file
-                                       :keep-component 'asdf:cl-source-file))
+compile would load as it was. ASDF lists only files not loaded yet, so the files
+of SYSTEM's own .asd count too, for a Lisp that has loaded them."
+  (dolist (c (union (asdf:required-components (asdf:find-system system) :other-systems t
+                                              :component-type 'asdf:cl-source-file
+                                              :keep-component 'asdf:cl-source-file)
+                    (asd-source-files system)))
     (let ((source (asdf:component-pathname c))
           (fasl (first (asdf:output-files 'asdf:compile-op c))))
       (when (and fasl (probe-file fasl) (probe-file source)

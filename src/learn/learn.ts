@@ -149,7 +149,9 @@ const followDisk = () => actions.syncWithDisk(getApp().tabs.map((t) => t.path));
  */
 async function loadCourse(): Promise<string | null> {
   const { pkg } = get().course!;
-  const form = `(handler-case (progn (asdf:load-system "${pkg}/tests") :ok)
+  // ASDF counts write dates in whole seconds, so a lesson file changed in the
+  // second its fasl was written would load that fasl, with the old definitions.
+  const form = `(handler-case (progn (zparen::drop-unsure-fasls "${pkg}/tests") (asdf:load-system "${pkg}/tests") :ok)
   (error (e) (format t "~a" e) :failed))`;
   const r = await actions.lisp({ op: "eval", form, package: "COMMON-LISP-USER" });
   if (r.kind !== "evaluated") return "Lisp did not answer.";

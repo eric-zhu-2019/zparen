@@ -251,6 +251,17 @@ function General() {
           </button>
         </div>
       </Row>
+      <Row label="Panel font size" hint="The text of the Assistant and Learn Lisp panels.">
+        <div className="stepper-input">
+          <button aria-label="Decrease panel font size" onClick={() => put({ panelFontSize: Math.max(9, s.panelFontSize - 1) })}>
+            −
+          </button>
+          <span>{s.panelFontSize} pt</span>
+          <button aria-label="Increase panel font size" onClick={() => put({ panelFontSize: Math.min(28, s.panelFontSize + 1) })}>
+            +
+          </button>
+        </div>
+      </Row>
       <Row label="Lines" hint="⌥Z switches it too.">
         <Toggle label="Wrap long lines" checked={s.wordWrap} onChange={(wordWrap) => put({ wordWrap })} />
       </Row>
@@ -302,6 +313,7 @@ function General() {
       <Row label="Parentheses" hint="Parinfer keeps them balanced from indentation as you type.">
         <Toggle label="Parinfer" checked={s.parinfer} onChange={(parinfer) => put({ parinfer })} />
         <Toggle label="Dim the closing parentheses parinfer moves" checked={s.dimParenTrails} onChange={(dimParenTrails) => put({ dimParenTrails })} />
+        <Toggle label="Show indent guides under open parentheses" checked={s.indentGuides} onChange={(indentGuides) => put({ indentGuides })} />
       </Row>
       <Row label="Colors" hint="Asks the running Lisp what each form's head names, so your own macros look like when and with-open-file.">
         <Toggle label="Color macros and functions from the running Lisp" checked={s.semanticColors} onChange={(semanticColors) => put({ semanticColors })} />

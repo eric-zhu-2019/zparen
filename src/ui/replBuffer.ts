@@ -433,24 +433,54 @@ export function runInput(v: EditorView): boolean {
   return true;
 }
 
+const atEnd = (s: EditorState) => {
+  const sel = s.selection.main;
+  return sel.empty && s.doc.sliceString(sel.head).trim() === "";
+};
+const inInput = (s: EditorState) => s.selection.main.head >= s.field(layout).inputStart;
+/** Vim's normal mode keeps the cursor on a character, which for an empty input is the prompt's last one. */
+const atPrompt = (s: EditorState) => s.selection.main.head >= s.field(layout).promptFrom;
+const toEnd = (v: EditorView) => (v.dispatch({ selection: { anchor: v.state.doc.length }, scrollIntoView: true }), true);
+
+/** On an earlier input, copies it down to the prompt, as in SLIME. Elsewhere in the transcript, goes to the input's end. */
+function copyDown(v: EditorView) {
+  const head = v.state.selection.main.head;
+  const old = v.state.field(layout).inputs.find((r) => r.from <= head && head <= r.to);
+  if (old) setInput(v, v.state.doc.sliceString(old.from, old.to));
+  else toEnd(v);
+  return true;
+}
+
+/**
+ * Enter in Vim's normal mode: runs the input, wherever the cursor is in it, if
+ * it is complete. In the transcript, copies an earlier input down as Enter does.
+ */
+export function runOrCopy(v: EditorView): boolean {
+  return atPrompt(v.state) ? runInput(v) : copyDown(v);
+}
+
+/**
+ * Up or Down on the input's first or last line: the input before or after it in
+ * history. `vim` counts the prompt as the input's first line.
+ */
+export function recallInput(v: EditorView, dir: -1 | 1, vim = false): boolean {
+  const handlers = v.state.facet(handlersFacet);
+  const s = v.state;
+  if (!handlers || !(vim ? atPrompt(s) : inInput(s))) return false;
+  const line = s.doc.lineAt(s.selection.main.head).number;
+  const edge = dir < 0 ? s.doc.lineAt(s.field(layout).inputStart).number : s.doc.lines;
+  if (line !== edge) return false;
+  const code = handlers.history(dir, inputText(s));
+  if (code === null) return true;
+  setInput(v, code);
+  return true;
+}
+
 export function replBuffer(handlers: ReplHandlers): Extension {
-  const atEnd = (s: EditorState) => {
-    const sel = s.selection.main;
-    return sel.empty && s.doc.sliceString(sel.head).trim() === "";
-  };
-  const inInput = (s: EditorState) => s.selection.main.head >= s.field(layout).inputStart;
-  const toEnd = (v: EditorView) => (v.dispatch({ selection: { anchor: v.state.doc.length }, scrollIntoView: true }), true);
   const submit = runInput;
 
   const enter = (v: EditorView) => {
-    if (!inInput(v.state)) {
-      // Enter on an earlier input copies it down to the prompt, as in SLIME.
-      const head = v.state.selection.main.head;
-      const old = v.state.field(layout).inputs.find((r) => r.from <= head && head <= r.to);
-      if (old) setInput(v, v.state.doc.sliceString(old.from, old.to));
-      else toEnd(v);
-      return true;
-    }
+    if (!inInput(v.state)) return copyDown(v);
     // Parinfer keeps the input balanced, so "complete" alone would run it on every
     // Enter. Run only from the end; elsewhere Enter opens an indented line.
     return atEnd(v.state) || handlers.reading() ? submit(v) : insertNewlineAndIndent(v);
@@ -458,17 +488,7 @@ export function replBuffer(handlers: ReplHandlers): Extension {
 
   const newline = (v: EditorView) => (inInput(v.state) ? insertNewlineAndIndent(v) : toEnd(v));
 
-  const recall = (dir: -1 | 1) => (v: EditorView) => {
-    const s = v.state;
-    if (!inInput(s)) return false;
-    const line = s.doc.lineAt(s.selection.main.head).number;
-    const edge = dir < 0 ? s.doc.lineAt(s.field(layout).inputStart).number : s.doc.lines;
-    if (line !== edge) return false;
-    const code = handlers.history(dir, inputText(s));
-    if (code === null) return true;
-    setInput(v, code);
-    return true;
-  };
+  const recall = (dir: -1 | 1) => (v: EditorView) => recallInput(v, dir);
 
   const home = (v: EditorView) => {
     const s = v.state;

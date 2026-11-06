@@ -25,6 +25,7 @@ import { bufferPackage, compileFile, lispCompletions, updateArglist, viewPath } 
 import { docTips, lispHover } from "./hover";
 import { lispIndentation } from "./indent";
 import { dimParenTrails } from "./parenTrail";
+import { lispIndentGuides } from "./indentGuides";
 import { semanticHeads } from "./semantic";
 import { inlineResults } from "./inline";
 import { configureStructuralVim, optionKeys, structuralKeymap } from "./structural";
@@ -46,7 +47,8 @@ const lispKeymap = keymap.of(editorKeymap());
 
 let vimConfigured = false;
 
-function configureVim() {
+/** Sets up Vim's options, mappings and ex commands, once for every view that uses Vim. */
+export function configureVim() {
   if (vimConfigured) return;
   vimConfigured = true;
   // Search with Vim's own regex syntax (\v, \<, \(, \|), not JavaScript's.
@@ -165,6 +167,7 @@ export function editorExtensions(opts: {
     lisp(),
     semanticHeads,
     dimParenTrails,
+    lispIndentGuides,
     lispIndentation(() => useStore.getState().indentSpecs),
     structureCompartment.of(opts.structure),
     inlineResults(),

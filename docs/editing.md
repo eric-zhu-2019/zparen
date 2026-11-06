@@ -53,6 +53,13 @@ The line with the cursor is not dimmed. Nothing is dimmed when parinfer
 refuses the text, for example because of a lone `"` in a comment, since it
 then moves nothing. The status bar says why.
 
+Indent guides are thin vertical lines in the indentation. Each form that
+spans lines gets one, under its open parenthesis, on the lines below. A
+guide shows only in the spaces, so text is never crossed. The guide of the
+innermost form around the cursor takes its parenthesis color. To hide them,
+turn off Settings ▸ Parentheses ▸ "Show indent guides under open
+parentheses".
+
 In Vim, these text objects work after an operator such as `d`, `c` or `y`,
 and in Visual mode:
 

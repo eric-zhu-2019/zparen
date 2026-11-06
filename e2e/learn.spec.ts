@@ -83,8 +83,10 @@ test("a course: start a lesson, check, pass, finish, and the next lesson arrives
   await replEval(page, "(defun learn-lisp::twice (x) (* 2 x))");
   await expect.poll(() => replText(page)).toMatch(/\nLEARN-LISP::TWICE\b|\nTWICE\b/);
   await twice.getByRole("button", { name: /Check/ }).click();
-  await expect(twice.locator(".learn-pill")).toHaveText("✕ Not yet", { timeout: 60_000 });
-  await expect(twice.locator(".learn-result")).toContainText("a new Lisp with only your files does not");
+  // The card still shows the last check's ✕ until this one ends, and this one
+  // also starts a new SBCL, so the wait is for the message only it gives.
+  await expect(twice.locator(".learn-result")).toContainText("a new Lisp with only your files does not", { timeout: 120_000 });
+  await expect(twice.locator(".learn-pill")).toHaveText("✕ Not yet");
   await expect(twice.locator(".learn-result")).toContainText("from the REPL, not from src/01-forms.lisp");
   expect(git(root, "log", "--format=%(trailers:key=Exercise,valueonly)").trim(), "no pass is recorded").toBe("");
   await shots(page, "learn-03b-not-from-files");

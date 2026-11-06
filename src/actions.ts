@@ -61,9 +61,10 @@ export async function lisp(op: Op): Promise<Reply> {
     return r?.type === "lisp" ? r.reply : { kind: "none" };
   }
   const r = await request({ type: "lisp", op });
-  // New code has none of the old code's breakpoints, so they go back in.
+  // New code has none of the old code's breakpoints, so they go back in
+  // before anything runs it, such as a test run right after the compile.
   const compiled = op.op === "compileFile" || op.op === "loadFile" ? op.path : op.op === "compileForm" ? op.file : null;
-  if (compiled) void syncBreakpoints(compiled);
+  if (compiled) await syncBreakpoints(compiled);
   // Running code is what records traced calls.
   if (CHANGES_CODE.has(op.op) && get().traces.specs.length) void refreshTraces();
   return r.type === "lisp" ? r.reply : { kind: "none" };
