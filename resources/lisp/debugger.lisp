@@ -260,10 +260,13 @@ and :DEFINE for a name that is not defined."
             (t (says (string-right-trim "." report)))))))
 
 (defun restarts-json (condition)
-  (let ((quit (find 'abort swank::*sldb-restarts* :key #'restart-name)))
+  "Restarts after the first ABORT belong to the earlier debugger levels, so they
+are internal: one of them leaves this level and that earlier error too."
+  (let* ((quit (find 'abort swank::*sldb-restarts* :key #'restart-name))
+         (after (position quit swank::*sldb-restarts*)))
     (loop for r in swank::*sldb-restarts*
           for i from 0
-          collect (let ((role (restart-role r quit)))
+          collect (let ((role (if (and after (> i after)) "internal" (restart-role r quit))))
                     (multiple-value-bind (label prompt) (restart-words r role condition)
                       (list :obj :index i :role role :label label :prompt (or prompt :null)))))))
 

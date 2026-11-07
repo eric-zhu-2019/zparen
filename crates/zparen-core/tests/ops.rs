@@ -176,6 +176,7 @@ async fn the_debugger_in_plain_words() {
     assert_eq!(sum["define"], "pw-halff");
     let restart = sum["restarts"].as_array().unwrap().iter().find(|r| r["label"] == "Call another function…").expect("USE-VALUE");
     assert_eq!(restart["role"], "value");
+
     let Reply::Text { text } = cl(|package| Op::InvokeRestartWithValue {
         thread: dbg.thread,
         level: dbg.level,
@@ -192,6 +193,34 @@ async fn the_debugger_in_plain_words() {
         .await;
     let Reply::Evaluated { value, .. } = waiting.await.unwrap().unwrap() else { panic!() };
     assert_eq!(value, "3/2", "a bare name is the function to call instead");
+    s.stop().await;
+}
+
+#[tokio::test]
+async fn a_nested_debugger_offers_its_own_restarts() {
+    let s = start().await;
+    let c = &s.conn;
+    let mut events = c.subscribe();
+    let repl = |input: &'static str| {
+        let conn = c.clone();
+        tokio::spawn(async move { cl(|package| Op::ReplEval { input: input.into(), package }).run(&conn).await })
+    };
+    let outer = repl("(error \"pw-outer\")");
+    let first = next_debugger(&mut events).await;
+    let inner = repl("(error \"pw-inner\")");
+    let nested = next_debugger(&mut events).await;
+    assert_eq!(nested.level, first.level + 1);
+    let sum = summary(c, nested.thread).await;
+    let restarts = sum["restarts"].as_array().unwrap();
+    let count = |role: &str| restarts.iter().filter(|r| r["role"] == role).count();
+    assert_eq!((count("abort"), count("retry")), (1, 1), "the earlier levels' restarts are internal: {sum}");
+    for dbg in [nested, first] {
+        let sum = summary(c, dbg.thread).await;
+        let quit = sum["restarts"].as_array().unwrap().iter().find(|r| r["role"] == "abort").unwrap()["index"].as_i64().unwrap();
+        let _ = Op::InvokeRestart { thread: dbg.thread, level: dbg.level, index: quit }.run(c).await;
+    }
+    let _ = inner.await;
+    let _ = outer.await;
     s.stop().await;
 }
 
