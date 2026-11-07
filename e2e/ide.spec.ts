@@ -2352,6 +2352,53 @@ test("word wrap turns on and off from ⌥Z and Settings", async ({ page }) => {
   await expect(content, "and Settings turns it off").not.toHaveClass(/cm-lineWrapping/);
 });
 
+test("the right panel keeps a tab for each view opened, and each view stays as it was", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-right-tabs");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  const palette = async (name: string) => {
+    await page.keyboard.press("Meta+Shift+P");
+    await page.getByPlaceholder("Type a command…").fill(name);
+    await expect(page.locator(".palette .item.selected")).toContainText(name);
+    await page.keyboard.press("Enter");
+  };
+  const tabs = page.getByRole("tablist", { name: "Panels" });
+
+  await palette("Toggle Learn Lisp");
+  await expect(page.getByTestId("learn")).toBeVisible();
+  await expect(tabs, "one view needs no tabs").toHaveCount(0);
+
+  await palette("Toggle AI Assistant");
+  await expect(page.getByTestId("learn")).toBeHidden();
+  await expect(tabs.getByRole("tab")).toHaveText(["Learn", "Assistant"]);
+  await expect(tabs.getByRole("tab", { name: "Assistant" })).toHaveAttribute("aria-selected", "true");
+  await page.locator(".chat-input textarea").fill("a question half typed");
+
+  await tabs.getByRole("tab", { name: "Learn" }).click();
+  await expect(page.getByTestId("learn"), "the tab goes back to Learn").toBeVisible();
+  await expect(page.locator(".chat-input textarea")).toBeHidden();
+
+  await palette("Toggle Documentation");
+  await expect(tabs.getByRole("tab")).toHaveText(["Learn", "Assistant", "Docs"]);
+  await shots(page, "43-right-panel-tabs");
+  await expect(page.locator(".repl"), "looking for a course in a project without one is not an error").not.toContainText("course");
+  await page.keyboard.press("Control+Tab");
+  await expect(tabs.getByRole("tab", { name: "Learn" }), "⌃Tab goes round to the first").toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Control+Tab");
+  await expect(page.locator(".chat-input textarea"), "the Assistant kept what was typed").toHaveValue("a question half typed");
+  await page.keyboard.press("Control+Shift+Tab");
+  await expect(page.getByTestId("learn")).toBeVisible();
+
+  await page.getByTestId("learn").getByRole("button", { name: "Close" }).click();
+  await expect(page.locator(".workspace > .right"), "Close closes the panel").toHaveCount(0);
+  await page.getByTitle("Inspector (⌥⌘I)").click();
+  await expect(tabs.getByRole("tab"), "and its tabs come back with it").toHaveText(["Learn", "Assistant", "Docs", "Inspector"]);
+});
+
 test("the panel font size sets the text of the Assistant and Learn Lisp panels, and nothing else", async ({ page }) => {
   const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
   await fresh(page);

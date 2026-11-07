@@ -111,7 +111,8 @@ async function git(op: CourseGitOp): Promise<CourseGitReply> {
 export async function refreshCourse() {
   const project = getApp().status.project;
   if (!project) return set({ course: null, git: null, sources: [] });
-  const marker = await actions.request({ type: "readFile", path: `${project.root}/.zparen-course` }).catch(() => null);
+  // Most projects have no marker, so a failed read is an answer, not an error for the REPL.
+  const marker = await backend.request({ type: "readFile", path: `${project.root}/.zparen-course` }).catch(() => null);
   if (marker?.type !== "file") return set({ course: null, git: null, sources: [] });
   let pkg = project.name;
   try {
@@ -422,7 +423,7 @@ export function backToLesson() {
 /** The most recent project that is a course, and whether it has finished every lesson in the course; null when there is none. */
 export async function findCourse(): Promise<{ root: string; done: boolean } | null> {
   for (const root of recentProjects()) {
-    const r = await actions.request({ type: "courseState", root }).catch(() => null);
+    const r = await backend.request({ type: "courseState", root }).catch(() => null);
     if (r?.type !== "courseGit" || r.reply.kind !== "state") continue;
     const p = progress(r.reply, []);
     return { root, done: LESSONS.every((l) => lessonDone(p, l)) };

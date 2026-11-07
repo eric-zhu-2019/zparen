@@ -155,6 +155,8 @@ export interface State {
   reveal: { path: string; offset: number; nonce: number; focus?: boolean } | null;
   bottom: BottomPanel;
   right: RightPanel;
+  /** The right panel's views opened since the project opened, in order, each a tab to go back to. */
+  rightOpened: Exclude<RightPanel, null>[];
   palette: "commands" | "files" | "symbols" | null;
   hint: { text: string; active: Span | null } | null;
   vimMode: string;
@@ -231,6 +233,7 @@ export const useStore = create<State>(() => ({
   reveal: null,
   bottom: "repl",
   right: null,
+  rightOpened: [],
   palette: null,
   hint: null,
   vimMode: "normal",
@@ -256,6 +259,11 @@ export const useStore = create<State>(() => ({
 
 export const set = useStore.setState;
 export const get = useStore.getState;
+
+// Whatever opens a view in the right panel, the view gets a tab.
+useStore.subscribe((s) => {
+  if (s.right && !s.rightOpened.includes(s.right)) set({ rightOpened: [...s.rightOpened, s.right] });
+});
 
 type WithoutId<T> = T extends unknown ? Omit<T, "id"> : never;
 

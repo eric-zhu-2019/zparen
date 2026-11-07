@@ -279,6 +279,41 @@ textarea {
   min-height: 0;
 }
 
+.right-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px 8px 0;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+  overflow-x: auto;
+}
+.right-tab {
+  padding: 4px 10px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.right-tab:hover {
+  color: var(--text);
+}
+.right-tab.selected {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.right-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.right-view[hidden] {
+  display: none;
+}
+
 .statusbar {
   display: flex;
   align-items: center;

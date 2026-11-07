@@ -44,6 +44,11 @@ Help ▸ Learn Lisp, or **Toggle Learn Lisp** in the palette, opens the panel on
 the right. It shows the levels and lessons, with what you have finished.
 Click a lesson to read it. Reading a lesson never changes your files.
 
+The right panel also holds the assistant, Documentation and the Inspector.
+When one of them replaces Learn, a tab row shows at the top of the panel.
+Click **Learn**, or press ⌃Tab, to go back to the lesson where you left it.
+⌃⇧Tab goes the other way.
+
 A lesson has prose, examples and exercises. Hover over an example and click
 **Run**, or focus it and press ⌘↩, to send it to the REPL. ⌘[ and ⌘] move to
 the previous and next lesson while the panel has focus.

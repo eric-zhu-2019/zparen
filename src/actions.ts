@@ -270,7 +270,7 @@ export async function adoptNewProject(root: string, file: string) {
 export async function closeProject() {
   if (!(await leaveProject())) return;
   await request({ type: "closeProject" });
-  set({ tabs: [], ...emptyPanes(), notes: {}, systems: [], transcript: [], inspector: null, debuggers: {}, right: null, image: undefined });
+  set({ tabs: [], ...emptyPanes(), notes: {}, systems: [], transcript: [], inspector: null, debuggers: {}, right: null, rightOpened: [], image: undefined });
 }
 
 export async function refreshSystems() {
@@ -1333,4 +1333,12 @@ export async function answerInput(text: string) {
   set({ inputRequest: null });
   appendTranscript({ kind: "input", text, package: "" });
   await request({ type: "returnString", thread: req.thread, tag: req.tag, text: text + "\n" });
+}
+
+/** Shows the next or previous view opened in the right panel. */
+export function cycleRight(step: 1 | -1) {
+  const { right, rightOpened } = get();
+  if (!right || rightOpened.length < 2) return;
+  const i = rightOpened.indexOf(right);
+  set({ right: rightOpened[(i + step + rightOpened.length) % rightOpened.length] });
 }
