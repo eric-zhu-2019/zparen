@@ -81,6 +81,14 @@ pub enum Op {
     DebuggerContinue { thread: Thread },
     #[serde(rename_all = "camelCase")]
     InspectCondition { thread: Thread },
+    /// The debugger in plain words, as JSON: a headline, the restarts by what
+    /// they do, and whose code each frame runs. `root` is the project's folder.
+    #[serde(rename_all = "camelCase")]
+    DebuggerSummary { thread: Thread, root: Option<String> },
+    /// Invokes a restart that takes a value, such as USE-VALUE, with the value
+    /// of `form`. An error in the form comes back as text.
+    #[serde(rename_all = "camelCase")]
+    InvokeRestartWithValue { thread: Thread, level: i64, index: i64, form: String, package: String },
 
     /// Starts or stops recording calls to a function for the trace panel.
     #[serde(rename_all = "camelCase")]
@@ -587,8 +595,9 @@ impl Op {
             Backtrace { thread, start, end } => (rpc("swank:backtrace", [Sexp::Int(*start), Sexp::Int(*end)]), *thread),
             FrameLocals { thread, frame } => (rpc("swank:frame-locals-and-catch-tags", [Sexp::Int(*frame)]), *thread),
             FrameSource { thread, frame } => (rpc("swank:frame-source-location", [Sexp::Int(*frame)]), *thread),
+            // An error in the form comes back as text, not as another debugger level.
             EvalInFrame { thread, frame, form, package } => (
-                rpc("swank:eval-string-in-frame", [s(form), Sexp::Int(*frame), s(package)]),
+                rpc("zparen::eval-in-frame-quietly", [s(form), Sexp::Int(*frame), s(package)]),
                 *thread,
             ),
             InspectFrameVar { thread, frame, var } => (
@@ -612,6 +621,11 @@ impl Op {
             DebuggerTopLevel { thread } => (rpc("swank:throw-to-toplevel", []), *thread),
             DebuggerContinue { thread } => (rpc("swank:sldb-continue", []), *thread),
             InspectCondition { thread } => (rpc("swank:inspect-current-condition", []), *thread),
+            DebuggerSummary { thread, root } => (rpc("zparen::debugger-summary", [root.as_deref().map(s).unwrap_or(Sexp::Nil)]), *thread),
+            InvokeRestartWithValue { thread, level, index, form, package } => (
+                rpc("zparen::invoke-restart-with-value", [Sexp::Int(*level), Sexp::Int(*index), s(form), s(package)]),
+                *thread,
+            ),
 
             ToggleTrace { name, .. } => (rpc("zparen::toggle-trace", [s(name)]), t),
             TraceReport => (rpc("zparen::trace-report", []), t),

@@ -21,5 +21,6 @@
 (load (merge-pathnames "tools.lisp" (env-dir "ZPAREN_LISP_DIR")))
 (load (merge-pathnames "tests.lisp" (env-dir "ZPAREN_LISP_DIR")))
 (load (merge-pathnames "plugins.lisp" (env-dir "ZPAREN_LISP_DIR")))
+(load (merge-pathnames "debugger.lisp" (env-dir "ZPAREN_LISP_DIR")))
 
 (sb-ext:save-lisp-and-die (sb-ext:posix-getenv "ZPAREN_CORE_OUT"))

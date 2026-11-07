@@ -5,6 +5,7 @@
 import { insertNewlineAndIndent } from "@codemirror/commands";
 import { Annotation, EditorSelection, EditorState, type Extension, Facet, Prec, RangeSetBuilder, StateEffect, StateField, type Transaction } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, keymap } from "@codemirror/view";
+import { getCM, Vim } from "@replit/codemirror-vim";
 import { isComplete } from "../lisp/forms";
 import { lispRegions } from "../editor/lisp";
 import { type Region, regionTree } from "../editor/lispSyntax";
@@ -408,6 +409,23 @@ export type ReplHandlers = {
 
 function inputText(state: EditorState) {
   return state.doc.sliceString(state.field(layout).inputStart);
+}
+
+/** The REPL buffer on show, and input waiting for one to open. */
+export const shownRepl: { view: EditorView | null; pending: { code: string; from: number; to: number } | null } = { view: null, pending: null };
+
+/** Puts `code` in the REPL's input with `from`–`to` in it selected, ready to type, now or when the REPL opens. */
+export function putInRepl(code: string, from = code.length, to = from) {
+  const view = shownRepl.view;
+  if (!view) return void (shownRepl.pending = { code, from, to });
+  shownRepl.pending = null;
+  setInput(view, code);
+  const cm = getCM(view);
+  const vim = (cm?.state as { vim?: { insertMode?: boolean } } | undefined)?.vim;
+  if (cm && vim && !vim.insertMode) Vim.handleKey(cm, "i", "mapping");
+  const start = view.state.field(layout).inputStart;
+  view.dispatch({ selection: { anchor: start + from, head: start + to }, scrollIntoView: true });
+  view.focus();
 }
 
 export function setInput(view: EditorView, code: string) {

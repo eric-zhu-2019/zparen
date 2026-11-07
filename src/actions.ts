@@ -23,6 +23,8 @@ import type { SystemInfo } from "./protocol/SystemInfo";
 import { addDependency as addDep, removeDependency as removeDep } from "./lisp/asd";
 import { definitionOf, definitions } from "./lisp/tree";
 import { packageAt, topLevelForms } from "./lisp/forms";
+import { defineStub, explainRequest, parseSummary, type Summary, type SummaryFrame } from "./ui/debuggerSummary";
+import { putInRepl } from "./ui/replBuffer";
 import {
   activeDebugger,
   appendTranscript,
@@ -52,7 +54,7 @@ export async function request(req: Request) {
 const CHANGES_CODE = new Set(["eval", "replEval", "compileForm", "compileFile", "loadFile"]);
 
 /** Debugger controls leave the debugger by unwinding, so Swank answers them with an abort. */
-const UNWINDS = new Set(["invokeRestart", "step", "debuggerAbort", "debuggerTopLevel", "debuggerContinue", "restartFrame", "returnFromFrame"]);
+const UNWINDS = new Set(["invokeRestart", "invokeRestartWithValue", "step", "debuggerAbort", "debuggerTopLevel", "debuggerContinue", "restartFrame", "returnFromFrame"]);
 
 export async function lisp(op: Op): Promise<Reply> {
   if (CHANGES_CODE.has(op.op)) (forgetDocs(), forgetKinds());
@@ -65,6 +67,8 @@ export async function lisp(op: Op): Promise<Reply> {
   // before anything runs it, such as a test run right after the compile.
   const compiled = op.op === "compileFile" || op.op === "loadFile" ? op.path : op.op === "compileForm" ? op.file : null;
   if (compiled) await syncBreakpoints(compiled);
+  // A stopped frame may run a function just defined again, which the debugger then offers to restart.
+  if ((op.op === "compileForm" || op.op === "compileFile" || op.op === "loadFile") && Object.keys(get().debuggers).length) codeChanged();
   // Running code is what records traced calls.
   if (CHANGES_CODE.has(op.op) && get().traces.specs.length) void refreshTraces();
   return r.type === "lisp" ? r.reply : { kind: "none" };
@@ -630,14 +634,14 @@ export function togglePreview(path: string) {
 }
 
 /** Opens `path` in a pane, the focused one by default, and focuses it there. */
-export async function openFile(path: string, offset?: number, pane = get().focusedPane) {
+export async function openFile(path: string, offset?: number, pane = get().focusedPane, { focus = true } = {}) {
   if (!(await loadTab(path))) return;
   set((s) => ({
     ...settlePanes(
       s.panes.map((p, i) => (i === pane ? (p.tabs.includes(path) ? { ...p, active: path } : withTab(p, path)) : p)),
       pane,
     ),
-    reveal: offset === undefined ? null : { path, offset, nonce: Date.now() },
+    reveal: offset === undefined ? null : { path, offset, nonce: Date.now(), focus },
   }));
 }
 
@@ -1148,15 +1152,67 @@ export function stepActive(how: "into" | "over" | "out" | "continue") {
  * Opens a frame's source and marks the form it is at. Each step shows its form
  * this way, so stepping follows the code without adding to the jump list.
  */
-export async function showFrame(dbg: Debugger, frame: number, { remember = true } = {}) {
+export async function showFrame(dbg: Debugger, frame: number, { remember = true, focus = true } = {}) {
   const r = await lisp({ op: "frameSource", thread: dbg.thread, frame }).catch(() => null);
   if (r?.kind !== "location") return false;
   const path = r.location?.file ?? (r.location?.buffer?.startsWith("/") ? r.location.buffer : null);
   if (!path) return false;
   const offset = r.location?.offset ?? 0;
-  await (remember ? navigate(path, offset) : openFile(path, offset));
-  set({ debugSpot: { thread: threadKey(dbg.thread), level: dbg.level, path, offset } });
+  await (remember ? navigate(path, offset) : openFile(path, offset, get().focusedPane, { focus }));
+  set({ debugSpot: { thread: threadKey(dbg.thread), level: dbg.level, frame, path, offset } });
   return true;
+}
+
+/** Shows a frame's local values beside its code, while its source is the one marked. */
+export function showFrameValues(dbg: Debugger, frame: number, values: { name: string; value: string }[]) {
+  const spot = get().debugSpot;
+  if (spot && spot.thread === threadKey(dbg.thread) && spot.level === dbg.level && spot.frame === frame) set({ debugSpot: { ...spot, values } });
+}
+
+/** Code changed while a debugger is open, so the panel asks again which frames run old code. */
+export const codeChanged = () => set((s) => ({ codeVersion: s.codeVersion + 1 }));
+
+/** The open debugger in plain words, or null when Lisp cannot say. */
+export async function debuggerSummary(dbg: Debugger): Promise<Summary | null> {
+  const r = await lisp({ op: "debuggerSummary", thread: dbg.thread, root: get().status.project?.root ?? null }).catch(() => null);
+  return r?.kind === "text" ? parseSummary(r.text) : null;
+}
+
+/** Invokes a restart that takes a value, such as USE-VALUE. Returns why it could not, if the form fails. */
+export async function invokeRestartWithValue(dbg: Debugger, index: number, form: string): Promise<string | null> {
+  markTour("restart");
+  const r = await lisp({ op: "invokeRestartWithValue", thread: dbg.thread, level: dbg.level, index, form, package: get().package });
+  return r.kind === "text" && r.text.startsWith("Error") ? r.text : null;
+}
+
+/**
+ * Writes a stub for an undefined function: after the form that calls it, in the
+ * user's frame's file, or in the REPL's input when the call has no file.
+ */
+export async function defineFunction(name: string, frame: SummaryFrame | null) {
+  const stub = defineStub(name);
+  if (frame?.file && (await navigate(frame.file))) {
+    const v = activeEditor.view;
+    if (v && viewPath.get(v) === frame.file) {
+      const doc = v.state.doc;
+      const at = frame.line ? doc.line(Math.min(frame.line, doc.lines)).from : doc.length;
+      const form = topLevelForms(doc.toString()).find((r) => r.from <= at && at <= r.to);
+      const end = form ? form.to : doc.length;
+      const start = end + 2;
+      v.dispatch({ changes: { from: end, insert: `\n\n${stub.text}` }, selection: { anchor: start + stub.from, head: start + stub.to }, scrollIntoView: true });
+      v.focus();
+      return;
+    }
+  }
+  set({ bottom: "repl" });
+  putInRepl(stub.text, stub.from, stub.to);
+}
+
+/** Asks the assistant what the error means and how to fix it. */
+export async function explainError(dbg: Debugger, summary: Summary | null) {
+  if (get().chatBusy) return;
+  set({ right: "assistant" });
+  await askAssistant(explainRequest(dbg, summary, get().status.project?.root ?? null), null);
 }
 
 export async function refreshTraces() {

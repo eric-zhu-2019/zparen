@@ -225,7 +225,7 @@ export function Editor({ pane }: { pane: number }) {
   useEffect(() => {
     const v = view.current;
     if (!v || !activeTab) return;
-    v.dispatch({ effects: setDebugSpot.of(spot?.path === activeTab ? spot.offset : null) });
+    v.dispatch({ effects: setDebugSpot.of(spot?.path === activeTab ? { offset: spot.offset, values: spot.values ?? [] } : null) });
   }, [spot, activeTab]);
 
   useEffect(() => {
@@ -233,7 +233,7 @@ export function Editor({ pane }: { pane: number }) {
     if (!v || !reveal || reveal.path !== activeTab || useStore.getState().focusedPane !== pane) return;
     const at = Math.min(reveal.offset, v.state.doc.length);
     v.dispatch({ selection: EditorSelection.cursor(at), effects: EditorView.scrollIntoView(at, { y: "center" }) });
-    v.focus();
+    if (reveal.focus !== false) v.focus();
   }, [reveal, activeTab]);
 
   return <div className="editor-host" ref={host} />;

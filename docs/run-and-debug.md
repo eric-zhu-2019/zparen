@@ -22,10 +22,34 @@ documentation.
 
 ## Debugger
 
-An error opens the debugger with its restarts, the backtrace, and each
-frame's locals. You can fix the data or redefine the function, then restart
-the frame that failed. Form breakpoints and stepping stop the code where you
-choose.
+An error stops the code where it happened and opens the debugger beside the
+REPL. Nothing is lost: you choose how to go on.
+
+- **What went wrong** comes first, in plain words: "`gret` is not defined as
+  a function", "Expected a number, but got the string `"5"`", "Division by
+  zero". For a name that is not defined, **Did you mean** lists names that
+  are, and a click calls or uses that one instead. **Define** writes a stub
+  after the form that calls the function.
+- **The ways to go on** are buttons. **Abort** (q) gives up. Others retry, or
+  go on with a value you type in the panel. Swank's own restarts wait under
+  **More**.
+- **The backtrace** shows your own frames, with file and line. SBCL's and
+  Swank's frames fold, and a click opens them. Your innermost frame opens
+  first, and the editor marks its form with each argument's value beside it.
+- **Fix and go on:** change the function and compile it, or define it again
+  at the REPL. The debugger then says which frame runs the old code, and
+  **Restart frame** runs the new code from that call.
+- **Evaluate in this frame** runs a form with the frame's values. An error in
+  the form shows as text there, not as another debugger.
+- An error while the debugger is open opens another level. The panel says
+  so, and **Back to the earlier error** leaves it.
+- **Explain** asks the assistant what went wrong and how to fix it. **?**
+  explains restarts, frames and levels, with a link to the course lesson
+  when a course is open.
+- **Show everything** shows SBCL's own text: the whole condition, every
+  restart and every frame. ZParen remembers the choice.
+
+Form breakpoints and stepping stop the code where you choose.
 
 ### Breakpoints
 
@@ -42,12 +66,12 @@ backtrace. **Into** (F7), **Over** (F8) and **Out** (⇧F8) step from there,
 and **Continue** (F9) runs on. A time limit around the code, such as the 5
 seconds the Lisp course gives each check, does not end the stop.
 
-To see values, click a frame in the backtrace. Frame 0 is the function that
-stopped. The frame shows its local variables: click a value to inspect it.
+To see values, look beside the code in the editor, or at the frame in the
+backtrace: its arguments and locals show there. Click a value to inspect it.
 Type a form in **Evaluate in this frame** to run it with those variables,
-for example `(length name)`. A variable the frame does not list cannot be
-evaluated there. SBCL sometimes keeps a variable under another name, such as
-`#:G2` for an argument passed to `format`.
+for example `(length name)`. SBCL sometimes keeps a variable under a name the
+compiler made, such as `#:G2` for an argument passed to `format`. These
+compiler temporaries hide behind a link under the locals.
 
 A breakpoint stops only the project's Lisp. A Learn Lisp **Check** runs in a
 new SBCL, so it does not stop there.

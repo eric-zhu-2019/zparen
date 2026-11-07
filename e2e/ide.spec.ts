@@ -31,6 +31,9 @@ async function replEval(page: Page, form: string) {
   await page.keyboard.press("Enter");
 }
 
+/** Leaves the debugger's error: Abort, or Back to the earlier error at a deeper level. */
+const abortDebugger = (page: Page) => page.getByTestId("debugger-actions").getByRole("button", { name: /^(Abort|Back to the earlier error)/ }).click();
+
 /** The text after the REPL's last prompt. */
 const replInputText = (page: Page) =>
   page.evaluate(() => {
@@ -124,7 +127,7 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await expect(page.getByTestId("debugger")).toBeVisible();
   await expect(page.locator(".repl-condition", { hasText: "broken 42" })).toBeVisible();
   await shots(page, "04-debugger");
-  await page.locator(".restart", { hasText: "ABORT" }).first().click();
+  await abortDebugger(page);
   await expect(page.getByTestId("debugger")).toHaveCount(0);
 
   await replEval(page, "(step (zen-demo::main))");
@@ -148,7 +151,7 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await replEval(page, '(defun fails () (error "nope"))');
   await expect(page.locator(".presentation", { hasText: /^FAILS$/ })).toBeVisible();
   await replEval(page, "(list (fails))");
-  await page.locator(".frame-row .desc", { hasText: /^\(FAILS\)$/ }).click();
+  await expect(page.locator(".frame-row.selected .desc"), "the user's own frame opens first").toHaveText("(fails)");
   await page.getByPlaceholder("Evaluate in this frame, or a value to return…").fill("42");
   await page.getByRole("button", { name: "Return value" }).click();
   await expect(page.locator(".repl-buffer .cm-line", { hasText: /^\(42\)$/ }), "the frame returned 42 in place of the error").toBeVisible();
@@ -159,14 +162,14 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await replEval(page, '(sb-thread:make-thread (lambda () (error "in a worker")))');
   const threads = page.getByTestId("debugger-threads").locator(".dbg-thread");
   await expect(threads, "both stopped threads are listed").toHaveCount(2);
-  await expect(page.locator(".dbg-head .cond")).toContainText("in a worker");
+  await expect(page.getByTestId("debugger-title")).toContainText("in a worker");
   await shots(page, "12-debugger-threads");
   await threads.filter({ hasText: "in the repl" }).click();
-  await expect(page.locator(".dbg-head .cond"), "switching shows the other thread's error").toContainText("in the repl");
+  await expect(page.getByTestId("debugger-title"), "switching shows the other thread's error").toContainText("in the repl");
   await threads.filter({ hasText: "in a worker" }).click();
-  await page.locator(".restart", { hasText: "ABORT" }).first().click();
+  await abortDebugger(page);
   await expect(page.getByTestId("debugger-threads"), "the list goes once one thread is left").toHaveCount(0);
-  await page.locator(".restart", { hasText: "ABORT" }).first().click();
+  await abortDebugger(page);
   await expect(page.getByTestId("debugger")).toHaveCount(0);
 
   await page.getByTitle("Interrupt (⌃C)").click();
@@ -176,7 +179,7 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await page.keyboard.press("Control+c");
   await expect(page.getByTestId("debugger"), "a running one is, and says so plainly").toContainText("Interrupted");
   await expect(page.getByTestId("debugger")).not.toContainText("Emacs");
-  await page.locator(".restart", { hasText: "ABORT" }).first().click();
+  await abortDebugger(page);
   await expect(page.getByTestId("debugger")).toHaveCount(0);
 
   await replEval(page, '(error "outer")');
@@ -226,7 +229,7 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await replEval(page, "(zen-demo:main)");
   const stop = page.getByTestId("stepper");
   await expect(stop).toContainText("Breakpoint");
-  await expect(stop).toContainText('(write-line (greet "world"))');
+  await expect(stop).toContainText('Before (write-line (greet "world"))');
   await expect(page.locator(".editor-host .cm-debug-form"), "the stop is marked at the breakpoint's form").toHaveText('(write-line (greet "world"))');
   await shots(page, "13-breakpoint");
   await page.keyboard.press("F9");
@@ -977,6 +980,104 @@ test("Vim keys in the REPL: insert mode at the prompt, normal mode to run, recal
   await expect(normal, "a found input is ready to edit in insert mode").toHaveCount(0);
 });
 
+test("the debugger says what went wrong, offers the ways on, and shows the user's frames first", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-dbg");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  const main = join(parent, "zen-dbg/src/main.lisp");
+  writeFileSync(main, `${readFileSync(main, "utf8")}\n(defun add-one (n)\n  (+ n 1))\n`);
+  await page.locator(".system").first().getByRole("button", { name: "Load" }).click();
+  await expect(page.getByText("load zen-dbg: done")).toBeVisible({ timeout: 60_000 });
+  const dbg = page.getByTestId("debugger");
+  const title = page.getByTestId("debugger-title");
+  const actions = page.getByTestId("debugger-actions");
+  const repl = page.locator(".repl-buffer");
+
+  // A name in another package: the suggestion calls the right function.
+  await replEval(page, '(greet "you")');
+  await expect(title).toHaveText("greet is not defined as a function");
+  await expect(title.locator("code")).toHaveText("greet");
+  await shots(page, "40-debugger-undefined");
+  await dbg.locator(".dbg-chip", { hasText: /zen-dbg::?greet/ }).click();
+  await expect(repl.locator(".presentation", { hasText: '"Hello, you!"' }), "Did you mean calls the suggested function instead").toBeVisible();
+  await expect(dbg).toHaveCount(0);
+
+  // A restart that takes a value asks for it in the panel.
+  await replEval(page, "(+ no-such-thing 1)");
+  await expect(title).toHaveText("no-such-thing has no value");
+  await expect(actions.getByRole("button", { name: /Abort/ }), "Abort comes first").toBeVisible();
+  await expect(actions.locator("details.dbg-more"), "Swank's own restarts wait under More").toHaveCount(1);
+  await actions.getByRole("button", { name: /Use a value instead/ }).click();
+  const ask = page.getByTestId("debugger-ask");
+  await ask.locator("input").fill("(");
+  await ask.getByRole("button", { name: "Use" }).click();
+  await expect(ask.locator(".dbg-ask-error"), "a form that does not read is reported, and the debugger stays").toContainText("Error");
+  await ask.locator("input").fill("41");
+  await ask.getByRole("button", { name: "Use" }).click();
+  await expect(repl.locator(".presentation", { hasText: /^42$/ })).toBeVisible();
+  await expect(dbg).toHaveCount(0);
+
+  // An error in the project's code: the user's frame opens first, its values show beside its code.
+  await replEval(page, '(zen-dbg::add-one "5")');
+  await expect(title).toHaveText('Expected a number, but got the string "5"');
+  await expect(dbg.locator(".dbg-detail")).toHaveText("The error is in add-one.");
+  const selected = dbg.locator(".frame-row.selected");
+  await expect(selected.locator(".desc"), "the user's frame opens first").toHaveText('(add-one "5")');
+  const line = readFileSync(main, "utf8").split("\n").findIndex((l) => l.includes("(+ n 1)")) + 1;
+  await expect(selected.locator(".where")).toHaveText(`src/main.lisp:${line}`);
+  await expect(dbg.locator(".frame-fold").first(), "SBCL's frames fold").toContainText("SBCL and Swank frame");
+  await expect(page.getByTestId("frame-detail").locator(".locals-head").first()).toHaveText("Arguments");
+  await expect(page.getByTestId("frame-detail").locator(".local .name")).toHaveText(["n"]);
+  await expect(page.locator(".editor-host .cm-debug-value"), "the argument's value shows beside its name in the code").toHaveText('"5"');
+  await expect(page.locator(".editor-host .cm-debug-form")).toHaveText("(+ n 1)");
+  await shots(page, "41-debugger-frame");
+
+  await page.getByPlaceholder("Evaluate in this frame, or a value to return…").fill("no-such-local");
+  await page.getByPlaceholder("Evaluate in this frame, or a value to return…").press("Enter");
+  await expect(page.getByTestId("frame-detail").locator(".frame-eval.out"), "an unknown name is an answer, not another debugger").toHaveText("no-such-local is not a variable in this frame");
+  await expect(page.getByTestId("debugger-levels")).toHaveCount(0);
+
+  // An error at the REPL while debugging opens a level, which says so and leads back.
+  await replEval(page, '(error "inner")');
+  await expect(page.getByTestId("debugger-levels")).toContainText("while the debugger was open");
+  await page.getByTestId("debugger-levels").getByRole("button", { name: "Back to the earlier error" }).click();
+  await expect(page.getByTestId("debugger-levels")).toHaveCount(0);
+  await expect(title).toHaveText('Expected a number, but got the string "5"');
+
+  // Help, SBCL's own view, and the assistant.
+  await dbg.getByRole("button", { name: "How the debugger works" }).click();
+  await expect(page.getByTestId("debugger-help")).toContainText("Restarts are the ways to go on");
+  await page.getByTestId("debugger-help").getByRole("button", { name: "Close" }).click();
+  await dbg.getByRole("button", { name: "Show everything" }).click();
+  await expect(dbg.locator(".dbg-head .cond"), "SBCL's whole condition text").toContainText("The value");
+  await expect(dbg.locator(".restarts .restart").first()).toBeVisible();
+  await dbg.getByRole("button", { name: "Show less" }).click();
+  await expect(title).toBeVisible();
+  await dbg.getByRole("button", { name: "Explain" }).click();
+  await expect(page.locator(".chat-scroll"), "Explain asks the assistant").toContainText("Explain this Lisp error");
+
+  // Fix the function, and the debugger offers to run the new definition from the stopped call.
+  await replEval(page, "(defun zen-dbg::add-one (n) (+ (parse-integer n) 1))");
+  const stale = page.getByTestId("debugger-stale");
+  await expect(stale).toContainText("You changed add-one");
+  await expect(dbg.locator(".frame-row.selected .tag")).toHaveText("changed");
+  await shots(page, "42-debugger-changed");
+  await stale.getByRole("button", { name: /Restart frame/ }).click();
+  await expect(repl.locator(".presentation", { hasText: /^6$/ }), "the stopped call ran the new definition").toBeVisible();
+  await expect(dbg).toHaveCount(0);
+
+  // A function that does not exist yet: Define writes a stub to fill in.
+  await replEval(page, '(zen-dbg::shout "a")');
+  await dbg.getByRole("button", { name: /Define/ }).click();
+  await expect.poll(() => replInputText(page), { message: "with no file to put it in, the stub goes in the REPL's input" }).toBe("(defun zen-dbg::shout ()\n  nil)");
+  await abortDebugger(page);
+  await expect(dbg).toHaveCount(0);
+});
+
 test("documentation that follows the cursor, HyperSpec pages, and apropos", async ({ page }) => {
   const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
   await fresh(page);
@@ -1388,9 +1489,9 @@ test("files are checked while a load is stopped in the debugger, and a fixed err
   await expect(editor.locator(".cm-lintRange"), "deleting the bad form clears its mark").toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByTestId("debugger"), "and the load is still stopped").toContainText("stop the load");
   const statusTop = (await page.locator(".statusbar").boundingBox())!.y;
-  const restartsBottom = await page.locator(".restarts").evaluate((e) => e.getBoundingClientRect().bottom);
+  const restartsBottom = await page.getByTestId("debugger-actions").evaluate((e) => e.getBoundingClientRect().bottom);
   expect(restartsBottom, "the restarts end above the status bar").toBeLessThanOrEqual(statusTop);
-  await page.locator(".restart", { hasText: "ABORT" }).first().click();
+  await abortDebugger(page);
 });
 
 test("the box for a mark never covers the line the cursor is on", async ({ page }) => {
@@ -2312,9 +2413,10 @@ test("a breakpoint stops the tests, Run and the REPL, though each loads the file
   await page.locator(".panel-tab", { hasText: "Tests" }).click();
   await page.locator(".editor-host .cm-content").click();
   await page.keyboard.press("Meta+u");
-  await expect(stop, "the tests stop at the breakpoint").toContainText('Breakpoint at (format nil "Hello, ~a!" name)', { timeout: 30_000 });
+  await expect(stop, "the tests stop at the breakpoint").toContainText('Stopped at the breakpoint in greet', { timeout: 30_000 });
+  await expect(stop).toContainText('Before (format nil "Hello, ~a!" name)');
   await expect(page.locator(".panel-tab.active"), "and the debugger's tab shows, though the Tests tab was open").toContainText("REPL");
-  await expect(page.getByTestId("debugger"), "called from the test").toContainText("ZEN-BP-RUN/TESTS:RUN");
+  await expect(page.locator(".frame-row", { hasText: "(run)" }).locator(".where"), "called from the test").toHaveText("tests/main.lisp:8");
   await expect(page.locator(".editor-host .cm-debug-form")).toHaveText('(format nil "Hello, ~a!" name)');
   await page.keyboard.press("F9");
   await expect(stop).toHaveCount(0);
@@ -2322,7 +2424,7 @@ test("a breakpoint stops the tests, Run and the REPL, though each loads the file
 
   await page.locator(".system", { hasText: "zen-bp-run" }).first().getByRole("button", { name: "Run" }).click();
   await expect(stop, "Run stops there too").toContainText("Breakpoint", { timeout: 30_000 });
-  await expect(page.getByTestId("debugger"), "called from MAIN").toContainText("ZEN-BP-RUN:MAIN");
+  await expect(page.locator(".frame-row .desc", { hasText: /^\(main\)$/ }), "called from MAIN").toBeVisible();
   await page.keyboard.press("F9");
   await expect(stop).toHaveCount(0);
 

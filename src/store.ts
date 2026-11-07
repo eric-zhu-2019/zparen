@@ -108,7 +108,10 @@ export interface State {
   /** The thread that entered a debugger most recently. */
   lastDebugThread: string | null;
   /** Where a debugger level is stopped, shown in the editor while that level lasts. */
-  debugSpot: { thread: string; level: number; path: string; offset: number } | null;
+  /** The source a stopped frame is at, and its local values once read. */
+  debugSpot: { thread: string; level: number; frame?: number; path: string; offset: number; values?: { name: string; value: string }[] } | null;
+  /** Counts code changes made while a debugger is open, so the debugger looks again for frames that run old code. */
+  codeVersion: number;
   /** Breakpoint forms per file, kept here so they outlive the file's tab. */
   breakpoints: Record<string, { from: number; to: number }[]>;
   /** Per file, the breakpoint starts Lisp bound to compiled code. */
@@ -148,7 +151,8 @@ export interface State {
   gitHeads: Record<string, string | null>;
   /** Files showing their changes since the last commit inline. */
   diffOn: string[];
-  reveal: { path: string; offset: number; nonce: number } | null;
+  /** A place to show in the editor. With `focus` false the editor shows it without taking the keyboard. */
+  reveal: { path: string; offset: number; nonce: number; focus?: boolean } | null;
   bottom: BottomPanel;
   right: RightPanel;
   palette: "commands" | "files" | "symbols" | null;
@@ -200,6 +204,7 @@ export const useStore = create<State>(() => ({
   debuggers: {},
   lastDebugThread: null,
   debugSpot: null,
+  codeVersion: 0,
   breakpoints: {},
   boundBreakpoints: {},
   inspector: null,
@@ -321,7 +326,8 @@ export function reduce(s: State, e: AppEvent): Partial<State> {
   const ev = e.event;
   switch (ev.kind) {
     case "output":
-      if (ev.target === "repl-result") return appendResult(s, ev.text);
+      // A definition run at the REPL while debugging may be one a stopped frame runs.
+      if (ev.target === "repl-result") return { ...appendResult(s, ev.text), ...(Object.keys(s.debuggers).length ? { codeVersion: s.codeVersion + 1 } : {}) };
       return appendOutput(s, ev.text);
     case "presentationStart":
       return { openPresentation: ev.id };
