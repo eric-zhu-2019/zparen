@@ -12,6 +12,10 @@ Results are live objects. Click one to use it in the next input, or ⌘-click
 it to inspect it. ⌃R searches earlier input. Extra REPLs run in their own
 threads. ⌘J goes to the REPL, and from the REPL back to the editor.
 
+The inspector opens on the right. When the right panel holds more than one
+view, such as the inspector and Documentation, a tab row shows at its top.
+Click a tab, or press ⌃Tab and ⌃⇧Tab, to go back to a view as you left it.
+
 With Vim keys on, the REPL uses Vim too. Each prompt starts in insert mode,
 so you type as before. Press Escape for normal mode. There, `k` and the other
 motions move into the transcript, `y` copies from it, and edits change only
@@ -42,7 +46,9 @@ REPL. Nothing is lost: you choose how to go on.
 - **Evaluate in this frame** runs a form with the frame's values. An error in
   the form shows as text there, not as another debugger.
 - An error while the debugger is open opens another level. The panel says
-  so, and **Back to the earlier error** leaves it.
+  so, and **Back to the earlier error** leaves it. The buttons offer only this
+  level's ways to go on. Close returns every level to the top, however
+  many errors deep you are.
 - **Explain** asks the assistant what went wrong and how to fix it. **?**
   explains restarts, frames and levels, with a link to the course lesson
   when a course is open.
