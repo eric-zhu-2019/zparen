@@ -18,6 +18,7 @@ import {
   type Lesson,
   lessonBranch,
   lessonDone,
+  lessonPackage,
   lessonSource,
   lessonTests,
   LESSONS,
@@ -156,6 +157,8 @@ async function loadCourse(): Promise<string | null> {
   (error (e) (format t "~a" e) :failed))`;
   const r = await actions.lisp({ op: "eval", form, package: "COMMON-LISP-USER" });
   if (r.kind !== "evaluated") return "Lisp did not answer.";
+  // A project's first lesson brings a package, which the title bar lists.
+  await actions.refreshPackages().catch(() => {});
   return r.value.trim() === ":OK" ? null : r.output.trim() || "The course did not load.";
 }
 
@@ -186,18 +189,58 @@ async function leaveBranch(to: string): Promise<boolean> {
 }
 
 export function startLesson(l: Lesson) {
-  return busy(`Starting lesson ${l.number}…`, async () => {
-    const branch = lessonBranch(l);
-    if (get().git?.branch !== branch) {
-      if (!(await leaveBranch(branch))) return;
-      await git({ op: "switch", branch, create: !get().git?.branches.includes(branch) });
+  return busy(`Starting lesson ${l.number}…`, () => enterLesson(l));
+}
+
+/**
+ * The package lesson L's code is in, as the running Lisp has it: the
+ * project's own, or else the course's, where a project lesson written before
+ * projects had packages is. Null when the course is not loaded. Asking the
+ * REPL for a package it lacks stops it in the debugger, so callers ask this first.
+ */
+function loadedPackage(l: Lesson | null): string | null {
+  const course = get().course;
+  if (!course) return null;
+  const have = new Set(getApp().packages.map((p) => p.toLowerCase()));
+  const own = l ? lessonPackage(course.pkg, l) : course.pkg;
+  return have.has(own) ? own : have.has(course.pkg) ? course.pkg : null;
+}
+
+/** Sets the REPL to lesson L's package, when the running Lisp has it. */
+async function useLessonPackage(l: Lesson | null) {
+  const name = loadedPackage(l);
+  if (name) await actions.setPackage(name.toUpperCase()).catch(() => {});
+}
+
+/** Checks out the lesson's branch, made from main when new, then opens its file and loads the course. */
+async function enterLesson(l: Lesson) {
+  const branch = lessonBranch(l);
+  if (get().git?.branch !== branch) {
+    if (!(await leaveBranch(branch))) return;
+    await git({ op: "switch", branch, create: !get().git?.branches.includes(branch) });
+    await followDisk();
+  }
+  showLesson(l.id);
+  await actions.openFile(path(lessonSource(l)));
+  const failed = await loadCourse();
+  if (failed) set({ notice: { tone: "error", text: `The course did not load: ${failed}` } });
+  else await useLessonPackage(l);
+}
+
+/**
+ * Starts a project at its first lesson, without the lessons before it: adds the
+ * lesson's files on main, then starts it. Lessons before it stay where they are.
+ */
+export function startProject(first: Lesson) {
+  return busy(`Starting the ${first.project?.toLowerCase()} project…`, async () => {
+    if (get().git?.branch !== "main") {
+      if (!(await leaveBranch("main"))) return;
+      await git({ op: "switch", branch: "main", create: false });
       await followDisk();
     }
-    showLesson(l.id);
-    await actions.openFile(path(lessonSource(l)));
-    const failed = await loadCourse();
-    if (failed) set({ notice: { tone: "error", text: `The course did not load: ${failed}` } });
-    else await actions.setPackage(get().course!.pkg.toUpperCase());
+    await addLesson(first);
+    await refreshCourse();
+    await enterLesson(first);
   });
 }
 
@@ -245,8 +288,8 @@ async function definedElsewhere(l: Lesson, name: string, pkg: string): Promise<s
  * files, so that a definition only the running Lisp has, such as one typed in
  * the REPL or since deleted from the file, cannot pass it. Null when it passes there too.
  */
-async function fromFilesAlone(l: Lesson, e: Exercise, pkg: string): Promise<CheckResult | null> {
-  const tests = [{ framework: "fiveam", id: testId(pkg, e) }];
+async function fromFilesAlone(l: Lesson, e: Exercise, pkg: string, inPackage: string): Promise<CheckResult | null> {
+  const tests = [{ framework: "fiveam", id: testId(inPackage, e) }];
   let nodes: TestNode[];
   try {
     const r = await backend.request({ type: "cleanTests", system: `${pkg}/tests`, tests });
@@ -260,7 +303,7 @@ async function fromFilesAlone(l: Lesson, e: Exercise, pkg: string): Promise<Chec
   if (node?.status === "passed") return null;
   const lines = [
     "Your Lisp passes the test, but a new Lisp with only your files does not, so the pass is not recorded.",
-    await definedElsewhere(l, e.name, pkg),
+    await definedElsewhere(l, e.name, inPackage),
     node ? reasons(node) : `No test named ${e.name} ran there.`,
   ];
   return { status: "failed", message: lines.filter(Boolean).join("\n\n") };
@@ -284,14 +327,15 @@ export async function check(l: Lesson, e: Exercise) {
     if (failed || !compiled) {
       return result({ status: "error", message: `Your file did not compile.${failed ? `\n${failed}` : ""}\nProblems shows where.` });
     }
-    const r = await actions.lisp({ op: "rerunTests", tests: [{ framework: "fiveam", id: testId(pkg, e) }] });
+    const inPackage = loadedPackage(l) ?? lessonPackage(pkg, l);
+    const r = await actions.lisp({ op: "rerunTests", tests: [{ framework: "fiveam", id: testId(inPackage, e) }] });
     if (r.kind !== "tests") return result({ status: "error", message: "The test did not run." });
     setApp({ tests: { system: `${pkg}/tests`, run: r } });
     const node = findTest(r.tests, e.name);
     if (!node) return result({ status: "error", message: `No test named ${e.name} ran.` });
     const message = reasons(node);
     if (node.status === "passed") {
-      const unclean = await fromFilesAlone(l, e, pkg);
+      const unclean = await fromFilesAlone(l, e, pkg, inPackage);
       if (unclean) return result(unclean);
       // A pass is recorded once, even when an earlier pass already committed this code.
       await git({ op: "commit", message: passMessage(e), paths: [lessonSource(l)], allowEmpty: !currentProgress().passed.has(e.key) });
@@ -374,11 +418,17 @@ export async function showHistory() {
   }
 }
 
-/** Runs an example in the REPL, in the course's package. */
+/**
+ * Runs an example in the REPL, in the package of the lesson shown. A project
+ * not started yet has no package, so its examples run in the course's.
+ */
 export async function runExample(code: string) {
   const course = get().course;
-  if (course && !getApp().packages.some((p) => p.toLowerCase() === course.pkg)) await loadCourse();
-  if (course) await actions.setPackage(course.pkg.toUpperCase()).catch(() => {});
+  if (course) {
+    const shown = LESSONS.find((l) => l.id === get().lesson) ?? null;
+    if (loadedPackage(shown) !== (shown ? lessonPackage(course.pkg, shown) : course.pkg)) await loadCourse();
+    await useLessonPackage(shown);
+  }
   await actions.replEval(code);
 }
 
@@ -409,7 +459,7 @@ export async function askForHint(l: Lesson, e: Exercise) {
   set({ askedFrom: l.id });
   setApp({ right: "assistant" });
   await actions.saveAll();
-  await actions.askAssistant(text, { file, package: pkg.toUpperCase(), form: null });
+  await actions.askAssistant(text, { file, package: (loadedPackage(l) ?? lessonPackage(pkg, l)).toUpperCase(), form: null });
 }
 
 /** Leaves the assistant for the lesson it was asked about. */

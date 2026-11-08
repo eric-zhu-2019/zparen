@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asdFile, definedName, lambdaVariables, LESSONS, parseLesson, passMessage, progress, sourceFile, startingFiles, stubWithArguments, testFile } from "./course";
+import { asdFile, definedName, lambdaVariables, lessonBranch, lessonPackage, LESSONS, parseLesson, passMessage, progress, sourceFile, startingFiles, startsProject, stubWithArguments, testFile, testId } from "./course";
 import type { CourseState } from "../protocol/CourseState";
 import { waitingLesson } from "./learn";
 
@@ -58,11 +58,55 @@ describe("lessons", () => {
     expect(definedName("(defmacro while (test &body b) nil)")).toBe("while");
   });
 
-  it("gives every exercise in the course its own name, outside COMMON-LISP", () => {
-    const names = LESSONS.flatMap((l) => l.exercises.map((e) => e.name));
+  it("gives every exercise its own name in its package", () => {
+    const names = LESSONS.flatMap((l) => l.exercises.map((e) => `${lessonPackage("c", l)} ${e.name}`));
     expect(new Set(names).size).toBe(names.length);
     expect(LESSONS.map((l) => l.number)).toEqual(LESSONS.map((_, i) => i + 1));
     expect(LESSONS.every((l) => l.exercises.length > 0)).toBe(true);
+  });
+
+  it("keeps the names provided code defines apart from every other lesson's in its package", () => {
+    const defs = (code: string) => [...code.matchAll(/^\(def(?:un|macro|generic|struct|class|var|parameter|constant|ine-condition)\s+(\(setf\s+)?\(?([^\s()]+)/gim)].map((m) => `${m[1] ? "setf " : ""}${m[2].toLowerCase()}`);
+    const names = LESSONS.flatMap((l) => [...defs(l.given ?? ""), ...l.exercises.map((e) => e.name)].map((n) => `${lessonPackage("c", l)} ${n}`));
+    expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
+  });
+
+  it("reads a project lesson's provided code and code to fix", () => {
+    const project = `---
+title: Cells
+level: advanced
+project: Spreadsheet
+---
+Prose.
+
+\`\`\`given
+(defstruct sheet cells)
+\`\`\`
+
+More prose.
+
+## Exercise: Repair it
+
+\`\`\`fix
+(defun broken (x) (car x))
+\`\`\`
+
+\`\`\`solution
+(defun broken (x) (first x))
+\`\`\`
+
+\`\`\`check
+(is (eq 1 (broken '(1))))
+\`\`\`
+`;
+    const l = parseLesson("16-cells", project);
+    expect(l).toMatchObject({ project: "Spreadsheet", given: "(defstruct sheet cells)" });
+    expect(l.body).toBe("Prose.\n\n\nMore prose.");
+    expect(l.exercises[0]).toMatchObject({ name: "broken", fix: true, stub: "(defun broken (x) (car x))" });
+    const src = sourceFile("learn-lisp", l);
+    expect(src).toContain(";;; Provided code for the spreadsheet. Read it: the exercises below use it.");
+    expect(src.indexOf("(defstruct sheet cells)")).toBeLessThan(src.indexOf(";;; Exercise 16.1: Repair it (fix this code)\n(defun broken (x) (car x))"));
+    expect(() => parseLesson("16-cells", project.replace("```fix", "```stub\n(defun other ())\n```\n\n```fix"))).toThrow(/one stub or fix/);
   });
 });
 
@@ -105,6 +149,22 @@ describe("course files", () => {
     expect(stubWithArguments("(defmacro my-while (test &body body)\n  (not-written-yet 'my-while))")).toContain("`(not-written-yet 'my-while ',test ',body)");
   });
 
+  it("puts each project in a package of its own, made by its first lesson", () => {
+    const [first, second] = LESSONS.filter((l) => l.project === "Query engine");
+    expect(lessonPackage("learn-lisp", first)).toBe("learn-lisp.query-engine");
+    expect(lessonPackage("learn-lisp", LESSONS[0])).toBe("learn-lisp");
+    const src = sourceFile("learn-lisp", first);
+    expect(src).toContain("(defpackage #:learn-lisp.query-engine\n  (:use #:cl)\n  (:import-from #:learn-lisp #:not-written-yet)");
+    expect(src.indexOf("(defpackage")).toBeLessThan(src.indexOf("(in-package #:learn-lisp.query-engine)"));
+    expect(sourceFile("learn-lisp", second)).not.toContain("(defpackage");
+    expect(sourceFile("learn-lisp", second)).toContain("(in-package #:learn-lisp.query-engine)");
+    const tests = testFile("learn-lisp", second);
+    expect(tests).toContain("(in-package #:learn-lisp.query-engine)");
+    expect(tests).toContain(`:in learn-lisp::course`);
+    expect(tests).toContain(`(learn-lisp::checking ${second.exercises[0].name}`);
+    expect(testId(lessonPackage("learn-lisp", second), second.exercises[0])).toBe(`LEARN-LISP.QUERY-ENGINE::${second.exercises[0].name.toUpperCase()}`);
+  });
+
   it("marks a passing commit with the exercise's trailer", () => {
     expect(passMessage(l.exercises[0])).toBe("Pass 4.1: Double it\n\nExercise: 04/1");
   });
@@ -132,5 +192,16 @@ describe("progress", () => {
     const p = progress(state({ finished: ["01", "02"] }), files([one, two, three]));
     expect(p.onLesson).toBeNull();
     expect(p.current).toBe(three);
+  });
+
+  it("goes on with a project started ahead of the lessons before it", () => {
+    const [first, second] = LESSONS.filter((l) => l.project === "Spreadsheet");
+    expect(startsProject(first)).toBe(true);
+    expect(startsProject(second)).toBe(false);
+    const branch = { branches: [lessonBranch(first)] };
+    expect(progress(state({ ...branch, branch: lessonBranch(first) }), files([one, first])).current).toBe(first);
+    expect(progress(state(branch), files([one, first])).current, "back on main, the lesson started").toBe(first);
+    expect(progress(state({ ...branch, finished: [String(first.number)] }), files([one, first, second])).current, "then the one that arrived after it").toBe(second);
+    expect(progress(state({}), files([one, first])).current, "with nothing started, the first").toBe(one);
   });
 });

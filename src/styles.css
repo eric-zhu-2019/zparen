@@ -3991,6 +3991,23 @@ body.resizing * {
   font-size: calc(12px * var(--panel-scale, 1));
   color: var(--text-dim);
 }
+.learn-project-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 6px 2px 10px;
+  color: var(--text-dim);
+  font-size: calc(12px * var(--panel-scale, 1));
+}
+.learn-given {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.learn-given summary {
+  cursor: pointer;
+  color: var(--text-dim);
+}
 .learn-row {
   display: grid;
   grid-template-columns: 16px 22px 1fr auto;

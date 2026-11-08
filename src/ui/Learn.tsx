@@ -1,6 +1,6 @@
 import { Marked } from "marked";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { type Exercise, exercisesPassed, type Lesson, lessonBranch, lessonDone, lessonSource, LESSONS, LEVELS, type Progress, progress } from "../learn/course";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { type Exercise, exercisesPassed, type Lesson, lessonBranch, lessonDone, lessonSource, LESSONS, LEVELS, type Progress, progress, projectLessons, startsProject } from "../learn/course";
 import { escapeHtml, highlightLispHtml } from "../editor/lispSyntax";
 import {
   abortMerge,
@@ -18,6 +18,7 @@ import {
   showHistory,
   showLesson,
   startLesson,
+  startProject,
   toggleShown,
   useLearn,
 } from "../learn/learn";
@@ -144,13 +145,41 @@ function Outline({ p }: { p: Progress | null }) {
               {level.title} <span className="learn-dim">{level.reading}</span>
               <span className="learn-count">{lessons.length ? (p ? `${done} of ${lessons.length}` : "") : "Arrives in a later update"}</span>
             </div>
-            {lessons.map((l) => (
-              <LessonRow key={l.id} l={l} p={p} />
+            {lessons.map((l, i) => (
+              <Fragment key={l.id}>
+                {l.project && l.project !== lessons[i - 1]?.project && <ProjectHead l={l} p={p} />}
+                <LessonRow l={l} p={p} />
+              </Fragment>
             ))}
           </section>
         );
       })}
     </>
+  );
+}
+
+/** A project's name above its lessons, with how many are finished. */
+function ProjectHead({ l, p }: { l: Lesson; p: Progress | null }) {
+  const lessons = projectLessons(l);
+  const done = p ? lessons.filter((x) => lessonDone(p, x)).length : 0;
+  const busy = useLearn((s) => s.busy);
+  const ready = useStore((s) => s.status.session.state === "ready");
+  const canStart = p && !p.reached.includes(l);
+  return (
+    <div className="learn-project-head">
+      Project: {l.project}
+      {canStart && (
+        <button
+          className="btn link"
+          disabled={!!busy || !ready}
+          title={ready ? `Start the ${l.project} project at lesson ${l.number}, without the lessons before it` : "Lisp is not running"}
+          onClick={() => void startProject(l)}
+        >
+          Start Project
+        </button>
+      )}
+      <span className="learn-count">{p ? `${done} of ${lessons.length}` : `${lessons.length} lessons`}</span>
+    </div>
   );
 }
 
@@ -249,7 +278,7 @@ function Card({ l, e, p, canCheck, why }: { l: Lesson; e: Exercise; p: Progress;
   const busy = useLearn((s) => s.checking !== null || s.busy !== null);
   const st = status(p, e, result);
   const open = st !== "passed" || shown[`open:${e.key}`];
-  const [cls, text] = PILL[st];
+  const [cls, text] = st === "todo" && e.fix ? ["todo", "To fix"] : PILL[st];
   const head = (
     <>
       <span className="learn-num">{e.index}</span>
@@ -378,7 +407,9 @@ function LessonView({ l }: { l: Lesson }) {
   const why = !ready
     ? "Lisp is not running"
     : !reached
-      ? `Finish lesson ${before?.number} first`
+      ? startsProject(l)
+        ? `Start the project, or finish lesson ${before?.number} first`
+        : `Finish lesson ${before?.number} first`
       : done
         ? "This lesson is finished; your answers are on main"
         : "Start the lesson to check your work";
@@ -393,6 +424,7 @@ function LessonView({ l }: { l: Lesson }) {
         <h2>{l.title}</h2>
         <div className="learn-dim">
           {LEVELS.find((x) => x.id === l.level)?.title}
+          {l.project && ` · Project: ${l.project}, part ${projectLessons(l).indexOf(l) + 1} of ${projectLessons(l).length}`}
           {l.reading && ` · ${l.reading}`}
         </div>
         <div className="learn-branch">
@@ -416,6 +448,19 @@ function LessonView({ l }: { l: Lesson }) {
         </div>
       </div>
       <ConflictBanner />
+      {!reached && startsProject(l) && waitingLesson(p) !== l && (
+        <div className="learn-box">
+          <p>
+            This lesson begins the {l.project} project. You can start it now, without the lessons before it: starting adds <code>{lessonSource(l)}</code> and its tests on
+            main, and makes the branch <code>{lessonBranch(l)}</code>. Your open files are saved first.
+          </p>
+          <div>
+            <button className="btn primary" disabled={!!busy || !ready || git?.merging} title={ready ? undefined : "Lisp is not running"} onClick={() => void startProject(l)}>
+              {busy ?? "Start Project"}
+            </button>
+          </div>
+        </div>
+      )}
       {waitingLesson(p) === l && (
         <div className="learn-box">
           <p>
@@ -443,6 +488,14 @@ function LessonView({ l }: { l: Lesson }) {
         </div>
       )}
       <Prose md={l.body} />
+      {l.given && (
+        <details className="learn-given">
+          <summary>
+            Provided code, at the top of <code>{lessonSource(l)}</code>
+          </summary>
+          <Prose md={"```lisp\n" + l.given + "\n```"} />
+        </details>
+      )}
       {l.reading && <p className="learn-dim">Read more: {l.reading}.</p>}
       <h3 className="learn-section">Exercises</h3>
       <div className="learn-cards">
