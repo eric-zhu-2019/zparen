@@ -205,6 +205,10 @@ export function closeRepl(replId: number) {
 }
 
 export async function setPackage(name: string) {
+  // SWANK stops in the debugger on a package the image lacks, and the request waits there.
+  const has = () => get().packages.some((p) => p.toUpperCase() === name.toUpperCase());
+  if (!has()) await refreshPackages();
+  if (!has()) return;
   const r = await lisp({ op: "setPackage", name });
   if (r.kind === "text") set({ package: name });
 }
