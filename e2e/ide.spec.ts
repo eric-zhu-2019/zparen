@@ -626,6 +626,15 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await page.keyboard.press("Enter");
 
   await page.keyboard.type("Go");
+  await page.keyboard.type("(list rect rect-shape my-rect-shape 'rect-shape");
+  await page.keyboard.press("Escape");
+  await page.keyboard.type("0f-*");
+  await expect(page.locator(".editor-host .cm-searchMatch"), "* searches for the whole symbol, not rect").toHaveText(["rect-shape", "rect-shape"]);
+  await page.keyboard.type(":noh");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("dd");
+
+  await page.keyboard.type("Go");
   await page.keyboard.type("(list (+ 1 2) (* 2 3))");
   await page.keyboard.press("Escape");
   await page.keyboard.press("Control+x");
