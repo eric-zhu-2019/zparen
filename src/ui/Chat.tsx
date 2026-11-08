@@ -285,6 +285,8 @@ export function Chat() {
   const [withContext, setWithContext] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+  const about = useStore((s) => s.chatAbout);
 
   const settingsOpen = useStore((s) => s.settingsOpen);
   const refresh = () => actions.request({ type: "assistantStatus" }).then((r) => r.type === "assistant" && setStatus(r));
@@ -298,12 +300,17 @@ export function Chat() {
   useLayoutEffect(() => {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
   }, [chat, shown]);
+  // Code chosen to ask about waits for the question, so the cursor goes to it.
+  useEffect(() => {
+    if (about && shown) input.current?.focus();
+  }, [about, shown]);
 
   const send = async () => {
     const t = text.trim();
     if (!t || busy) return;
     setText("");
-    await actions.askAssistant(t, withContext ? editorContext() : null);
+    set({ chatAbout: null });
+    await actions.askAssistant(t, about ? about.context : withContext ? editorContext() : null);
   };
 
   const needsSetup = status !== null && !status[status.config.provider].configured;
@@ -348,7 +355,17 @@ export function Chat() {
         {busy && <div className="chat-working">Working…</div>}
       </div>
       <div className="chat-input">
+        {about && (
+          <div className="chat-about" data-testid="chat-about">
+            <Icon name="lambda" size={11} />
+            <span className="grow">About {about.label}</span>
+            <button className="icon-btn" title="Ask without this code" onClick={() => set({ chatAbout: null })}>
+              <Icon name="x" size={10} />
+            </button>
+          </div>
+        )}
         <textarea
+          ref={input}
           rows={3}
           placeholder={needsSetup ? `Connect ${name} above to start` : `Ask ${name}…  ⏎ to send`}
           value={text}

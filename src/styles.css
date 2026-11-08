@@ -4318,3 +4318,28 @@ body.resizing * {
     transition: none;
   }
 }
+
+.context-menu button:focus-visible {
+  outline: none;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* The code a question to the assistant is about, above the chat's input. */
+.chat-about {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 3px 4px 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.chat-about .grow {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

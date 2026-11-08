@@ -12,6 +12,17 @@ Results are live objects. Click one to use it in the next input, or ⌘-click
 it to inspect it. ⌃R searches earlier input. Extra REPLs run in their own
 threads. ⌘J goes to the REPL, and from the REPL back to the editor.
 
+A right-click in the REPL opens a menu for what you clicked:
+
+- Every item: **Explain** and **Ask Assistant About It…**, as in the editor,
+  then **Clear REPL**.
+- An earlier input: **Copy to Input**.
+- A result: **Use in Input** and **Inspect Result**.
+- A selection: **Evaluate Selection**, **Inspect Value**, **Copy**, and
+  **Cut** in the input.
+- A symbol in an input or a result: **Go to Definition**, **Find
+  References**, **Show Documentation**, **Inspect** and **Trace Function**.
+
 The inspector opens on the right. When the right panel holds more than one
 view, such as the inspector and Documentation, a tab row shows at its top.
 Click a tab, or press ⌃Tab and ⌃⇧Tab, to go back to a view as you left it.

@@ -376,7 +376,7 @@ export function inputCode(state: EditorState) {
 }
 
 /** Puts a transcript result in the input at the cursor, or at its end. */
-function insertResult(view: EditorView, id: number) {
+export function insertResult(view: EditorView, id: number) {
   let range: { from: number; to: number } | null = null;
   view.state.field(layout).marks.between(0, view.state.field(layout).promptFrom, (from, to, deco) => {
     if (deco.spec.attributes?.["data-presentation"] === String(id)) range = { from, to };
@@ -461,7 +461,7 @@ const atPrompt = (s: EditorState) => s.selection.main.head >= s.field(layout).pr
 const toEnd = (v: EditorView) => (v.dispatch({ selection: { anchor: v.state.doc.length }, scrollIntoView: true }), true);
 
 /** On an earlier input, copies it down to the prompt, as in SLIME. Elsewhere in the transcript, goes to the input's end. */
-function copyDown(v: EditorView) {
+export function copyDown(v: EditorView) {
   const head = v.state.selection.main.head;
   const old = v.state.field(layout).inputs.find((r) => r.from <= head && head <= r.to);
   if (old) setInput(v, v.state.doc.sliceString(old.from, old.to));
@@ -546,7 +546,8 @@ export function replBuffer(handlers: ReplHandlers): Extension {
       // A click on a result puts it in the input; ⌘-click inspects it.
       mousedown(event, view) {
         const target = (event.target as HTMLElement).closest("[data-presentation]");
-        if (!target) return false;
+        // A right-click, or a Control-click, opens the context menu instead.
+        if (!target || event.button !== 0 || event.ctrlKey) return false;
         event.preventDefault();
         const id = Number(target.getAttribute("data-presentation"));
         if (event.metaKey) handlers.inspect(id);

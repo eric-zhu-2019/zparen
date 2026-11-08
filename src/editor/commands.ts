@@ -20,9 +20,13 @@ export const viewPath = new WeakMap<EditorView, string>();
 export const activeEditor: { view: EditorView | null } = { view: null };
 
 export function editorContext() {
-  const v = activeEditor.view;
-  const file = v ? viewPath.get(v) : undefined;
-  if (!v || !file) return null;
+  return activeEditor.view ? contextOf(activeEditor.view) : null;
+}
+
+/** The file of VIEW, its package, and the selection, or the form at the cursor, for the assistant. */
+export function contextOf(v: EditorView) {
+  const file = viewPath.get(v);
+  if (!file) return null;
   const form = currentForm(v);
   return { file, package: bufferPackage(v), form: form ? form.text.slice(0, 4000) : null };
 }

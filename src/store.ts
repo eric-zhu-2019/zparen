@@ -14,6 +14,7 @@ import type { ImageInfo } from "./protocol/ImageInfo";
 import type { Span } from "./protocol/Span";
 import type { SystemInfo } from "./protocol/SystemInfo";
 import type { Dependency } from "./protocol/Dependency";
+import type { EditorContext } from "./protocol/EditorContext";
 import type { Thread } from "./protocol/Thread";
 
 export type TranscriptItem =
@@ -167,6 +168,8 @@ export interface State {
   parinfer: { mode: string; error: string | null } | null;
   chat: ChatItem[];
   chatBusy: boolean;
+  /** Code the next message to the assistant is about, chosen from the editor's menu, and how the chat names it. */
+  chatAbout: { context: EditorContext; label: string } | null;
   /** Places the user jumped from, for back and forward. */
   history: { back: Location[]; forward: Location[] };
   sidebar: SidebarMode;
@@ -242,6 +245,7 @@ export const useStore = create<State>(() => ({
   parinfer: null,
   chat: [],
   chatBusy: false,
+  chatAbout: null,
   indentSpecs: {},
   fsNonce: 0,
   dialog: null,

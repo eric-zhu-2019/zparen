@@ -1,10 +1,10 @@
 import { autocompletion, completionKeymap, moveCompletionSelection } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { bracketMatching } from "@codemirror/language";
-import { Compartment, EditorState, Prec } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, Prec } from "@codemirror/state";
 import { drawSelection, EditorView, keymap } from "@codemirror/view";
 import { getCM, Vim, vim } from "@replit/codemirror-vim";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as actions from "../actions";
 import { lispCompletions, updateArglist } from "../editor/commands";
 import { docTips } from "../editor/hover";
@@ -17,8 +17,10 @@ import { configureVim } from "../editor/setup";
 import { structureExtension } from "../editor/structure";
 import { optionKeys, structuralKeymap } from "../editor/structural";
 import { useSettings } from "../settings";
-import { type State, type TranscriptItem, set, useStore } from "../store";
+import { type State, type TranscriptItem, set, useStore, withItem } from "../store";
+import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { Icon } from "./Icon";
+import { replMenu } from "./replMenu";
 import { layout, promptText, putInRepl, recallInput, replBuffer, runInput, runOrCopy, searchHistory, setInput, shownRepl, TranscriptRenderer } from "./replBuffer";
 
 const HISTORY = "zparen.replHistory";
@@ -149,6 +151,43 @@ function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void
   const host = useRef<HTMLDivElement>(null);
   const searchRef = useRef(onSearch);
   searchRef.current = onSearch;
+  const viewRef = useRef<EditorView | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: (ContextMenuItem | null)[] } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+
+  /**
+   * A right-click offers what can be done with the selection, or with the
+   * input, result or symbol under the pointer. Outside the selection it moves
+   * the cursor there first, so the menu is about what was clicked.
+   */
+  const openMenu = (e: React.MouseEvent) => {
+    const v = viewRef.current;
+    if (!v || !(e.target instanceof Element) || !e.target.closest(".cm-content")) return;
+    e.preventDefault();
+    const pos = v.posAtCoords({ x: e.clientX, y: e.clientY });
+    const sel = v.state.selection.main;
+    if (pos !== null && (sel.empty || pos < sel.from || pos > sel.to)) v.dispatch({ selection: EditorSelection.cursor(pos) });
+    const items = replMenu(v, {
+      package: source.read(useStore.getState()).package,
+      run: (code) => source.submit(code, code),
+      inspect: (id) => source.inspect(id),
+      clear: () => clearTranscript(source),
+      say: (text) => say(source, text),
+    }).map((item) =>
+      item
+        ? {
+            id: item.id,
+            label: item.label,
+            run: () => {
+              // REPL commands keep focus in the REPL; the assistant's take it to the chat.
+              if (item.id !== "ask" && item.id !== "explain") v.focus();
+              item.run(v);
+            },
+          }
+        : null,
+    );
+    setMenu({ x: e.clientX, y: e.clientY, items });
+  };
 
   useEffect(() => {
     if (!host.current) return;
@@ -253,6 +292,7 @@ function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void
       typeAtEnd(view);
     });
     shown.view = view;
+    viewRef.current = view;
     (window as unknown as { zenRepl?: EditorView }).zenRepl = view;
     if (shownRepl.pending) putInRepl(shownRepl.pending.code, shownRepl.pending.from, shownRepl.pending.to);
 
@@ -261,11 +301,24 @@ function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void
       unsubscribe();
       unwatchVim();
       if (shown.view === view) shown.view = null;
+      viewRef.current = null;
       view.destroy();
     };
   }, [source]);
 
-  return <div className="repl-buffer" ref={host} data-testid="repl-input" />;
+  return (
+    <>
+      <div className="repl-buffer" ref={host} data-testid="repl-input" onContextMenu={openMenu} />
+      {menu && <ContextMenu {...menu} onClose={closeMenu} />}
+    </>
+  );
+}
+
+/** Adds a short notice, such as what Trace did, to SOURCE's transcript. */
+function say(source: Source, text: string) {
+  const item = { kind: "notice" as const, text, tone: "info" as const };
+  if (source.key === "main") set((s) => ({ transcript: withItem(s.transcript, item) }));
+  else set((s) => ({ repls: s.repls.map((r) => (`repl-${r.id}` === source.key ? { ...r, transcript: withItem(r.transcript, item) } : r)) }));
 }
 
 function clearTranscript(source: Source) {
