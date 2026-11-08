@@ -293,9 +293,11 @@ export function Chat() {
   useEffect(() => {
     if (!settingsOpen) void refresh();
   }, [settingsOpen]);
+  // A hidden panel cannot scroll, so the newest message shows when the tab does.
+  const shown = useStore((s) => s.right === "assistant");
   useLayoutEffect(() => {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
-  }, [chat]);
+  }, [chat, shown]);
 
   const send = async () => {
     const t = text.trim();

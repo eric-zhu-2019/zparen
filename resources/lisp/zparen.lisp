@@ -41,6 +41,7 @@ is the plugins folder, whose plugins load first."
   (setf swank-repl::*globally-redirect-io* t)
   (lock-image-changes)
   (accept-coalton-forms)
+  (count-errors-per-request)
   (swank::init-presentations)
   (when plugins (uiop:symbol-call :zparen-plugin :load-plugins plugins))
   (let ((port (swank:create-server :port 0 :dont-close t :style :spawn)))
@@ -304,6 +305,22 @@ of the condition, and aborts the compile."
            (declare (ignore c))
            (swank/backend:make-location (list :buffer-and-file buffer (or (first args) buffer)) (list :offset position 0)))
          function string buffer position args))
+
+;; SBCL counts the errors being handled in a thread, and each debugger level
+;; is inside the error that opened it. Past ten, SBCL stops trusting its error
+;; system: the next error, even one Swank handles itself, turns off the
+;; debugger hooks and opens SBCL's own debugger on the terminal, where nothing
+;; answers it. The thread then takes no more requests, not even the one that
+;; closes the debugger. A request from ZParen is new work, not an error inside
+;; the error before it, so each one starts the count again.
+
+(defun with-fresh-error-count (function &rest args)
+  (let ((sb-kernel::*current-error-depth* 0))
+    (apply function args)))
+
+(defun count-errors-per-request ()
+  (unless (sb-int:encapsulated-p 'swank::eval-for-emacs 'error-count)
+    (sb-int:encapsulate 'swank::eval-for-emacs 'error-count #'with-fresh-error-count)))
 
 (defun lock-image-changes ()
   ;; Swank's indentation thread walks every package, so it must not run while a check deletes one.

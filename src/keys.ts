@@ -101,6 +101,8 @@ export const bindings: Binding[] = [
   { id: "pane-1", label: "Go to the left pane", category: "Window", key: "Mod-1", scope: "window", run: () => actions.focusPane(0) },
   { id: "pane-2", label: "Go to the right pane", category: "Window", key: "Mod-2", scope: "window", run: () => actions.focusPane(1) },
   { id: "close-tab", label: "Close the file", category: "Editing", key: "Mod-w", scope: "window", run: () => get().activeTab && actions.requestCloseTab(get().activeTab!) },
+  { id: "next-panel", label: "Next tab in the right panel", category: "Window", key: "Ctrl-Tab", scope: "window", when: () => get().rightOpened.length > 1 && get().right !== null, run: () => actions.cycleRight(1) },
+  { id: "previous-panel", label: "Previous tab in the right panel", category: "Window", key: "Ctrl-Shift-Tab", scope: "window", when: () => get().rightOpened.length > 1 && get().right !== null, run: () => actions.cycleRight(-1) },
   { id: "settings", label: "Settings", category: "Window", key: "Mod-,", scope: "window", run: () => set({ palette: null, settingsOpen: true }) },
   { id: "palette", label: "Command palette", category: "Window", key: "Mod-Shift-p", scope: "window", run: () => set({ palette: "commands" }) },
   { id: "help", label: "Keyboard shortcuts", category: "Window", key: "Mod-Shift-/", scope: "window", run: () => set({ palette: null, help: true }) },

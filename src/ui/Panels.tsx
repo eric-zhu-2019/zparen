@@ -60,10 +60,25 @@ export function Inspector() {
   );
 }
 
+type RightView = Exclude<State["right"], null>;
+
+const RIGHT_NAMES: Record<RightView, string> = { learn: "Learn", docs: "Docs", inspector: "Inspector", assistant: "Assistant" };
+
+function RightView({ view }: { view: RightView }) {
+  return view === "inspector" ? <Inspector /> : view === "docs" ? <DocsPanel /> : view === "learn" ? <LearnPanel /> : <Chat />;
+}
+
+/**
+ * The right panel shows one view at a time. Each view opened stays, hidden,
+ * behind a tab, so going back to it finds it as it was: the lesson, the
+ * scroll position and the text being typed.
+ */
 export function RightPanel() {
   const right = useStore((s) => s.right);
+  const opened = useStore((s) => s.rightOpened);
   const rightWidth = useSettings((s) => s.rightWidth);
   if (!right) return null;
+  const views = opened.includes(right) ? opened : [...opened, right];
   return (
     <div className="right">
       <EdgeHandle
@@ -75,7 +90,27 @@ export function RightPanel() {
         fallback={RIGHT_WIDTH}
         onResize={(rightWidth) => updateSettings({ rightWidth })}
       />
-      {right === "inspector" ? <Inspector /> : right === "docs" ? <DocsPanel /> : right === "learn" ? <LearnPanel /> : <Chat />}
+      {views.length > 1 && (
+        <div className="right-tabs" role="tablist" aria-label="Panels">
+          {views.map((v) => (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={v === right}
+              className={`right-tab${v === right ? " selected" : ""}`}
+              title={`${RIGHT_NAMES[v]} (⌃Tab for the next)`}
+              onClick={() => set({ right: v })}
+            >
+              {RIGHT_NAMES[v]}
+            </button>
+          ))}
+        </div>
+      )}
+      {views.map((v) => (
+        <div key={v} className="right-view" hidden={v !== right}>
+          <RightView view={v} />
+        </div>
+      ))}
     </div>
   );
 }

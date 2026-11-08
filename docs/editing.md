@@ -23,6 +23,12 @@ These are the ones you use most:
 | Search in project | ⇧⌘F | |
 | Command palette | ⇧⌘P | |
 
+In Vim, a word is a Lisp symbol, as in Vim's own Lisp support. `w`, `b`, `e`
+and `ge` move over `rect-shape` in one step, and `dw` and `cw` change it
+whole. `*` and `#` search for the whole symbol, so `rect` and `my-rect-shape`
+do not match. `g*` and `g#` also find it inside longer names. `iw` still
+stops at a hyphen. `ie` takes the whole symbol.
+
 SLIME's Emacs sequences work too, in any Vim mode:
 
 | Sequence | Action |

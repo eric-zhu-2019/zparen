@@ -279,6 +279,41 @@ textarea {
   min-height: 0;
 }
 
+.right-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px 8px 0;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+  overflow-x: auto;
+}
+.right-tab {
+  padding: 4px 10px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.right-tab:hover {
+  color: var(--text);
+}
+.right-tab.selected {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.right-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.right-view[hidden] {
+  display: none;
+}
+
 .statusbar {
   display: flex;
   align-items: center;
@@ -1214,6 +1249,271 @@ button.image-chip:hover {
   color: var(--accent);
   margin-top: 4px;
   white-space: pre-wrap;
+}
+
+/* The debugger in plain words: a headline, the ways to go on, and the user's frames. */
+.debugger .link {
+  color: var(--accent);
+  font-size: 11px;
+  font-family: var(--sans);
+}
+.debugger .link:hover {
+  text-decoration: underline;
+}
+.debugger .dim {
+  color: var(--text-faint);
+}
+.debugger code,
+.dbg-detail code,
+.dbg-actions code,
+.dbg-stale code {
+  font-family: var(--mono);
+  font-size: 0.95em;
+}
+.dbg-head .kind .btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  color: var(--text);
+  height: 22px;
+}
+.dbg-head .kind .btn.icon-only {
+  width: 22px;
+  justify-content: center;
+  padding: 0;
+}
+.dbg-head.plain .kind > span:nth-child(2) {
+  font-weight: 500;
+  opacity: 0.8;
+}
+.dbg-head.breakpoint .kind,
+.dbg-head.step .kind,
+.dbg-head.interrupt .kind,
+.dbg-head.signal .kind {
+  color: var(--accent);
+}
+.dbg-head.warning .kind {
+  color: var(--warning);
+}
+.dbg-title {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  user-select: text;
+}
+.dbg-title code {
+  background: var(--bg-hover);
+  border-radius: 4px;
+  padding: 0 3px;
+}
+.dbg-detail {
+  margin-top: 3px;
+  color: var(--text-dim);
+  user-select: text;
+}
+.dbg-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.dbg-chip {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 8px;
+  line-height: 20px;
+}
+.dbg-chip:hover {
+  border-color: var(--accent);
+  background: var(--bg-active);
+}
+.dbg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  max-height: 50%;
+  overflow-y: auto;
+}
+.dbg-actions > .btn {
+  border: 1px solid var(--border);
+}
+.dbg-actions > .btn.active,
+.dbg-actions > .btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-active);
+}
+.dbg-actions kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.dbg-more {
+  width: 100%;
+}
+.dbg-more summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.dbg-more .restart {
+  margin: 4px 6px 0 0;
+}
+.dbg-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.dbg-ask label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 200px;
+  color: var(--text-dim);
+}
+.dbg-ask input {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-input);
+  padding: 3px 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+}
+.dbg-ask-error {
+  width: 100%;
+  color: var(--danger);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.dbg-levels,
+.dbg-stale {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.dbg-levels {
+  color: var(--text-dim);
+  background: var(--bg-hover);
+}
+.dbg-levels .earlier {
+  font-family: var(--mono);
+  color: var(--text);
+}
+.dbg-stale {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.dbg-stale .btn,
+.dbg-levels .btn {
+  flex: none;
+  white-space: nowrap;
+}
+.dbg-help {
+  position: absolute;
+  right: 14px;
+  top: 34px;
+  z-index: 20;
+  width: min(380px, calc(100% - 28px));
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated, var(--bg-editor));
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.45;
+}
+.dbg-help p {
+  margin: 0 0 6px;
+}
+.dbg-help-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.dbg-head {
+  position: relative;
+}
+.frames-head {
+  display: flex;
+  align-items: center;
+  padding: 2px 8px 4px;
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.frames-head .link {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.frame-row .where {
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--text-faint);
+  flex: none;
+}
+.frame-row .tag {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-family: var(--sans);
+  font-size: 10px;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.frame-row.library .desc,
+.frame-row.system .desc {
+  color: var(--text-dim);
+}
+.frame-fold {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 2px 8px 2px calc(2.5ch + 16px);
+  border-radius: 5px;
+  color: var(--text-faint);
+  font-family: var(--sans);
+  font-size: 11px;
+}
+.frame-fold:hover {
+  background: var(--bg-hover);
+  color: var(--text-dim);
+}
+.locals-head {
+  margin: 4px 0 1px;
+  font-family: var(--sans);
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.frame-detail .temps {
+  display: block;
+  margin-top: 2px;
+}
+.cm-debug-value {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
 }
 
 /* Inspector */

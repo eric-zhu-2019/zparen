@@ -124,6 +124,106 @@ async fn live_repair_by_restarting_a_frame() {
     s.stop().await;
 }
 
+async fn summary(c: &zparen_core::swank::Connection, thread: zparen_core::swank::Thread) -> serde_json::Value {
+    let Reply::Text { text } = Op::DebuggerSummary { thread, root: None }.run(c).await.unwrap() else { panic!() };
+    serde_json::from_str(&text).unwrap_or_else(|e| panic!("{e}: {text}"))
+}
+
+#[tokio::test]
+async fn the_debugger_in_plain_words() {
+    let s = start().await;
+    let c = &s.conn;
+    let mut events = c.subscribe();
+    let eval = |form: &str| cl(|package| Op::Eval { form: form.into(), package });
+    eval("(progn (declaim (optimize (debug 3))) (defun pw-half (x) (/ x 0)))").run(c).await.unwrap();
+
+    let conn = c.clone();
+    let waiting = tokio::spawn(async move { cl(|package| Op::Eval { form: "(pw-half 10)".into(), package }).run(&conn).await });
+    let dbg = next_debugger(&mut events).await;
+    let sum = summary(c, dbg.thread).await;
+    assert_eq!(sum["title"], "Division by zero", "{sum}");
+    assert_eq!(sum["detail"], "`(/ 10 0)` in `pw-half`", "{sum}");
+    let frames = sum["frames"].as_array().unwrap();
+    let half = frames.iter().find(|f| f["name"] == "pw-half").expect("PW-HALF frame");
+    assert_eq!(half["owner"], "yours", "a function defined at the REPL in CL-USER is the user's");
+    assert_eq!(half["args"], serde_json::json!(["x"]));
+    assert_eq!(half["stale"], false);
+    assert!(frames.iter().any(|f| f["owner"] == "system"), "Swank's and SBCL's frames are told apart");
+    let roles: Vec<_> = sum["restarts"].as_array().unwrap().iter().map(|r| r["role"].as_str().unwrap().to_string()).collect();
+    assert_eq!(roles.iter().filter(|r| *r == "abort").count(), 1, "{roles:?}");
+    let index = half["index"].as_i64().unwrap();
+
+    let Reply::Text { text } = cl(|package| Op::EvalInFrame { thread: dbg.thread, frame: index, form: "no-such-var-pw".into(), package })
+        .run(c)
+        .await
+        .unwrap() else { panic!() };
+    assert_eq!(text, "`no-such-var-pw` is not a variable in this frame", "an error in the form is text, not another debugger");
+
+    eval("(defun pw-half (x) (/ x 2))").run(c).await.unwrap();
+    let sum = summary(c, dbg.thread).await;
+    let half = sum["frames"].as_array().unwrap().iter().find(|f| f["name"] == "pw-half").unwrap();
+    assert_eq!(half["stale"], true, "the frame runs the definition from before");
+    let _ = Op::RestartFrame { thread: dbg.thread, frame: index }.run(c).await;
+    let Reply::Evaluated { value, .. } = waiting.await.unwrap().unwrap() else { panic!() };
+    assert_eq!(value, "5");
+
+    let conn = c.clone();
+    let waiting = tokio::spawn(async move { cl(|package| Op::Eval { form: "(pw-halff 3)".into(), package }).run(&conn).await });
+    let dbg = next_debugger(&mut events).await;
+    let sum = summary(c, dbg.thread).await;
+    assert_eq!(sum["title"], "`pw-halff` is not defined as a function", "{sum}");
+    assert_eq!(sum["suggestions"], serde_json::json!(["pw-half"]));
+    assert_eq!(sum["define"], "pw-halff");
+    let restart = sum["restarts"].as_array().unwrap().iter().find(|r| r["label"] == "Call another function…").expect("USE-VALUE");
+    assert_eq!(restart["role"], "value");
+
+    let Reply::Text { text } = cl(|package| Op::InvokeRestartWithValue {
+        thread: dbg.thread,
+        level: dbg.level,
+        index: restart["index"].as_i64().unwrap(),
+        form: "(".into(),
+        package,
+    })
+    .run(c)
+    .await
+    .unwrap() else { panic!() };
+    assert!(text.starts_with("Error: "), "a form that does not read leaves the debugger as it was: {text}");
+    let _ = cl(|package| Op::InvokeRestartWithValue { thread: dbg.thread, level: dbg.level, index: restart["index"].as_i64().unwrap(), form: "pw-half".into(), package })
+        .run(c)
+        .await;
+    let Reply::Evaluated { value, .. } = waiting.await.unwrap().unwrap() else { panic!() };
+    assert_eq!(value, "3/2", "a bare name is the function to call instead");
+    s.stop().await;
+}
+
+#[tokio::test]
+async fn a_nested_debugger_offers_its_own_restarts() {
+    let s = start().await;
+    let c = &s.conn;
+    let mut events = c.subscribe();
+    let repl = |input: &'static str| {
+        let conn = c.clone();
+        tokio::spawn(async move { cl(|package| Op::ReplEval { input: input.into(), package }).run(&conn).await })
+    };
+    let outer = repl("(error \"pw-outer\")");
+    let first = next_debugger(&mut events).await;
+    let inner = repl("(error \"pw-inner\")");
+    let nested = next_debugger(&mut events).await;
+    assert_eq!(nested.level, first.level + 1);
+    let sum = summary(c, nested.thread).await;
+    let restarts = sum["restarts"].as_array().unwrap();
+    let count = |role: &str| restarts.iter().filter(|r| r["role"] == role).count();
+    assert_eq!((count("abort"), count("retry")), (1, 1), "the earlier levels' restarts are internal: {sum}");
+    for dbg in [nested, first] {
+        let sum = summary(c, dbg.thread).await;
+        let quit = sum["restarts"].as_array().unwrap().iter().find(|r| r["role"] == "abort").unwrap()["index"].as_i64().unwrap();
+        let _ = Op::InvokeRestart { thread: dbg.thread, level: dbg.level, index: quit }.run(c).await;
+    }
+    let _ = inner.await;
+    let _ = outer.await;
+    s.stop().await;
+}
+
 #[tokio::test]
 async fn compiled_files_load_and_stop_at_breakpoints() {
     let s = start().await;

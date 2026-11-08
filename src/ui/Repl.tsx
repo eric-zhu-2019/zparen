@@ -19,7 +19,7 @@ import { optionKeys, structuralKeymap } from "../editor/structural";
 import { useSettings } from "../settings";
 import { type State, type TranscriptItem, set, useStore } from "../store";
 import { Icon } from "./Icon";
-import { layout, promptText, recallInput, replBuffer, runInput, runOrCopy, searchHistory, setInput, TranscriptRenderer } from "./replBuffer";
+import { layout, promptText, putInRepl, recallInput, replBuffer, runInput, runOrCopy, searchHistory, setInput, shownRepl, TranscriptRenderer } from "./replBuffer";
 
 const HISTORY = "zparen.replHistory";
 
@@ -143,7 +143,7 @@ function vimReplKeys(source: Source, search: () => void) {
 const drafts = new Map<string, string>();
 
 /** The buffer on show, for history search to fill. */
-const shown: { view: EditorView | null } = { view: null };
+const shown = shownRepl;
 
 function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void }) {
   const host = useRef<HTMLDivElement>(null);
@@ -254,6 +254,7 @@ function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void
     });
     shown.view = view;
     (window as unknown as { zenRepl?: EditorView }).zenRepl = view;
+    if (shownRepl.pending) putInRepl(shownRepl.pending.code, shownRepl.pending.from, shownRepl.pending.to);
 
     return () => {
       drafts.set(source.key, view.state.doc.sliceString(view.state.field(layout).inputStart));
