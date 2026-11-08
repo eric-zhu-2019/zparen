@@ -527,7 +527,9 @@ export function replBuffer(handlers: ReplHandlers): Extension {
       return handlers.reading() ? l.regions : [...l.regions, { from: l.inputStart, to: s.doc.length, mode: "code" }];
     }),
     refs,
-    readOnlyTranscript,
+    // Lowest, so it runs ahead of parinfer: text it moves from the transcript into
+    // the input, such as a paste where the cursor stood, is then balanced as typed text is.
+    Prec.lowest(readOnlyTranscript),
     Prec.high(
       keymap.of([
         { key: "Enter", run: enter },
