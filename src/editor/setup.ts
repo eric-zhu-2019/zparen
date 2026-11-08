@@ -17,6 +17,7 @@ import {
   tooltips,
 } from "@codemirror/view";
 import { getCM, Vim, vim } from "@replit/codemirror-vim";
+import { configureLispWords } from "./lispWords";
 import { configureSymbolSearch } from "./symbolSearch";
 import * as actions from "../actions";
 import { editorKeymap, mapVimBindings } from "../keys";
@@ -57,6 +58,7 @@ export function configureVim() {
   mapVimBindings(Vim);
   configureStructuralVim(Vim as never);
   configureSymbolSearch(Vim);
+  configureLispWords(Vim);
   Vim.defineEx("write", "w", (cm: { cm6: EditorView }) => {
     const p = viewPath.get(cm.cm6);
     if (p) actions.saveTab(p);

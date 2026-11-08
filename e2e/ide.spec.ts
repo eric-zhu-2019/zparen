@@ -632,6 +632,10 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await expect(page.locator(".editor-host .cm-searchMatch"), "* searches for the whole symbol, not rect").toHaveText(["rect-shape", "rect-shape"]);
   await page.keyboard.type(":noh");
   await page.keyboard.press("Enter");
+  await page.keyboard.type("0wwwdw");
+  await expect.poll(() => activeLineText(page), { message: "w and dw take rect-shape as one word" }).toBe("(list rect my-rect-shape 'rect-shape)");
+  await page.keyboard.type("$bde");
+  await expect.poll(() => activeLineText(page), { message: "so do b and e" }).toBe("(list rect my-rect-shape ')");
   await page.keyboard.type("dd");
 
   await page.keyboard.type("Go");
