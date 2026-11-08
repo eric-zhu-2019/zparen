@@ -192,6 +192,16 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await expect(page.getByTestId("debugger"), "one click leaves every level of every thread").toHaveCount(0);
   await replEval(page, "(* 111 3)");
   await expect(page.locator(".repl-buffer .cm-line", { hasText: /^333$/ }), "the REPL is back at its top level").toBeVisible();
+
+  // SBCL gives up on its error system past ten nested errors, unless each request starts the count again.
+  for (let i = 1; i <= 13; i++) {
+    await replEval(page, `(error "deep ${i}")`);
+    await expect(page.getByTestId("debugger-title")).toHaveText(`deep ${i}`);
+  }
+  await page.getByTitle("Close the debugger, returning every stopped thread to its top level").click();
+  await expect(page.getByTestId("debugger"), "Close works 13 levels down").toHaveCount(0);
+  await replEval(page, "(* 111 5)");
+  await expect(page.locator(".repl-buffer .cm-line", { hasText: /^555$/ }), "and the REPL answers").toBeVisible();
   await page.getByTitle("Clear REPL (⌘K or ⌃L)").click();
   await expect(page.locator(".repl-buffer"), "Clear empties the transcript").not.toContainText("outer");
   await replEval(page, "(* 111 4)");
