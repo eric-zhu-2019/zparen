@@ -26,11 +26,23 @@ files change.
 parinfer wasm tests, the TypeScript tests, and the WebKit end-to-end tests.
 Add `--network` to include the ocicl test, which downloads from `ghcr.io`.
 
-The app runs on macOS only. The Rust core and `zparen-dev` also build on
-Linux. `.github/workflows/linux.yml` runs their tests there, and the TypeScript
-tests, for each pull request. On Linux, ZParen keeps its data in
-`~/.local/share/zparen` and its cache in `~/.cache/zparen`, or under
-`$XDG_DATA_HOME` and `$XDG_CACHE_HOME`.
+Releases are for macOS only. The app also builds on x86-64 Linux, with
+WebKitGTK 4.1 and GTK 3 and their headers installed (`libwebkit2gtk-4.1-dev`
+and `libgtk-3-dev` on Debian and Ubuntu):
+
+```sh
+npm install
+npx tauri build      # target/release/bundle/deb/*.deb and appimage/*.AppImage
+```
+
+The packages carry SBCL's own x86-64 Linux build, which
+`scripts/bundle-sbcl.sh` downloads and checks against the SHA-256 that SBCL
+publishes. It needs glibc 2.38 or later. On arm64 Linux nothing is bundled,
+and the app uses the installed SBCL. `.github/workflows/linux.yml` runs the
+Rust core's and `zparen-dev`'s tests on Linux, and the TypeScript tests, for
+each pull request. On Linux, ZParen keeps its data in `~/.local/share/zparen`
+and its cache in `~/.cache/zparen`, or under `$XDG_DATA_HOME` and
+`$XDG_CACHE_HOME`.
 
 To run the UI in a browser against a real SBCL, start the bridge and Vite:
 

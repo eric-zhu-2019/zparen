@@ -14,6 +14,9 @@
   },
   "bundle": {
     "targets": ["deb", "appimage"],
+    "shortDescription": "A Common Lisp IDE",
+    "longDescription": "ZParen is a live Common Lisp workbench on SBCL, with a REPL, a debugger, an inspector and an assistant. It carries its own SBCL.",
+    "linux": { "deb": { "section": "devel" } },
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"]
   }
 }
