@@ -1,4 +1,6 @@
+import { Marked, type Token, type Tokens } from "marked";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { openExternal } from "../platform";
 import * as actions from "../actions";
 import { modelName } from "./modelName";
 import { ALL_PROVIDERS, FAMILY_NAMES, familyOf, isAgent, METHOD_HINTS, MODEL_KEY, providerLabel } from "./providers";
@@ -12,6 +14,7 @@ import { Icon } from "./Icon";
 import { backToLesson, useLearn } from "../learn/learn";
 import type { SessionInfo } from "../protocol/SessionInfo";
 
+/** `code` and **bold** in a line of the setup notes. */
 function Inline({ text }: { text: string }) {
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
   return (
@@ -64,30 +67,63 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
   );
 }
 
-function Markdown({ text }: { text: string }) {
-  const chunks = text.split(/```(\w*)\n([\s\S]*?)(?:```|$)/g);
-  const out = [];
-  for (let i = 0; i < chunks.length; i += 3) {
-    const prose = chunks[i];
-    if (prose.trim())
-      out.push(
-        ...prose
-          .trim()
-          .split(/\n{2,}/)
-          .map((para, j) => (
-            <p key={`${i}-${j}`}>
-              {para.split("\n").map((line, k) => (
-                <span key={k}>
-                  {k > 0 && <br />}
-                  <Inline text={line} />
-                </span>
-              ))}
-            </p>
-          )),
-      );
-    if (i + 2 < chunks.length) out.push(<CodeBlock key={`c${i}`} lang={chunks[i + 1]} code={chunks[i + 2].replace(/\n$/, "")} />);
+const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+// An answer's HTML shows as text and never runs, and its images show as their
+// description, so an answer cannot load anything from the web.
+const markdown = new Marked({
+  gfm: true,
+  breaks: true,
+  renderer: {
+    html: ({ text }) => escape(text),
+    image: ({ href, text }) => `<span class="md-image">${escape(text || href)}</span>`,
+    code: ({ text, lang }) =>
+      LISP_FENCE.test(lang ?? "") || (!lang && looksLikeLisp(text)) ? `<pre><code class="language-lisp">${highlightLispHtml(text)}</code></pre>` : false,
+  },
+});
+
+const LISP_FENCE = /^(lisp|common-lisp|commonlisp|cl|coalton)$/i;
+
+/** An answer's parts in order: Markdown as HTML, and each top-level code block with its own buttons. */
+export function answerParts(text: string): ({ html: string } | { lang: string; code: string })[] {
+  const parts: ({ html: string } | { lang: string; code: string })[] = [];
+  let prose: Token[] = [];
+  const flush = () => {
+    if (prose.length) parts.push({ html: markdown.parser(prose) });
+    prose = [];
+  };
+  for (const token of markdown.lexer(text)) {
+    if (token.type === "code") {
+      flush();
+      parts.push({ lang: (token as Tokens.Code).lang ?? "", code: (token as Tokens.Code).text });
+    } else prose.push(token);
   }
-  return <>{out}</>;
+  flush();
+  return parts;
+}
+
+/** A link in an answer opens in the browser, never in the app's own page. */
+function openLink(e: React.MouseEvent) {
+  const link = e.target instanceof Element ? e.target.closest("a") : null;
+  if (!link) return;
+  e.preventDefault();
+  const href = link.getAttribute("href") ?? "";
+  if (/^(https?:|mailto:)/i.test(href)) void openExternal(href);
+}
+
+function Markdown({ text }: { text: string }) {
+  const parts = useMemo(() => answerParts(text), [text]);
+  return (
+    <>
+      {parts.map((part, i) =>
+        "html" in part ? (
+          <div key={i} className="chat-md" onClick={openLink} dangerouslySetInnerHTML={{ __html: part.html }} />
+        ) : (
+          <CodeBlock key={i} lang={part.lang} code={part.code} />
+        ),
+      )}
+    </>
+  );
 }
 
 function ToolChip({ item }: { item: Extract<ChatItem, { role: "tool" }> }) {
