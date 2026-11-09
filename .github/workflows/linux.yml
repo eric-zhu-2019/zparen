@@ -1,0 +1,46 @@
+name: Linux
+
+# Builds the Rust core and the dev server on Linux, and runs their tests
+# against a real SBCL. The app itself is not built here yet.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.12.1
+          cache: npm
+      - name: Rust
+        run: rustup toolchain install 1.96.1 --profile minimal && rustup default 1.96.1
+      # Homebrew's SBCL, the same version the macOS release builds with.
+      - name: SBCL and Quicklisp
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          brew install sbcl
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          curl -fsSLO https://beta.quicklisp.org/quicklisp.lisp
+          sbcl --non-interactive --load quicklisp.lisp --eval '(quicklisp-quickstart:install)' \
+            --eval '(ql:quickload (list "alexandria" "fiveam" "parachute" "split-sequence"))'
+      - name: Rust tests
+        run: |
+          export ZPAREN_CONFIG_DIR=$(mktemp -d) ZPAREN_DATA_DIR=$(mktemp -d)
+          # One test at a time, as scripts/verify.sh runs them.
+          cargo test -p zparen-core -p zparen-dev -- --test-threads=1
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit -p . && npx vitest run
