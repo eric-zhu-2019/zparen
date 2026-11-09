@@ -2438,6 +2438,34 @@ test("word wrap turns on and off from ⌥Z and Settings", async ({ page }) => {
   await expect(content, "and Settings turns it off").not.toHaveClass(/cm-lineWrapping/);
 });
 
+test("with the setting on, the REPL follows the package of the file being edited", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-follow");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  const pkg = page.getByTitle("Current package");
+  await expect(pkg, "off by default").toHaveValue("COMMON-LISP-USER");
+
+  await page.keyboard.press("Meta+,");
+  await page.getByTestId("settings").getByRole("switch", { name: "Follow the file being edited" }).check();
+  await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
+  await expect(pkg, "Lisp has no ZEN-FOLLOW until the system loads").toHaveValue("COMMON-LISP-USER");
+
+  await page.locator(".system").first().getByRole("button", { name: "Load" }).click();
+  await expect(pkg, "the load brings the file's package, and the REPL follows").toHaveValue("ZEN-FOLLOW", { timeout: 60_000 });
+
+  await replEval(page, "(in-package :cl-user)");
+  await expect(pkg).toHaveValue("COMMON-LISP-USER");
+  await page.getByTestId("file-tree").locator(".tree-row", { hasText: "zen-follow.asd" }).click();
+  await expect(page.locator(".tab.active")).toHaveText(/zen-follow\.asd/);
+  await expect(pkg, "a package typed in the REPL holds in a file without in-package").toHaveValue("COMMON-LISP-USER");
+  await page.locator(".tab", { hasText: "main.lisp" }).click();
+  await expect(pkg, "back in main.lisp, the REPL follows again").toHaveValue("ZEN-FOLLOW");
+});
+
 test("the right panel keeps a tab for each view opened, and each view stays as it was", async ({ page }) => {
   const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
   await fresh(page);

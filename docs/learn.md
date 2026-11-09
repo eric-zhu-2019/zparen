@@ -115,8 +115,9 @@ project starts at its first lesson.
 
 Each project has a package of its own, named after the course and the
 project, such as `learn-lisp.query-engine`. Its first lesson's file starts
-with the `defpackage`. When you open a project lesson, the REPL and the
-package box in the title bar switch to its package. A name in one project
+with the `defpackage`. When you start or continue a lesson, the REPL and the
+package box in the title bar switch to its package. After a restart, ZParen
+loads the course first, so the package exists. A name in one project
 never clashes with a name in another, or in lessons 1 to 15.
 
 A project lesson can give you code. It is at the top of the lesson's file,

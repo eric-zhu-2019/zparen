@@ -9,7 +9,7 @@ import type { CourseGitReply } from "../protocol/CourseGitReply";
 import type { CourseState } from "../protocol/CourseState";
 import type { TestNode } from "../protocol/TestNode";
 import { recentProjects } from "../platform";
-import { get as getApp, set as setApp } from "../store";
+import { get as getApp, set as setApp, useStore as useApp } from "../store";
 import {
   addMessage,
   asdFile,
@@ -212,6 +212,27 @@ async function useLessonPackage(l: Lesson | null) {
   if (name) await actions.setPackage(name.toUpperCase()).catch(() => {});
 }
 
+/**
+ * Sets the REPL to lesson L's package once Lisp is ready, as Start Lesson
+ * does. A new session has not loaded the course, so this loads it first.
+ */
+export function followLesson(l: Lesson) {
+  const root = getApp().status.project?.root;
+  const go = async () => {
+    const course = get().course;
+    if (!course || getApp().status.project?.root !== root) return;
+    if (loadedPackage(l) !== lessonPackage(course.pkg, l)) await loadCourse().catch(() => null);
+    await useLessonPackage(l);
+  };
+  if (getApp().status.session.state === "ready") return void go();
+  const stop = useApp.subscribe((s) => {
+    if (s.status.project?.root !== root) return stop();
+    if (s.status.session.state !== "ready") return;
+    stop();
+    void go();
+  });
+}
+
 /** Checks out the lesson's branch, made from main when new, then opens its file and loads the course. */
 async function enterLesson(l: Lesson) {
   const branch = lessonBranch(l);
@@ -250,6 +271,7 @@ export function continueCourse() {
   if (!p.current) return;
   if (p.onLesson?.id === p.current.id) {
     showLesson(p.current.id);
+    followLesson(p.current);
     return void actions.openFile(path(lessonSource(p.current)));
   }
   return startLesson(p.current);
@@ -490,7 +512,10 @@ export async function openCourse(root: string) {
   setApp({ right: "learn" });
   await refreshCourse();
   const lesson = currentProgress().onLesson;
-  if (lesson) await actions.openFile(path(lessonSource(lesson)));
+  if (lesson) {
+    followLesson(lesson);
+    await actions.openFile(path(lessonSource(lesson)));
+  }
 }
 
 /** Makes a course project, opens it, and shows the course. */

@@ -12,6 +12,13 @@ Results are live objects. Click one to use it in the next input, or ⌘-click
 it to inspect it. ⌃R searches earlier input. Extra REPLs run in their own
 threads. ⌘J goes to the REPL, and from the REPL back to the editor.
 
+The REPL starts in `COMMON-LISP-USER`. To change its package, use the
+package box in the title bar, or evaluate `(in-package …)` in the REPL. To make
+the REPL follow the file you edit, turn on **Settings ▸ General ▸ REPL
+package**. Each time you switch to a file, the REPL then switches to the
+file's `in-package`, when Lisp has that package. A package you choose in the
+REPL holds until your next file switch.
+
 A right-click in the REPL opens a menu for what you clicked:
 
 - Every item: **Explain** and **Ask Assistant About It…**, as in the editor,

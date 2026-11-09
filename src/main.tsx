@@ -4,7 +4,8 @@ import { fetchManifest, usePlugins } from "./plugins";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { backend, inTauri } from "./backend";
-import { ask, autoImageFinished, autoSaveImageSoon, checkSoon, closeProject, filesChangedForImage, loadSystem, refreshImage, compileOutsideChanges, requestOpenProject, copyDiagnostics, refreshGit, resyncBreakpoints, showFrame, syncWithDisk, trackLoadedFiles } from "./actions";
+import { followFilePackage } from "./followPackage";
+import { ask, autoImageFinished, autoSaveImageSoon, checkSoon, closeProject, filesChangedForImage, loadSystem, refreshImage, compileOutsideChanges, requestOpenProject, copyDiagnostics, refreshPackages, refreshGit, resyncBreakpoints, showFrame, syncWithDisk, trackLoadedFiles } from "./actions";
 import { appendTranscript, dispatchEvent, get, set } from "./store";
 import { markTour, openTour } from "./tour";
 import { initParinfer } from "./editor/parinfer";
@@ -17,6 +18,7 @@ import { guardWindowClose } from "./ui/Dialog";
 if (inTauri && /Mac/.test(navigator.platform)) document.documentElement.dataset.vibrancy = "";
 await initParinfer();
 guardWindowClose();
+followFilePackage();
 /** The session state last reported, so a reload happens once per Lisp that becomes ready. */
 let lastState: string | null = null;
 let imageTimer: ReturnType<typeof setTimeout> | undefined;
@@ -35,6 +37,8 @@ backend.onEvent((e) => {
   const root = get().status.project?.root;
   if (root && e.type === "taskFinished" && e.ok && e.task.startsWith("load ")) {
     rememberLoaded(root, e.task.slice(5));
+    // A system's load can add packages: the title bar lists them, and the REPL can follow a file into one.
+    void refreshPackages();
     if (useSettings.getState().autoImage) autoSaveImageSoon();
   }
   if (e.type === "taskFinished" && e.task === "save startup image") {

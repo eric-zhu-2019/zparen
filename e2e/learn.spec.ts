@@ -165,6 +165,12 @@ test("a course: start a lesson, check, pass, finish, and the next lesson arrives
   await page.reload();
   await expect(page.getByRole("button", { name: "Continue Learning Lisp" })).toBeVisible();
 
+  // A new session starts in CL-USER; continuing the lesson loads the course and switches the REPL to its package.
+  await page.getByRole("button", { name: "Continue Learning Lisp" }).click();
+  await expect(page.locator(".tab.active")).toHaveText(/16-cells\.lisp/, { timeout: 60_000 });
+  await expect(page.getByTitle("Current package"), "the REPL follows the lesson after a restart").toHaveValue("LEARN-LISP.SPREADSHEET", { timeout: 60_000 });
+  await fresh(page);
+
   // A course with every lesson finished is not offered again.
   git(root, "checkout", "--quiet", "main");
   const lessons = readdirSync(join(process.cwd(), "src/learn/lessons")).filter((f) => f.endsWith(".md")).length;
