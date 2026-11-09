@@ -26,6 +26,7 @@ import { openExternal } from "../platform";
 import { set, useStore } from "../store";
 import * as actions from "../actions";
 import { Icon } from "./Icon";
+import { displayKey, modKey } from "../os";
 
 const ON_LISP = "https://paulgraham.com/onlisp.html";
 
@@ -41,7 +42,7 @@ function renderProse(md: string): { html: string; codes: string[] } {
         const i = codes.push(text) - 1;
         return `<div class="learn-code" tabindex="0" data-code="${i}"><div class="learn-code-actions">
 <button class="btn" data-copy="${i}" title="Copy the code">Copy</button>
-<button class="btn" data-run="${i}" title="Run it in the REPL (⌘↩)">Run <kbd>⌘↩</kbd></button></div><pre>${highlightLispHtml(text)}</pre></div>`;
+<button class="btn" data-run="${i}" title="Run it in the REPL (${displayKey("Mod-Enter")})">Run <kbd>${displayKey("Mod-Enter")}</kbd></button></div><pre>${highlightLispHtml(text)}</pre></div>`;
       },
     },
   });
@@ -65,7 +66,7 @@ function Prose({ md, className = "learn-prose" }: { md: string; className?: stri
       }}
       onKeyDown={(e) => {
         const block = e.target instanceof Element ? e.target.closest("[data-code]") : null;
-        if (block && e.key === "Enter" && e.metaKey) {
+        if (block && e.key === "Enter" && modKey(e)) {
           e.preventDefault();
           e.stopPropagation();
           void runExample(codes[Number(block.getAttribute("data-code"))]);
@@ -300,7 +301,7 @@ function Card({ l, e, p, canCheck, why }: { l: Lesson; e: Exercise; p: Progress;
       className="learn-card"
       data-key={e.key}
       onKeyDown={(ev) => {
-        if (ev.key === "Enter" && ev.metaKey && canCheck && !busy) {
+        if (ev.key === "Enter" && modKey(ev) && canCheck && !busy) {
           ev.preventDefault();
           ev.stopPropagation();
           void check(l, e);
@@ -327,10 +328,10 @@ function Card({ l, e, p, canCheck, why }: { l: Lesson; e: Exercise; p: Progress;
         </div>
       )}
       <div className="learn-actions">
-        <button className="btn primary" disabled={!canCheck || busy} title={canCheck ? "Save, load and test your answer (⌘↩)" : why} onClick={() => void check(l, e)}>
+        <button className="btn primary" disabled={!canCheck || busy} title={canCheck ? `Save, load and test your answer (${displayKey("Mod-Enter")})` : why} onClick={() => void check(l, e)}>
           {checking ? "Checking…" : (
             <>
-              Check <kbd>⌘↩</kbd>
+              Check <kbd>{displayKey("Mod-Enter")}</kbd>
             </>
           )}
         </button>
@@ -534,7 +535,7 @@ function LessonView({ l }: { l: Lesson }) {
               </button>
             )}
             {p.reached.includes(next) && !lessonDone(p, next) && p.onLesson?.id !== next.id && <span>{next.title}</span>}
-            <kbd>⌘]</kbd>
+            <kbd>{displayKey("Mod-]")}</kbd>
           </div>
         </>
       )}
@@ -575,7 +576,7 @@ export function LearnPanel() {
       ref={body}
       data-testid="learn"
       onKeyDown={(e) => {
-        if (e.metaKey && (e.key === "[" || e.key === "]")) {
+        if (modKey(e) && (e.key === "[" || e.key === "]")) {
           e.preventDefault();
           go(e.key === "]" ? 1 : -1);
         }
@@ -583,7 +584,7 @@ export function LearnPanel() {
     >
       <div className="right-header">
         {lesson && (
-          <button className="icon-btn" title="Back to the course (⌘[)" aria-label="Back to the course" onClick={() => showLesson(null)}>
+          <button className="icon-btn" title={`Back to the course (${displayKey("Mod-[")})`} aria-label="Back to the course" onClick={() => showLesson(null)}>
             <Icon name="back" />
           </button>
         )}

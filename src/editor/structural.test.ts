@@ -4,6 +4,7 @@ import { EditorSelection, EditorState, type Extension, type TransactionSpec } fr
 import type { EditorView } from "@codemirror/view";
 import type { CodeMirrorV, InputStateInterface, MotionArgs, vimState } from "@replit/codemirror-vim";
 import { beforeAll, describe, expect, it } from "vitest";
+import { platform } from "../os";
 import { lispIndentation } from "./indent";
 import { lisp } from "./lisp";
 import { initParinferSync, parinfer } from "./parinfer";
@@ -469,6 +470,7 @@ describe("bindings", () => {
   });
 
   it("labels keys with macOS symbols", () => {
+    platform.mac = true;
     expect(keyLabel("Ctrl-Shift-Cmd-ArrowRight")).toBe("⌃⇧⌘→");
     expect(keyLabel("Alt-Shift-s")).toBe("⌥⇧S");
     expect(keyLabel("Ctrl-)")).toBe("⌃)");

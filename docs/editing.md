@@ -46,6 +46,30 @@ cancels it. Plugin commands list their keys in the same ⇧⌘/ screen.
 Turn off Vim keys, Emacs sequences, parinfer or checking as you type in
 Settings (⌘,).
 
+### On Linux
+
+There is no Linux release yet, but the app builds and runs there. Ctrl takes the
+place of ⌘: ⌘↩ is Ctrl+Enter, and ⇧⌘P is Ctrl+Shift+P. The shortcuts screen
+shows each key as Linux writes it. A few keys move, because Ctrl, Vim or the
+desktop already uses the macOS key there:
+
+| Action | macOS | Linux |
+| --- | --- | --- |
+| Compile and load the file | ⌘B | Ctrl+Shift+B |
+| Go back, go forward | ⌃O, ⌃⇧O | Alt+←, Alt+→ |
+| Run the project's tests | ⌘U | Ctrl+Shift+T |
+| Reindent the top-level form | ⌥⌘L | Ctrl+Shift+I |
+| Trace the function | ⌥⌘T | Ctrl+Alt+Shift+T |
+| Expand, shrink the selection | ⌃⇧⌘→, ⌃⇧⌘← | Alt+Shift+→, Alt+Shift+← |
+
+In the editor, Vim and Emacs keep their own Ctrl keys. In Vim's normal mode,
+Ctrl+D and Ctrl+I scroll and jump as in Vim, and `,i` and the command palette
+describe and inspect. In the REPL, Ctrl+A selects all; Home goes to the start
+of the input. With text selected, Ctrl+C and Ctrl+X copy
+and cut, and do not start an Emacs sequence, as Emacs's cua-mode does. In the
+REPL, Ctrl+C copies selected text, and interrupts Lisp when nothing is
+selected. Ctrl+L opens the assistant, so Ctrl+K clears the REPL.
+
 ## Structure
 
 Parinfer keeps parentheses balanced as you type, and typing `(` or `"` over

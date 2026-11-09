@@ -22,6 +22,7 @@ import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
 import { Icon } from "./Icon";
 import { replMenu } from "./replMenu";
 import { layout, promptText, putInRepl, recallInput, replBuffer, runInput, runOrCopy, searchHistory, setInput, shownRepl, TranscriptRenderer } from "./replBuffer";
+import { displayKey, modKey, platform } from "../os";
 
 const HISTORY = "zparen.replHistory";
 
@@ -117,6 +118,16 @@ function keepAtPrompt(view: EditorView) {
  * Down at its edge lines recall history, as they do while typing. Ahead of Vim,
  * which comes ahead of every keymap so that Escape leaves insert mode.
  */
+/**
+ * Ctrl+C interrupts Lisp. On Linux, where Ctrl+C also copies, it copies
+ * instead while text is selected, as a terminal does.
+ */
+function interruptUnlessCopy(view: EditorView): boolean {
+  if (!platform.mac && !view.state.selection.main.empty) return false;
+  actions.interrupt();
+  return true;
+}
+
 function vimReplKeys(source: Source, search: () => void) {
   return Prec.highest(
     EditorView.domEventHandlers({
@@ -125,7 +136,7 @@ function vimReplKeys(source: Source, search: () => void) {
         if (!state) return false;
         let done = false;
         if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-          if (e.code === "KeyC") done = (actions.interrupt(), true);
+          if (e.code === "KeyC") done = interruptUnlessCopy(view);
           else if (e.code === "KeyR") done = (search(), true);
           else if (e.code === "KeyL") done = (clearTranscript(source), true);
         } else if (!state.insertMode && !state.visualMode && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
@@ -245,7 +256,7 @@ function ReplBuffer({ source, onSearch }: { source: Source; onSearch: () => void
             keymap.of([
               { key: "Ctrl-n", run: moveCompletionSelection(true) },
               { key: "Ctrl-p", run: moveCompletionSelection(false) },
-              { key: "Ctrl-c", run: () => (actions.interrupt(), true) },
+              { key: "Ctrl-c", run: interruptUnlessCopy },
               { key: "Ctrl-r", run: () => (searchRef.current(), true) },
               { key: "Mod-k", run: () => (clearTranscript(source), true) },
               { key: "Ctrl-l", run: () => (clearTranscript(source), true) },
@@ -363,7 +374,7 @@ function HistorySearch({ onClose }: { onClose: () => void }) {
               shown.view?.focus();
             } else if (e.key === "Enter") {
               e.preventDefault();
-              pick(e.metaKey);
+              pick(modKey(e));
             } else if (e.key === "ArrowDown" || (e.ctrlKey && e.key === "r")) {
               e.preventDefault();
               move(1);
@@ -373,7 +384,7 @@ function HistorySearch({ onClose }: { onClose: () => void }) {
             }
           }}
         />
-        <span className="dim hint">↩ use · ⌘↩ run · ⌃R older</span>
+        <span className="dim hint">{`↩ use · ${displayKey("Mod-Enter")} run · ${displayKey("Ctrl-r")} older`}</span>
       </div>
       {matches.length === 0 ? (
         <div className="history-empty dim">{past.length ? "No earlier input matches." : "Nothing run yet."}</div>

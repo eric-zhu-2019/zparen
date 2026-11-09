@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as actions from "./actions";
 import { Editor } from "./editor/Editor";
 import { fontStack } from "./fonts";
-import { emacsKeyHandler, handleWindowKey } from "./keys";
+import { emacsKeyHandler, handleWindowKey, shortcut } from "./keys";
 import { useSettings } from "./settings";
 import { set, useStore } from "./store";
 import { inTauri } from "./backend";
@@ -130,7 +130,7 @@ function EditorPanes({ hasTabs }: { hasTabs: boolean }) {
             {isMarkdown(panes[i].active) && (
               <>
                 {previews.includes(panes[i].active!) && <MarkdownPreview path={panes[i].active!} />}
-                <button className="btn md-toggle" title="Show it rendered, or as text (⇧⌘V)" onClick={() => actions.togglePreview(panes[i].active!)}>
+                <button className="btn md-toggle" title={`Show it rendered, or as text (${shortcut("md-preview")})`} onClick={() => actions.togglePreview(panes[i].active!)}>
                   {previews.includes(panes[i].active!) ? "Edit" : "Preview"}
                 </button>
               </>

@@ -1,3 +1,4 @@
+import { shortcut } from "../keys";
 import { closeTour, TOUR } from "../tour";
 import { useStore } from "../store";
 import { Icon } from "./Icon";
@@ -30,7 +31,7 @@ export function Tour() {
               </span>
               <div>
                 <div className="tour-title">{t.title}</div>
-                {t === next && <div className="tour-how">{t.how}</div>}
+                {t === next && <div className="tour-how">{t.how.replace(/\{([a-z-]+)\}/g, (_, id: string) => shortcut(id))}</div>}
               </div>
             </li>
           );

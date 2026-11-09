@@ -14,6 +14,7 @@ import { type PluginSetting, reloadPlugins, setPluginSetting, usePlugins } from 
 import { useReturnFocus } from "./focus";
 import { modelName } from "./modelName";
 import { FAMILY_NAMES, type Family, familyOf, type Method, METHOD_HINTS, METHOD_NAMES, methodOf, MODEL_KEY, providerOf } from "./providers";
+import { displayKey } from "../os";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -240,7 +241,7 @@ function General() {
         </div>
       </Row>
       <ThemeRows />
-      <Row label="Font size" hint="⌘+ and ⌘- change it too.">
+      <Row label="Font size" hint={`${displayKey("Mod-+")} and ${displayKey("Mod--")} change it too.`}>
         <div className="stepper-input">
           <button aria-label="Smaller" onClick={() => put({ fontSize: Math.max(9, s.fontSize - 1) })}>
             −
@@ -262,7 +263,7 @@ function General() {
           </button>
         </div>
       </Row>
-      <Row label="Lines" hint="⌥Z switches it too.">
+      <Row label="Lines" hint={`${displayKey("Alt-z")} switches it too.`}>
         <Toggle label="Wrap long lines" checked={s.wordWrap} onChange={(wordWrap) => put({ wordWrap })} />
       </Row>
       <Row

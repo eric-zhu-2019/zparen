@@ -8,6 +8,7 @@
 // holds FiveAM checks, written `(is ...)`, that the exercise's test runs.
 
 import type { CourseState } from "../protocol/CourseState";
+import { testKeyText } from "../os";
 
 export type Level = "beginner" | "intermediate" | "advanced" | "master";
 
@@ -220,7 +221,7 @@ export function notWrittenFile(pkg: string): string {
   return `(in-package #:${pkg})
 
 ;;; Each exercise starts as a stub that signals NOT-WRITTEN-YET. The tests
-;;; skip an exercise while it does, so ⌘U shows what is left to write.
+;;; skip an exercise while it does, so ${testKeyText()} shows what is left to write.
 
 (define-condition not-written-yet (error)
   ((name :initarg :name :reader not-written-name))
@@ -358,7 +359,7 @@ Open the Learn panel (Help ▸ Learn Lisp) to read each lesson.
 - \`src/\` holds a file per lesson. Each exercise starts as a stub; replace it
   with your answer and evaluate it.
 - \`tests/\` holds the FiveAM tests that check each exercise. Read them: they
-  say exactly what each function must do. ⌘U runs them all.
+  say exactly what each function must do. ${testKeyText()} runs them all.
 - Git records your progress. Each lesson is a branch, \`lesson/NN-name\`; each
   passed exercise is a commit with an \`Exercise:\` trailer; a finished lesson
   is merged into \`main\`, and the next lesson's files are added there.

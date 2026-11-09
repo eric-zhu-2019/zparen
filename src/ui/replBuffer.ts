@@ -10,6 +10,7 @@ import { isComplete } from "../lisp/forms";
 import { lispRegions } from "../editor/lisp";
 import { type Region, regionTree } from "../editor/lispSyntax";
 import type { TranscriptItem } from "../store";
+import { modClick, modKey, platform } from "../os";
 
 /** Marks transactions that write the transcript, which the read-only guard lets through. */
 export const transcriptWrite = Annotation.define<boolean>();
@@ -133,7 +134,7 @@ function render(item: TranscriptItem): Rendered {
       const deco =
         item.presentation === null
           ? mark("repl-result")
-          : mark("presentation", { "data-presentation": String(item.presentation), title: "Click to use in the input, ⌘-click to inspect" });
+          : mark("presentation", { "data-presentation": String(item.presentation), title: `Click to use in the input, ${modClick()} to inspect` });
       return { text: item.text, marks: (at) => (body ? [{ from: at, to: at + body.length, deco }] : []), lisp: [0, body.length, "data"] };
     }
     case "condition": {
@@ -539,18 +540,19 @@ export function replBuffer(handlers: ReplHandlers): Extension {
         { key: "ArrowUp", run: recall(-1) },
         { key: "ArrowDown", run: recall(1) },
         { key: "Home", run: home },
-        { key: "Ctrl-a", run: home },
+        // ⌃A as in a terminal on macOS. On Linux, Ctrl+A selects all.
+        ...(platform.mac ? [{ key: "Ctrl-a", run: home }] : []),
       ]),
     ),
     EditorView.domEventHandlers({
-      // A click on a result puts it in the input; ⌘-click inspects it.
+      // A click on a result puts it in the input; ⌘-click, or Ctrl-click on Linux, inspects it.
       mousedown(event, view) {
         const target = (event.target as HTMLElement).closest("[data-presentation]");
-        // A right-click, or a Control-click, opens the context menu instead.
-        if (!target || event.button !== 0 || event.ctrlKey) return false;
+        // A right-click, or a Control-click on macOS, opens the context menu instead.
+        if (!target || event.button !== 0 || (platform.mac && event.ctrlKey)) return false;
         event.preventDefault();
         const id = Number(target.getAttribute("data-presentation"));
-        if (event.metaKey) handlers.inspect(id);
+        if (modKey(event)) handlers.inspect(id);
         else insertResult(view, id);
         return true;
       },

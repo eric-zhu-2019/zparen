@@ -12,6 +12,7 @@ import { PackagesPanel } from "./Packages";
 import { EdgeHandle } from "./EdgeHandle";
 import { SIDEBAR_WIDTH, updateSettings, useSettings } from "../settings";
 import { SearchPanel } from "./Search";
+import { shortcut } from "../keys";
 
 const GIT_LETTER: Record<GitState, string> = { modified: "M", added: "A", deleted: "D", renamed: "R", untracked: "U", conflicted: "!" };
 const GIT_TITLE: Record<GitState, string> = {
@@ -271,7 +272,7 @@ export function Sidebar() {
         <button className={sidebar === "files" ? "on" : ""} onClick={() => set({ sidebar: "files" })}>
           Files
         </button>
-        <button className={sidebar === "search" ? "on" : ""} title="Search project (⇧⌘F)" onClick={() => set({ sidebar: "search" })}>
+        <button className={sidebar === "search" ? "on" : ""} title={`Search project (${shortcut("search")})`} onClick={() => set({ sidebar: "search" })}>
           Search
         </button>
         <button className={sidebar === "packages" ? "on" : ""} title="Dependencies of the project's systems" onClick={() => set({ sidebar: "packages" })}>
