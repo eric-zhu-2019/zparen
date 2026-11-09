@@ -92,8 +92,17 @@ fn default_data_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("ZPAREN_DATA_DIR") {
         return PathBuf::from(dir);
     }
+    platform_dir("Library/Application Support/ZParen", "XDG_DATA_HOME", ".local/share")
+}
+
+/// On macOS, `mac` in the home folder. Elsewhere `zparen` in `$xdg`, else in
+/// `fallback` in the home folder, as the XDG base directories say.
+fn platform_dir(mac: &str, xdg: &str, fallback: &str) -> PathBuf {
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
-    home.join("Library/Application Support/ZParen")
+    if cfg!(target_os = "macos") {
+        return home.join(mac);
+    }
+    std::env::var_os(xdg).map(PathBuf::from).filter(|d| d.is_absolute()).unwrap_or_else(|| home.join(fallback)).join("zparen")
 }
 
 /// `$ZPAREN_CONFIG_DIR`, else `zparen` in `$XDG_CONFIG_HOME` or `~/.config`.
@@ -118,8 +127,7 @@ fn plugins_dir(cfg: &SessionConfig) -> PathBuf {
 }
 
 fn default_cache_dir() -> PathBuf {
-    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
-    home.join("Library/Caches/ZParen")
+    platform_dir("Library/Caches/ZParen", "XDG_CACHE_HOME", ".cache")
 }
 
 /// ZParen was called ZenLisp. Its folders are copied to the new names once, so
@@ -458,7 +466,7 @@ pub const CA_BUNDLES: [&str; 3] = [
 /// ocicl looks for a Linux CA bundle unless told where macOS keeps one. Lisp
 /// passes this on to the ocicl it runs to fetch a missing system.
 pub fn use_macos_ca_bundle(cmd: &mut Command) {
-    if std::env::var_os("SSL_CERT_FILE").is_some() {
+    if !cfg!(target_os = "macos") || std::env::var_os("SSL_CERT_FILE").is_some() {
         return;
     }
     if let Some(bundle) = CA_BUNDLES.iter().find(|b| Path::new(b).is_file()) {

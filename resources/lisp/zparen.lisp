@@ -12,9 +12,11 @@ fasls compiled here for debugging. A compile from the editor writes its fasl
 where ASDF looks for it, not beside the source, so a later load uses it."
   (setf uiop:*user-cache*
         (uiop:ensure-directory-pathname
-         (merge-pathnames (format nil "Library/Caches/ZParen/fasl/~a/~:[plain~;debug~]/"
+         (merge-pathnames (format nil "fasl/~a/~:[plain~;debug~]/"
                                   (uiop:implementation-identifier) debug-code)
-                          (user-homedir-pathname))))
+                          ;; The cache folder the Rust side uses for cores.
+                          #+darwin (merge-pathnames "Library/Caches/ZParen/" (user-homedir-pathname))
+                          #-darwin (uiop:xdg-cache-home "zparen/"))))
   (asdf:initialize-output-translations)
   (setf swank::*fasl-pathname-function*
         (lambda (input options)
