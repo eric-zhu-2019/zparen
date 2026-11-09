@@ -50,10 +50,10 @@ Three decisions follow from that goal:
 | Area | What you get | Read more |
 | --- | --- | --- |
 | Run and debug | A REPL of live objects, an inspector, a debugger that says what went wrong in plain words, with restarts and Restart Frame, breakpoints, stepping, trace, profile, tests and macroexpansion | [Run and debug](docs/run-and-debug.md) |
-| Edit | Vim keys that take a Lisp symbol such as `rect-shape` as one word, SLIME's Emacs sequences, parinfer, structural editing, rename across the project, checking as you type, go to definition, split panes and a git gutter | [Edit code](docs/editing.md) |
+| Edit | Vim keys that take a Lisp symbol such as `rect-shape` as one word, SLIME's Emacs sequences, parinfer, structural editing, rename across the project, checking as you type, go to definition, a right-click menu in the editor and the REPL that asks the assistant about the selection, split panes and a git gutter | [Edit code](docs/editing.md) |
 | Projects | ASDF systems with Quicklisp, ocicl, qlot or vendored dependencies, a dependency editor, builds and startup images | [Projects](docs/projects.md) |
 | Coalton | Coalton projects, `.ct` and `.coal` files, types on hover, and type errors on the expression Coalton blames | [Coalton](docs/coalton.md) |
-| Learn | A course from your first form to macros, after *ANSI Common Lisp* and *On Lisp*: a project with a file and FiveAM tests per lesson, and a git branch per lesson that records your progress | [Learn Lisp](docs/learn.md) |
+| Learn | A course from your first form to a query compiler, after *ANSI Common Lisp* and *On Lisp*: 28 lessons with a file and FiveAM tests each, four projects from lesson 16 on (a spreadsheet, an inventory to debug, a test framework, a query engine), and a git branch per lesson that records your progress | [Learn Lisp](docs/learn.md) |
 | Panels | The Learn panel, the assistant, Documentation and the Inspector share the right side, with a tab for each view you opened, so you can go back to one as you left it | [Run and debug](docs/run-and-debug.md#repl-and-inspector) |
 | AI | An assistant that works in your image and answers with Claude or Codex, through an API key or your own Claude Code or Codex login, and an MCP server for Claude Code | [Assistant and MCP](docs/assistant.md) |
 | Extend | Plugins written in Common Lisp, and themes as JSON files | [Plugins](docs/plugins.md) |

@@ -1,10 +1,16 @@
 # Learn Lisp
 
 ZParen has a course in Common Lisp. It follows the order of Paul Graham's
-*ANSI Common Lisp* and *On Lisp*, from your first form to writing macros. The
-text and exercises are ZParen's own, and each lesson names the chapters to
-read. The Beginner level (lessons 1 to 8) and the Intermediate level
-(lessons 9 to 15) are here now. Later levels arrive with ZParen updates.
+*ANSI Common Lisp* and *On Lisp*, from your first form to a query compiler.
+The text and exercises are ZParen's own, and each lesson names the chapters
+to read. It has four levels:
+
+| Level | Lessons | What you write |
+| --- | --- | --- |
+| Beginner | 1 to 8 | A function per exercise: forms, recursion, lists, data |
+| Intermediate | 9 to 15 | Closures, I/O, packages, numbers, macros, conditions, CLOS |
+| Advanced | 16 to 21 | Two projects: a spreadsheet, and a shop's inventory |
+| Master | 22 to 28 | Two projects: a test framework, and a query engine with its compiler |
 
 You learn in a real project. Each exercise is a function you write in a file,
 and FiveAM tests check it. Git records your progress.
@@ -84,6 +90,46 @@ assistant's header returns to the lesson.
 ⌘U runs every lesson's tests. Exercises you have not written yet are skipped,
 not failed.
 
+## Projects
+
+From lesson 16, each level builds programs. A project runs over a few
+lessons, and each exercise adds a working part to it. Later lessons call the
+functions you wrote in earlier ones, so your own code is what the project
+runs on.
+
+| Project | Lessons | What it teaches |
+| --- | --- | --- |
+| Spreadsheet | 16 to 19 | Formulas as trees, a queue and recalculation order, formulas compiled to closures, memoizing, and speed with declarations |
+| Inventory | 20 and 21 | Finding bugs with the debugger, trace and the inspector, then subclasses, `print-object` and `:after` methods |
+| Test framework | 22 to 24 | Macros that see code, gensyms and capture, a test runner that uses restarts, and macros that write macros |
+| Query engine | 25 to 28 | Pattern matching, a query interpreter, a compiler that turns queries into Lisp, anaphora, places and a read macro |
+
+You can start any project on its own, without the lessons before it. In
+the course outline, click **Start Project** beside the project's name, or
+open its first lesson and click **Start Project** there. ZParen adds that
+lesson's files on `main`, and makes its branch. The lessons you skipped stay
+where they were, and **Continue** goes on with the lesson you started last.
+Each project uses only its own code and Common Lisp, so you need nothing from
+the lessons before it. Lessons inside a project build on each other, so a
+project starts at its first lesson.
+
+Each project has a package of its own, named after the course and the
+project, such as `learn-lisp.query-engine`. Its first lesson's file starts
+with the `defpackage`. When you start or continue a lesson, the REPL and the
+package box in the title bar switch to its package. After a restart, ZParen
+loads the course first, so the package exists. A name in one project
+never clashes with a name in another, or in lessons 1 to 15.
+
+A project lesson can give you code. It is at the top of the lesson's file,
+and **Provided code** in the panel shows it. The lesson header says which
+part of its project the lesson is, such as "Project: Spreadsheet, part 2 of
+4", and the course outline groups the lessons under their projects.
+
+Some exercises start as code with a bug, not as a stub. Their card says **To
+fix**, and Check fails until the code is right. Lesson 20 is all such
+exercises: call the code in the REPL, read the debugger, trace the functions,
+inspect the objects, fix the code in the file, and use **Restart frame**.
+
 ## Progress is git
 
 | Event | What git records |
@@ -108,5 +154,5 @@ When a ZParen update brings more lessons and you finished every lesson in your
 project, the course view offers **Add Lesson N**. It writes the new lesson's
 files on `main` in one commit.
 
-Exercises run in the `learn-lisp` package, which uses only Common Lisp. Your
-other projects are never touched.
+Lessons 1 to 15 run in the `learn-lisp` package, and each project in its own
+package. They use only Common Lisp. Your other projects are never touched.

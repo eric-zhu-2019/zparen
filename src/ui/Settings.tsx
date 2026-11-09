@@ -303,6 +303,9 @@ function General() {
       <Row label="Projects" hint="Each session starts a fresh Lisp. This loads the systems you loaded last time, so the project is ready as you left it.">
         <Toggle label="Load the systems loaded last time" checked={s.reloadSystems} onChange={(reloadSystems) => put({ reloadSystems })} />
       </Row>
+      <Row label="REPL package" hint="Switching to a file switches the REPL to the file's in-package, when Lisp has that package. An in-package you type in the REPL holds until you switch files.">
+        <Toggle label="Follow the file being edited" checked={s.replFollowsFile} onChange={(replFollowsFile) => put({ replFollowsFile })} />
+      </Row>
       <Row label="Learn Lisp" hint="The course stays in Help ▸ Learn Lisp and the command palette.">
         <Toggle label="Show the Lisp course on the Welcome screen" checked={s.learnOnWelcome} onChange={(learnOnWelcome) => put({ learnOnWelcome })} />
       </Row>

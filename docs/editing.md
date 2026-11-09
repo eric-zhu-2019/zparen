@@ -185,6 +185,19 @@ clears whichever tab is showing.
 
 ## The editor
 
+- A right-click in the code opens a menu for the selection, or for the form
+  and symbol you clicked:
+  - **Explain This Code** asks the assistant at once.
+  - **Ask Assistant About It…** opens the chat with the code attached, for
+    your own question. The chat shows what it is about, and × removes it.
+  - **Evaluate**, **Compile**, **Expand Macro**, **Inspect** and **Profile**
+    run as their keys do.
+  - On a symbol: **Go to Definition**, **Find References**, **Describe
+    Symbol**, **Show Documentation**, **Rename Symbol…**, **Trace Function**
+    and **Disassemble Function**.
+  - With a selection: **Cut** and **Copy**.
+
+  The arrow keys move through the menu, Return chooses, and Escape closes it.
 - Split panes, side by side.
 - A git gutter with inline diffs, and a Revert button on each change.
 - Code colors that match everywhere. The editor, the REPL, the assistant's

@@ -2,7 +2,7 @@ import { setDiagnostics } from "@codemirror/lint";
 import { EditorSelection, EditorState, type StateEffect, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as actions from "../actions";
 import { useSettings } from "../settings";
 import { liveDebugSpot, useStore } from "../store";
@@ -24,6 +24,8 @@ import {
 import { setGitBase } from "./gitGutter";
 import { unifiedMergeView } from "@codemirror/merge";
 import { structureExtension } from "./structure";
+import { editorMenu } from "./contextMenu";
+import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 
 /**
  * The change that turns `from` into `to`: the span between their common start
@@ -62,6 +64,38 @@ export function Editor({ pane }: { pane: number }) {
   const wrapOn = useSettings((s) => s.wordWrap);
   const problemsMode = useSettings((s) => s.problems);
   const parinferOn = useSettings((s) => s.parinfer);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: (ContextMenuItem | null)[] } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+
+  /**
+   * A right-click in the text offers what can be done with the selection, or
+   * with the form and symbol under the pointer. Outside the selection it moves
+   * the cursor there first, so the menu is about what was clicked.
+   */
+  const openMenu = (e: React.MouseEvent) => {
+    const v = view.current;
+    if (!v || !activeTab || !(e.target instanceof Element) || !e.target.closest(".cm-content")) return;
+    e.preventDefault();
+    const pos = v.posAtCoords({ x: e.clientX, y: e.clientY });
+    const sel = v.state.selection.main;
+    if (pos !== null && (sel.empty || pos < sel.from || pos > sel.to)) v.dispatch({ selection: EditorSelection.cursor(pos) });
+    activeEditor.view = v;
+    actions.focusPane(pane);
+    const items = editorMenu(v).map((item) =>
+      item
+        ? {
+            id: item.id,
+            label: item.label,
+            run: () => {
+              // Editor commands act on the editor, which keeps focus; the assistant's take it to the chat.
+              if (item.id !== "ask" && item.id !== "explain") v.focus();
+              item.run(v);
+            },
+          }
+        : null,
+    );
+    setMenu({ x: e.clientX, y: e.clientY, items });
+  };
 
   const stateFor = (path: string) => {
     const existing = states.current.get(path);
@@ -236,5 +270,10 @@ export function Editor({ pane }: { pane: number }) {
     if (reveal.focus !== false) v.focus();
   }, [reveal, activeTab]);
 
-  return <div className="editor-host" ref={host} />;
+  return (
+    <>
+      <div className="editor-host" ref={host} onContextMenu={openMenu} />
+      {menu && <ContextMenu {...menu} onClose={closeMenu} />}
+    </>
+  );
 }

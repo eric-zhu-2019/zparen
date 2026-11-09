@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -123,12 +123,36 @@ test("a course: start a lesson, check, pass, finish, and the next lesson arrives
   await expect(learn.getByText(/1 of \d+ lessons · 3 of \d+ exercises/)).toBeVisible();
   await expect(learn.getByRole("button", { name: "Start: Functions and conditionals" })).toBeVisible();
 
+  // Later lessons are projects: code provided at the top of the lesson's file, and code to fix.
+  await expect(learn.locator(".learn-project-head", { hasText: "Project: Spreadsheet" })).toBeVisible();
+  await learn.getByRole("button", { name: /Fix it live/ }).click();
+  await expect(learn.getByText(/Project: Inventory, part 1 of 2/)).toBeVisible();
+  await expect(learn.locator(".learn-given summary")).toContainText("src/20-bug-hunt.lisp");
+  await expect(learn.locator(".learn-pill", { hasText: "To fix" })).toHaveCount(3);
+  await shots(page, "learn-05b-project");
+  await learn.getByRole("button", { name: "Back to the course" }).click();
+
   // Once a course exists, Welcome continues it instead of offering a new one.
   await fresh(page);
   await expect(page.getByRole("button", { name: "Learn Lisp…" })).toHaveCount(0);
   await page.getByRole("button", { name: "Continue Learning Lisp" }).click();
   await expect(learn.getByRole("button", { name: "Start: Functions and conditionals" })).toBeVisible({ timeout: 60_000 });
   await shots(page, "learn-06-continued");
+
+  // A project starts on its own, without the lessons before it.
+  await learn.locator(".learn-project-head", { hasText: "Project: Spreadsheet" }).getByRole("button", { name: "Start Project" }).click();
+  await expect(page.locator(".tab.active")).toHaveText(/16-cells\.lisp/, { timeout: 120_000 });
+  await expect(learn.getByRole("heading", { name: "Cells and formulas" })).toBeVisible();
+  expect(git(root, "branch", "--show-current").trim()).toBe("lesson/16-cells");
+  expect(git(root, "log", "--format=%s", "-1", "main")).toMatch(/^Add lesson 16: Cells and formulas/);
+  const cells = readFileSync(join(root, "src/16-cells.lisp"), "utf8");
+  expect(cells).toContain(";;; Provided code for the spreadsheet.");
+  expect(cells).toContain("(defpackage #:learn-lisp.spreadsheet");
+  await expect(page.getByTitle("Current package"), "the REPL is in the project's package").toHaveValue("LEARN-LISP.SPREADSHEET");
+  expect(readFileSync(join(root, "learn-lisp.asd"), "utf8")).toMatch(/"02-functions"\)\s+\(:file "16-cells"\)/);
+  await expect(learn.locator(".learn-branch"), "the panel follows the new branch").toContainText("lesson/16-cells");
+  await expect(learn.getByRole("button", { name: "Start Lesson" })).toHaveCount(0);
+  await shots(page, "learn-07-project");
 
   // The setting hides the course on Welcome.
   const welcomeCourse = page.getByRole("button", { name: /Continue Learning Lisp|Learn Lisp…/ });
@@ -141,8 +165,16 @@ test("a course: start a lesson, check, pass, finish, and the next lesson arrives
   await page.reload();
   await expect(page.getByRole("button", { name: "Continue Learning Lisp" })).toBeVisible();
 
+  // A new session starts in CL-USER; continuing the lesson loads the course and switches the REPL to its package.
+  await page.getByRole("button", { name: "Continue Learning Lisp" }).click();
+  await expect(page.locator(".tab.active")).toHaveText(/16-cells\.lisp/, { timeout: 60_000 });
+  await expect(page.getByTitle("Current package"), "the REPL follows the lesson after a restart").toHaveValue("LEARN-LISP.SPREADSHEET", { timeout: 60_000 });
+  await fresh(page);
+
   // A course with every lesson finished is not offered again.
-  for (let n = 2; n <= 15; n++) git(root, "commit", "--quiet", "--allow-empty", "-m", `Finish lesson ${n}`, "--trailer", `Lesson: ${String(n).padStart(2, "0")}`);
+  git(root, "checkout", "--quiet", "main");
+  const lessons = readdirSync(join(process.cwd(), "src/learn/lessons")).filter((f) => f.endsWith(".md")).length;
+  for (let n = 2; n <= lessons; n++) git(root, "commit", "--quiet", "--allow-empty", "-m", `Finish lesson ${n}`, "--trailer", `Lesson: ${String(n).padStart(2, "0")}`);
   await page.reload();
   await expect(page.locator('[data-course="done"]')).toBeVisible();
   await expect(welcomeCourse).toHaveCount(0);

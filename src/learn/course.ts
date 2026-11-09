@@ -14,7 +14,7 @@ export type Level = "beginner" | "intermediate" | "advanced" | "master";
 export const LEVELS: { id: Level; title: string; reading: string }[] = [
   { id: "beginner", title: "Beginner", reading: "ANSI Common Lisp, ch. 2–5" },
   { id: "intermediate", title: "Intermediate", reading: "ANSI Common Lisp, ch. 6–11 and 14" },
-  { id: "advanced", title: "Advanced", reading: "ANSI Common Lisp, ch. 12–13; On Lisp, ch. 2–5" },
+  { id: "advanced", title: "Advanced", reading: "ANSI Common Lisp, ch. 11–14; On Lisp, ch. 2–5" },
   { id: "master", title: "Master", reading: "On Lisp, ch. 7–19" },
 ];
 
@@ -29,7 +29,10 @@ export type Exercise = {
   prompt: string;
   /** The function or macro the exercise defines, which names its test too. */
   name: string;
+  /** What the learner's file starts with: a stub to replace, or code to fix. */
   stub: string;
+  /** The exercise starts as broken code to fix, not as a stub to write. */
+  fix: boolean;
   hint: string | null;
   solution: string;
   /** FiveAM checks, one form per line or more, written with `is`. */
@@ -44,6 +47,10 @@ export type Lesson = {
   level: Level;
   /** Where the books cover the same ground. */
   reading: string | null;
+  /** The program the lesson adds to, when it is part of one, such as "Spreadsheet". */
+  project: string | null;
+  /** Code the lesson provides, written at the top of its file. */
+  given: string | null;
   /** The lesson's prose, in Markdown. */
   body: string;
   exercises: Exercise[];
@@ -79,7 +86,8 @@ export function parseLesson(id: string, text: string): Lesson {
   const number = Number(/^(\d+)-/.exec(id)?.[1]);
   if (!Number.isInteger(number) || number < 1) throw new Error(`${id}: a lesson file is named NN-name.md`);
   const { fields, rest } = frontMatter(text.replace(/\r\n/g, "\n"));
-  const [body, ...sections] = rest.split(/^## Exercise:[ \t]*/m);
+  const [prose, ...sections] = rest.split(/^## Exercise:[ \t]*/m);
+  const { blocks: givens, rest: body } = takeBlocks(prose, "given");
   const level = (fields.level ?? "beginner") as Level;
   if (!LEVELS.some((l) => l.id === level)) throw new Error(`${id}: unknown level ${level}`);
   const nn = String(number).padStart(2, "0");
@@ -88,15 +96,17 @@ export function parseLesson(id: string, text: string): Lesson {
     const title = section.slice(0, newline < 0 ? undefined : newline).trim();
     let md = newline < 0 ? "" : section.slice(newline + 1);
     const taken: Record<string, string[]> = {};
-    for (const kind of ["stub", "hint", "solution", "check"]) {
+    for (const kind of ["stub", "fix", "hint", "solution", "check"]) {
       const t = takeBlocks(md, kind);
       taken[kind] = t.blocks;
       md = t.rest;
     }
-    for (const kind of ["stub", "solution", "check"]) {
+    for (const kind of ["solution", "check"]) {
       if (taken[kind].length !== 1) throw new Error(`${id}: exercise "${title}" needs one ${kind} block`);
     }
-    const name = definedName(taken.stub[0]);
+    const starts = [...taken.stub, ...taken.fix];
+    if (starts.length !== 1) throw new Error(`${id}: exercise "${title}" needs one stub or fix block`);
+    const name = definedName(starts[0]);
     if (!name) throw new Error(`${id}: exercise "${title}" has a stub that defines nothing`);
     return {
       key: `${nn}/${i + 1}`,
@@ -105,13 +115,24 @@ export function parseLesson(id: string, text: string): Lesson {
       title,
       prompt: md.trim(),
       name,
-      stub: taken.stub[0],
+      stub: starts[0],
+      fix: taken.fix.length > 0,
       hint: taken.hint[0] ?? null,
       solution: taken.solution[0],
       check: taken.check[0],
     };
   });
-  return { id, number, title: fields.title ?? id, level, reading: fields.reading || null, body: body.trim(), exercises };
+  return {
+    id,
+    number,
+    title: fields.title ?? id,
+    level,
+    reading: fields.reading || null,
+    project: fields.project || null,
+    given: givens.length ? givens.join("\n\n") : null,
+    body: body.trim(),
+    exercises,
+  };
 }
 
 const files = import.meta.glob("./lessons/*.md", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
@@ -120,11 +141,23 @@ export const LESSONS: Lesson[] = Object.entries(files)
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([path, text]) => parseLesson(path.replace(/^.*\/|\.md$/g, ""), text));
 
+/** The lessons of L's project, in order: empty when L is not part of one. */
+export const projectLessons = (l: Lesson) => (l.project ? LESSONS.filter((x) => x.project === l.project) : []);
+
+/** True when L begins a project, which can be started without the lessons before it. */
+export const startsProject = (l: Lesson) => projectLessons(l)[0]?.id === l.id;
+
 export const lessonBranch = (l: Lesson) => `lesson/${l.id}`;
 export const lessonSource = (l: Lesson) => `src/${l.id}.lisp`;
 export const lessonTests = (l: Lesson) => `tests/${l.id}.lisp`;
 
-/** The test that checks an exercise, as FiveAM's rerun reads it. */
+/**
+ * The package L's code is in. Lessons on their own share the course's package,
+ * PKG. A project has a package of its own, named after it: learn-lisp.query-engine.
+ */
+export const lessonPackage = (pkg: string, l: Lesson) => (l.project ? `${pkg}.${l.project.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : pkg);
+
+/** The test that checks an exercise, in the package PKG, as FiveAM's rerun reads it. */
 export const testId = (pkg: string, e: Exercise) => `${pkg.toUpperCase()}::${e.name.toUpperCase()}`;
 
 export const passMessage = (e: Exercise) => `Pass ${e.label}: ${e.title}\n\nExercise: ${e.key}`;
@@ -262,13 +295,32 @@ export function stubWithArguments(stub: string): string {
   });
 }
 
+/** The package a project's first lesson defines: it uses Common Lisp, and takes NOT-WRITTEN-YET from the course. */
+function projectPackage(pkg: string, l: Lesson): string {
+  const lessons = projectLessons(l);
+  const name = l.project!.toLowerCase();
+  return `;;; The ${name} has a package of its own, as a program would (lesson 11).
+;;; The project's later lessons are in it too.
+(defpackage #:${lessonPackage(pkg, l)}
+  (:use #:cl)
+  (:import-from #:${pkg} #:not-written-yet)
+  (:documentation "The ${name} project, lessons ${lessons[0].number} to ${lessons[lessons.length - 1].number}."))
+
+`;
+}
+
 export function sourceFile(pkg: string, l: Lesson): string {
   const head = `;;;; Lesson ${l.number}: ${l.title}
 ;;;; Read the lesson in ZParen's Learn panel.${l.reading ? ` ${l.reading}.` : ""}
 
-(in-package #:${pkg})
+${startsProject(l) ? projectPackage(pkg, l) : ""}(in-package #:${lessonPackage(pkg, l)})
 `;
-  return [head, ...l.exercises.map((e) => `;;; Exercise ${e.label}: ${e.title}\n${comment(e.prompt)}\n${stubWithArguments(e.stub)}\n`)].join("\n");
+  const given = l.given
+    ? [`;;; Provided code${l.project ? ` for the ${l.project.toLowerCase()}` : ""}. Read it: the exercises below use it.\n;;; Change it only where an exercise asks you to.\n\n${l.given}\n`]
+    : [];
+  const exercise = (e: Exercise) =>
+    [`;;; Exercise ${e.label}: ${e.title}${e.fix ? " (fix this code)" : ""}`, comment(e.prompt), e.fix ? e.stub : stubWithArguments(e.stub)].filter(Boolean).join("\n") + "\n";
+  return [head, ...given, ...l.exercises.map(exercise)].join("\n");
 }
 
 /** The check block with FiveAM's operators named in full, since the lesson's package does not use FiveAM. */
@@ -277,15 +329,18 @@ const qualified = (check: string) => check.replace(/\((is|is-true|is-false|signa
 const indent = (text: string, by: string) => text.split("\n").map((l) => (l ? by + l : l)).join("\n");
 
 export function testFile(pkg: string, l: Lesson): string {
-  const head = `(in-package #:${pkg})
+  const own = lessonPackage(pkg, l);
+  // A project's tests are read in its package, so they name the course's own helpers in full.
+  const course = own === pkg ? "" : `${pkg}::`;
+  const head = `(in-package #:${own})
 
-(fiveam:def-suite lesson-${String(l.number).padStart(2, "0")} :in course :description "Lesson ${l.number}: ${l.title}")
+(fiveam:def-suite lesson-${String(l.number).padStart(2, "0")} :in ${course}course :description "Lesson ${l.number}: ${l.title}")
 (fiveam:in-suite lesson-${String(l.number).padStart(2, "0")})
 `;
   const tests = l.exercises.map(
     (e) => `(fiveam:test ${e.name}
   "Exercise ${e.label}: ${e.title}"
-  (checking ${e.name}
+  (${course}checking ${e.name}
 ${indent(qualified(e.check), "    ")}))
 `,
   );
@@ -344,7 +399,18 @@ export function progress(state: CourseState, sourceFiles: string[]): Progress {
   const reached = LESSONS.filter((l) => have.has(`${l.id}.lisp`));
   const finished = new Set(LESSONS.filter((l) => state.finished.includes(String(l.number).padStart(2, "0"))).map((l) => l.id));
   const onLesson = LESSONS.find((l) => state.branch === lessonBranch(l)) ?? null;
-  const current = onLesson && !finished.has(onLesson.id) ? onLesson : (reached.find((l) => !finished.has(l.id)) ?? null);
+  // A project can start ahead of the lessons before it, so several lessons can
+  // wait at once. The one to go on with: the lesson checked out, else the
+  // latest one started, else the one after the latest finished, else the first.
+  const open = reached.filter((l) => !finished.has(l.id));
+  const started = open.filter((l) => state.branches.includes(lessonBranch(l)));
+  const lastDone = Math.max(-1, ...LESSONS.map((l, i) => (finished.has(l.id) ? i : -1)));
+  const current =
+    (onLesson && !finished.has(onLesson.id) ? onLesson : null) ??
+    started[started.length - 1] ??
+    open.find((l) => LESSONS.indexOf(l) > lastDone) ??
+    open[0] ??
+    null;
   return { reached, finished, passed: new Set(state.passed), onLesson, current };
 }
 

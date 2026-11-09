@@ -94,6 +94,23 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await replEval(page, "(twice 21)");
   await expect(page.locator(".presentation", { hasText: /^42$/ })).toBeVisible();
 
+  // A right-click in the REPL acts on what was clicked: an earlier input, or a result.
+  const replMenu = page.getByRole("menu");
+  await page.locator(".repl-buffer .cm-line", { hasText: "CL-USER> (twice 21)" }).getByText("twice", { exact: false }).last().click({ button: "right" });
+  await expect(replMenu.getByRole("menuitem")).toHaveText(["Explain This Input", "Ask Assistant About It…", "Copy to Input", "Go to Definition", "Find References", "Show Documentation", "Inspect", "Trace Function", "Clear REPL"]);
+  await shots(page, "11-repl-menu");
+  await replMenu.getByRole("menuitem", { name: "Copy to Input" }).click();
+  await expect.poll(() => replInputText(page), { message: "Copy to Input puts the earlier input at the prompt" }).toBe("(twice 21)");
+  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("Backspace");
+  // A click leaves the selection ⌘A made in the transcript; a right-click in it would act on the selection.
+  await page.locator(".repl-buffer .cm-line").last().click();
+  await page.locator(".presentation", { hasText: /^42$/ }).click({ button: "right" });
+  await expect(replMenu.getByRole("menuitem", { name: "Use in Input" })).toBeVisible();
+  expect(await replInputText(page), "a right-click on a result does not put it in the input").toBe("");
+  await replMenu.getByRole("menuitem", { name: "Inspect Result" }).click();
+  await expect(page.getByTestId("inspector-title")).toContainText(/42|INTEGER|FIXNUM/);
+
   await expect(page.locator(".repl-buffer .cm-line", { hasText: "CL-USER> (twice 21)" }), "the prompt and input stay in the transcript").toBeVisible();
   await page.locator(".repl-buffer .cm-line", { hasText: "load zen-demo: done" }).click();
   await page.keyboard.type("(+ 2 3)");
@@ -250,6 +267,52 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await replEval(page, "(zen-demo:main)");
   await expect(hello, "a cleared breakpoint no longer stops").toHaveCount(hellos + 2);
   await expect(page.getByTestId("debugger")).toHaveCount(0);
+});
+
+test("a right-click in the editor offers the assistant and Lisp commands", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-menu");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  const menu = page.getByRole("menu");
+
+  // A selection: the assistant, then Lisp commands, then Cut and Copy.
+  const line = page.locator(".editor-host .cm-line", { hasText: "(format nil" });
+  const box = (await line.boundingBox())!;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + 30, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 4, y, { steps: 5 });
+  await page.mouse.up();
+  await page.mouse.click(box.x + 60, y, { button: "right" });
+  await expect(menu.getByRole("menuitem")).toHaveText(["Explain This Code", "Ask Assistant About It…", "Evaluate Selection", "Compile Selection", "Inspect Value", "Profile Selection", "Cut", "Copy"]);
+  await expect(menu.getByRole("menuitem").first(), "the first item has focus, for the arrow keys").toBeFocused();
+  await shots(page, "06-editor-menu");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(menu).toHaveCount(0);
+  const about = page.getByTestId("chat-about");
+  await expect(about).toContainText(/About the selection in main\.lisp:\d+/);
+  await expect(page.locator(".chat-input textarea"), "ready for the question").toBeFocused();
+  await about.getByTitle("Ask without this code").click();
+  await expect(about).toHaveCount(0);
+
+  // A symbol: what can be done with it too. Escape closes the menu.
+  const symbol = page.locator(".editor-host .cm-line", { hasText: "(defun greet" }).getByText("greet");
+  await symbol.click({ button: "right" });
+  await expect(menu.getByRole("menuitem", { name: "Go to Definition" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Explain This Form" })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: "Copy" }), "nothing to copy without a selection").toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+
+  // Evaluate from the menu shows the result in place, as ⌘↩ does.
+  await symbol.click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Evaluate Form" }).click();
+  await expect(page.locator(".cm-inline-result")).toHaveText(/GREET/);
 });
 
 test("assistant runs tools in the live image and its code can be inserted", async ({ page }) => {
@@ -2373,6 +2436,34 @@ test("word wrap turns on and off from ⌥Z and Settings", async ({ page }) => {
   await page.getByTestId("settings").getByRole("switch", { name: "Wrap long lines" }).uncheck();
   await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
   await expect(content, "and Settings turns it off").not.toHaveClass(/cm-lineWrapping/);
+});
+
+test("with the setting on, the REPL follows the package of the file being edited", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-follow");
+  await page.getByPlaceholder("/Users/you/projects").fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  const pkg = page.getByTitle("Current package");
+  await expect(pkg, "off by default").toHaveValue("COMMON-LISP-USER");
+
+  await page.keyboard.press("Meta+,");
+  await page.getByTestId("settings").getByRole("switch", { name: "Follow the file being edited" }).check();
+  await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
+  await expect(pkg, "Lisp has no ZEN-FOLLOW until the system loads").toHaveValue("COMMON-LISP-USER");
+
+  await page.locator(".system").first().getByRole("button", { name: "Load" }).click();
+  await expect(pkg, "the load brings the file's package, and the REPL follows").toHaveValue("ZEN-FOLLOW", { timeout: 60_000 });
+
+  await replEval(page, "(in-package :cl-user)");
+  await expect(pkg).toHaveValue("COMMON-LISP-USER");
+  await page.getByTestId("file-tree").locator(".tree-row", { hasText: "zen-follow.asd" }).click();
+  await expect(page.locator(".tab.active")).toHaveText(/zen-follow\.asd/);
+  await expect(pkg, "a package typed in the REPL holds in a file without in-package").toHaveValue("COMMON-LISP-USER");
+  await page.locator(".tab", { hasText: "main.lisp" }).click();
+  await expect(pkg, "back in main.lisp, the REPL follows again").toHaveValue("ZEN-FOLLOW");
 });
 
 test("the right panel keeps a tab for each view opened, and each view stays as it was", async ({ page }) => {
