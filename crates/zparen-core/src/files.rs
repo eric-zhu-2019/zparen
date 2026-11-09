@@ -71,13 +71,17 @@ pub fn rename(from: &Path, to: &Path) -> io::Result<()> {
     std::fs::rename(from, to)
 }
 
-/// Moves `path` to the macOS Trash, so a deletion from the file tree can be undone.
-/// NSFileManager rather than the default Finder script, which waits on an
-/// Apple Events permission prompt.
+/// Moves `path` to the Trash, so a deletion from the file tree can be undone.
+/// On macOS through NSFileManager rather than the default Finder script, which
+/// waits on an Apple Events permission prompt. Elsewhere to the freedesktop.org trash.
 pub fn trash(path: &Path) -> io::Result<()> {
-    use trash::macos::{DeleteMethod, TrashContextExtMacos};
+    #[allow(unused_mut)]
     let mut ctx = trash::TrashContext::default();
-    ctx.set_delete_method(DeleteMethod::NsFileManager);
+    #[cfg(target_os = "macos")]
+    {
+        use trash::macos::{DeleteMethod, TrashContextExtMacos};
+        ctx.set_delete_method(DeleteMethod::NsFileManager);
+    }
     ctx.delete(path).map_err(|e| io::Error::other(e.to_string()))
 }
 

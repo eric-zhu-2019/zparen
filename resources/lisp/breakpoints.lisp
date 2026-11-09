@@ -56,7 +56,8 @@ so that code loaded again from the file gets them back.")
 
 (defun call-sites (names)
   "Each call site compiled from a file or buffer in NAMES, as (code-location . offset)."
-  (let ((sites '()))
+  (let ((funs '())
+        (sites '()))
     ;; Code loaded a moment ago sits in an open allocation region the heap walk skips until a GC.
     (sb-ext:gc)
     (sb-vm:map-allocated-objects
@@ -66,14 +67,17 @@ so that code loaded again from the file gets them back.")
          (dotimes (i (sb-kernel:code-n-entries object))
            (let ((fun (ignore-errors (sb-di:fun-debug-fun (sb-kernel:%code-entry-point object i)))))
              (when (and fun (compiled-from-p fun names))
-               (sb-di:do-debug-fun-blocks (block fun)
-                 (sb-di:do-debug-block-locations (location block)
-                   (when (and (not (sb-di:code-location-unknown-p location))
-                              (eq (sb-di:code-location-kind location) :call-site))
-                     (let ((offset (source-offset location)))
-                       (when offset (push (cons location offset) sites)))))))))))
+               (push fun funs))))))
      :all)
-    sites))
+    ;; Code locations are read after the walk: on x86-64 Linux, none of them
+    ;; reads as a call site with a source position inside it.
+    (dolist (fun funs sites)
+      (sb-di:do-debug-fun-blocks (block fun)
+        (sb-di:do-debug-block-locations (location block)
+          (when (and (not (sb-di:code-location-unknown-p location))
+                     (eq (sb-di:code-location-kind location) :call-site))
+            (let ((offset (source-offset location)))
+              (when offset (push (cons location offset) sites)))))))))
 
 (defun set-breakpoints (path ranges)
   "Replaces PATH's breakpoints with RANGES, each (FROM TO LABEL), and returns the FROMs bound to code."

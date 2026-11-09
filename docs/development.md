@@ -26,6 +26,12 @@ files change.
 parinfer wasm tests, the TypeScript tests, and the WebKit end-to-end tests.
 Add `--network` to include the ocicl test, which downloads from `ghcr.io`.
 
+The app runs on macOS only. The Rust core and `zparen-dev` also build on
+Linux. `.github/workflows/linux.yml` runs their tests there, and the TypeScript
+tests, for each pull request. On Linux, ZParen keeps its data in
+`~/.local/share/zparen` and its cache in `~/.cache/zparen`, or under
+`$XDG_DATA_HOME` and `$XDG_CACHE_HOME`.
+
 To run the UI in a browser against a real SBCL, start the bridge and Vite:
 
 ```sh
