@@ -30,8 +30,9 @@ so compiler notes come back to you. When the debugger opens, read it with debugg
 invoke_restart rather than leaving it open. To fix code in the user's files, change the file with edit_file, then \
 compile the changed form with compile_form so its notes come back to you. When you only propose code, put it in a \
 fenced ```lisp block, starting with a comment line naming the file, so the user can insert it. In a ```lisp block, \
-start every line of a result, output or expansion with ;; (as in ;; => 42), so the block stays code the user can \
-insert and evaluate. Keep answers short and concrete.";
+leave the code itself uncommented, so the user can evaluate it. Comment only the lines that show what the code \
+returns, prints or expands to: start each of those lines with ;; (as in ;; => 42). Put explanations in prose \
+outside the block. Keep answers short and concrete.";
 
 #[derive(Debug, Clone, Serialize, TS, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -59,6 +60,10 @@ pub struct EditorContext {
     pub file: Option<String>,
     pub package: Option<String>,
     pub form: Option<String>,
+    /// What `form` is, such as "The selection" or "A REPL result". Left out, it is the form at the cursor.
+    #[serde(default)]
+    #[ts(optional)]
+    pub form_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS, PartialEq, Eq, PartialOrd, Ord)]
@@ -795,7 +800,8 @@ fn user_message(text: &str, context: Option<&EditorContext>) -> Value {
             note.push_str(&format!("\nPackage: {p}"));
         }
         if let Some(form) = &c.form {
-            note.push_str(&format!("\nForm at the cursor:\n```lisp\n{form}\n```"));
+            let label = c.form_label.as_deref().unwrap_or("Form at the cursor");
+            note.push_str(&format!("\n{label}:\n```lisp\n{form}\n```"));
         }
         content.push(json!({ "type": "text", "text": note }));
     }
@@ -980,6 +986,18 @@ impl SseBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn names_the_code_sent_with_a_message() {
+        let note = |label: Option<&str>| {
+            let c = EditorContext { file: None, package: Some("CL-USER".into()), form: Some("42".into()), form_label: label.map(Into::into) };
+            user_message("Explain", Some(&c))["content"][0]["text"].as_str().unwrap().to_string()
+        };
+        assert_eq!(note(None), "Editor context:\nPackage: CL-USER\nForm at the cursor:\n```lisp\n42\n```");
+        assert!(note(Some("A REPL result")).contains("\nA REPL result:\n```lisp\n42"));
+        let old: EditorContext = serde_json::from_str(r#"{"file":null,"package":null,"form":"x"}"#).unwrap();
+        assert_eq!(old.form_label, None, "a context without the label still reads");
+    }
 
     #[test]
     fn sse_frames_split_across_chunks() {

@@ -1,4 +1,5 @@
 import type { Completion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
+import type { EditorContext } from "../protocol/EditorContext";
 import type { Diagnostic } from "@codemirror/lint";
 import type { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -24,11 +25,12 @@ export function editorContext() {
 }
 
 /** The file of VIEW, its package, and the selection, or the form at the cursor, for the assistant. */
-export function contextOf(v: EditorView) {
+export function contextOf(v: EditorView): EditorContext | null {
   const file = viewPath.get(v);
   if (!file) return null;
   const form = currentForm(v);
-  return { file, package: bufferPackage(v), form: form ? form.text.slice(0, 4000) : null };
+  const context: EditorContext = { file, package: bufferPackage(v), form: form ? form.text.slice(0, 4000) : null };
+  return v.state.selection.main.empty ? context : { ...context, formLabel: "The selection" };
 }
 
 export function insertAtCursor(text: string) {

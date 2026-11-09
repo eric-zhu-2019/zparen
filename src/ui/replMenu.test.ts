@@ -76,7 +76,7 @@ describe("the REPL's context menu", () => {
   it("attaches the text clicked, with the REPL's package, for the assistant", () => {
     const view = at(repl("(* 6 7)"), "(* 6 7)");
     replMenu(view, handlers)[1]!.run(view);
-    expect(useStore.getState().chatAbout).toEqual({ context: { file: null, package: "CL-USER", form: "(* 6 7)" }, label: "the input in the REPL" });
+    expect(useStore.getState().chatAbout).toEqual({ context: { file: null, package: "CL-USER", form: "(* 6 7)", formLabel: "The REPL input being typed" }, label: "the input in the REPL" });
     set({ chatAbout: null });
   });
 });

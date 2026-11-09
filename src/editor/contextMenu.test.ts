@@ -2,7 +2,7 @@ import { EditorSelection, EditorState } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { describe, expect, it } from "vitest";
 import { set } from "../store";
-import { viewPath } from "./commands";
+import { contextOf, viewPath } from "./commands";
 import { codeLabel, editorMenu } from "./contextMenu";
 
 const CODE = "(defun twice (x)\n  (* 2 x))\n\n(twice 21)\n";
@@ -24,6 +24,7 @@ describe("the editor's context menu", () => {
     expect(labels(view)).toContain("Explain This Code");
     expect(labels(view)).toContain("Evaluate Selection");
     expect(codeLabel(view)).toBe("the selection in main.lisp:1–2");
+    expect(contextOf(view)?.formLabel, "the assistant is told it is a selection").toBe("The selection");
   });
 
   it("offers the symbol's commands on a symbol, and no Cut or Copy without a selection", () => {
@@ -31,6 +32,7 @@ describe("the editor's context menu", () => {
     expect(ids(view)).toEqual(["explain", "ask", "-", "eval", "compile", "macroexpand", "inspect", "profile", "-", "definition", "references", "describe", "docs", "rename", "trace", "disassemble"]);
     expect(labels(view)).toContain("Explain This Form");
     expect(codeLabel(view)).toBe("the form at main.lisp:4");
+    expect(contextOf(view)?.formLabel, "a form at the cursor needs no label").toBeUndefined();
   });
 
   it("says Stop Tracing for a function being traced", () => {

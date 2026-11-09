@@ -43,6 +43,8 @@ export function replTarget(state: EditorState): Target | null {
 }
 
 const EXPLAIN_LABEL = { selection: "Explain Selection", input: "Explain This Input", result: "Explain This Result", prompt: "Explain This Input" } as const;
+/** How the assistant is told what the text is. */
+const FORM_LABELS = { selection: "Selected REPL text", input: "An earlier REPL input", result: "A REPL result", prompt: "The REPL input being typed" } as const;
 const NAMES = { selection: "the selection", input: "an earlier input", result: "a result", prompt: "the input" } as const;
 
 /** The items for a right-click in the REPL. Items that do not apply are left out. */
@@ -50,7 +52,7 @@ export function replMenu(view: EditorView, h: ReplMenuHandlers): Menu {
   const state = view.state;
   const target = replTarget(state);
   const text = target ? state.sliceDoc(target.from, target.to) : "";
-  const context = { file: null, package: h.package, form: text.slice(0, 4000) };
+  const context = { file: null, package: h.package, form: text.slice(0, 4000), ...(target ? { formLabel: FORM_LABELS[target.kind] } : {}) };
   const label = target ? `${NAMES[target.kind]} in the REPL` : "";
   const items: Menu = [];
   if (target) {
