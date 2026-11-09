@@ -18,6 +18,34 @@ over MCP.
 
 ![The REPL beside the debugger, with its restarts and backtrace, and the inspector on the right](docs/screenshots/debugger.png)
 
+## Major features
+
+- **No setup.** The app includes SBCL and Swank. Open a project folder, and
+  Lisp starts.
+- **A live REPL.** Results are real objects. Click one to use it again, or
+  inspect it. The REPL can follow the package of the file you edit.
+- **A debugger in plain words.** It says what went wrong, offers the ways to
+  go on as buttons, and restarts the failed frame after you fix the code.
+  Breakpoints and stepping stop the code where you choose.
+- **Vim and Emacs keys for Lisp.** Vim takes `rect-shape` as one word, SLIME's
+  Emacs sequences work, and parinfer keeps the parentheses balanced.
+- **Checking as you type.** SBCL's warnings show on the code, and the status
+  bar shows the argument list.
+- **An AI assistant in your image.** Claude or Codex, with an API key or your
+  own Claude Code or Codex login. Answers show as formatted text, and each
+  code block has Copy, Insert and Eval. A right-click in the editor or the
+  REPL explains the code or asks about it.
+- **MCP for outside agents.** Claude Code and other MCP clients use the same
+  tools as the assistant, in the same Lisp.
+- **A Common Lisp course.** 28 lessons with FiveAM checks, four projects, and
+  your progress kept in git.
+- **Real projects.** Plain ASDF systems with Quicklisp, ocicl, qlot or vendored
+  dependencies, tests as a tree, and startup images.
+- **Coalton, plugins and themes.** Coalton types on hover, plugins written in
+  Common Lisp, and themes as JSON files.
+- **Updates in the app.** Signed and notarized releases, and updates installed
+  from ZParen ▸ Check for Updates….
+
 ## Goal
 
 I am very interested in Common Lisp. But I found it hard to set up Emacs or Vim
@@ -49,13 +77,13 @@ Three decisions follow from that goal:
 
 | Area | What you get | Read more |
 | --- | --- | --- |
-| Run and debug | A REPL of live objects, an inspector, a debugger that says what went wrong in plain words, with restarts and Restart Frame, breakpoints, stepping, trace, profile, tests and macroexpansion | [Run and debug](docs/run-and-debug.md) |
+| Run and debug | A REPL of live objects that can follow the package of the file you edit, an inspector, a debugger that says what went wrong in plain words, with restarts and Restart Frame, breakpoints, stepping, trace, profile, tests and macroexpansion | [Run and debug](docs/run-and-debug.md) |
 | Edit | Vim keys that take a Lisp symbol such as `rect-shape` as one word, SLIME's Emacs sequences, parinfer, structural editing, rename across the project, checking as you type, go to definition, a right-click menu in the editor and the REPL that asks the assistant about the selection, split panes and a git gutter | [Edit code](docs/editing.md) |
 | Projects | ASDF systems with Quicklisp, ocicl, qlot or vendored dependencies, a dependency editor, builds and startup images | [Projects](docs/projects.md) |
 | Coalton | Coalton projects, `.ct` and `.coal` files, types on hover, and type errors on the expression Coalton blames | [Coalton](docs/coalton.md) |
 | Learn | A course from your first form to a query compiler, after *ANSI Common Lisp* and *On Lisp*: 28 lessons with a file and FiveAM tests each, four projects from lesson 16 on (a spreadsheet, an inventory to debug, a test framework, a query engine), and a git branch per lesson that records your progress | [Learn Lisp](docs/learn.md) |
 | Panels | The Learn panel, the assistant, Documentation and the Inspector share the right side, with a tab for each view you opened, so you can go back to one as you left it | [Run and debug](docs/run-and-debug.md#repl-and-inspector) |
-| AI | An assistant that works in your image and answers with Claude or Codex, through an API key or your own Claude Code or Codex login, and an MCP server for Claude Code | [Assistant and MCP](docs/assistant.md) |
+| AI | An assistant that works in your image and answers with Claude or Codex, through an API key or your own Claude Code or Codex login, answers formatted as Markdown with Copy, Insert and Eval on each code block, and an MCP server for Claude Code | [Assistant and MCP](docs/assistant.md) |
 | Extend | Plugins written in Common Lisp, and themes as JSON files | [Plugins](docs/plugins.md) |
 
 ![Checking as you type: SBCL's warning marks the undefined variable, and the status bar shows the argument list](docs/screenshots/live-check.png)
