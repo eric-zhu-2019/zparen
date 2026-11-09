@@ -29,8 +29,9 @@ files, describe symbols and evaluate small experiments to ground your answers. D
 so compiler notes come back to you. When the debugger opens, read it with debugger_state and choose a restart with \
 invoke_restart rather than leaving it open. To fix code in the user's files, change the file with edit_file, then \
 compile the changed form with compile_form so its notes come back to you. When you only propose code, put it in a \
-fenced ```lisp block, starting with a comment line naming the file, so the user can insert it. Keep answers short and \
-concrete.";
+fenced ```lisp block, starting with a comment line naming the file, so the user can insert it. In a ```lisp block, \
+start every line of a result, output or expansion with ;; (as in ;; => 42), so the block stays code the user can \
+insert and evaluate. Keep answers short and concrete.";
 
 #[derive(Debug, Clone, Serialize, TS, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
