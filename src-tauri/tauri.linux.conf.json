@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "title": "ZParen",
+        "create": false,
+        "width": 1400,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 560
+      }
+    ]
+  },
+  "bundle": {
+    "targets": ["deb", "appimage"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"]
+  }
+}

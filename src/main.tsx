@@ -13,9 +13,12 @@ import "./styles.css";
 import { clearRecentProjects, loadedSystems, rememberLoaded, syncRecentMenu } from "./platform";
 import { useSettings } from "./settings";
 import { guardWindowClose } from "./ui/Dialog";
+import { platform } from "./os";
 
 // The window is transparent with macOS's sidebar material behind it; the page lets it show through.
-if (inTauri && /Mac/.test(navigator.platform)) document.documentElement.dataset.vibrancy = "";
+if (inTauri && platform.mac) document.documentElement.dataset.vibrancy = "";
+// The title bar leaves room for macOS's window buttons; elsewhere the system draws its own frame.
+if (platform.mac) document.documentElement.dataset.mac = "";
 await initParinfer();
 guardWindowClose();
 followFilePackage();

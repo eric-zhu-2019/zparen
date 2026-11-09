@@ -192,6 +192,10 @@ textarea {
   background: var(--bg-sidebar);
   backdrop-filter: blur(20px);
 }
+/* Outside macOS, no window buttons sit in the title bar. */
+:root:not([data-mac]) .titlebar {
+  padding-left: 12px;
+}
 .titlebar .spacer {
   flex: 1;
   align-self: stretch;
