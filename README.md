@@ -100,6 +100,11 @@ ZParen checks for a newer release when it starts, and from ZParen ▸ Check
 for Updates…. It installs the update and restarts when you agree. Releases up
 to 0.1.8 cannot do this, so download the next disk image once by hand.
 
+On x86-64 Linux with glibc 2.39 or later, such as Ubuntu 24.04, Debian 13 or
+Fedora 40, use the AppImage, the `.deb` or the `.rpm` from the same release.
+They also carry SBCL, and the AppImage updates itself.
+[Getting started](docs/getting-started.md#linux) says how to install each.
+
 [Getting started](docs/getting-started.md) covers the first start and the
 keys to learn first. To build from the source, see
 [Develop and release](docs/development.md).

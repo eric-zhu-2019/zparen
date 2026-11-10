@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { KEY, MAC, shown } from "./keys";
 
 const shots = (page: Page, name: string) => page.screenshot({ path: `e2e/.results/${name}.png` });
 
@@ -14,7 +15,7 @@ async function fresh(page: Page) {
   const welcome = page.getByText("A live Common Lisp workbench on SBCL.");
   await expect(welcome.or(page.locator(".workspace"))).toBeVisible();
   if (await page.locator(".workspace").isVisible()) {
-    await page.keyboard.press("Meta+Shift+P");
+    await page.keyboard.press("ControlOrMeta+Shift+P");
     await page.getByPlaceholder("Type a command…").fill("Close Project");
     await expect(page.locator(".palette .item.selected")).toContainText("Close Project");
     await page.keyboard.press("Enter");
@@ -26,7 +27,7 @@ async function fresh(page: Page) {
 
 async function replEval(page: Page, form: string) {
   await page.getByTestId("repl-input").locator(".cm-content").click();
-  await page.keyboard.press("Meta+ArrowDown");
+  await page.keyboard.press(KEY.docEnd);
   await page.keyboard.type(form);
   await page.keyboard.press("Enter");
 }
@@ -60,28 +61,28 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await expect(page.getByText("load zen-demo: done")).toBeVisible({ timeout: 60_000 });
 
   await page.locator(".cm-line", { hasText: "(format nil" }).click();
-  await page.keyboard.press("Meta+Enter");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.locator(".cm-inline-result")).toHaveText(/ZEN-DEMO::GREET|GREET/);
 
   await replEval(page, '(zen-demo:greet "Lisp")');
   const result = page.locator(".presentation", { hasText: '"Hello, Lisp!"' });
   await expect(result).toBeVisible();
-  await result.click({ modifiers: ["Meta"] });
+  await result.click({ modifiers: ["ControlOrMeta"] });
   await expect(page.getByTestId("inspector-title")).toContainText("STRING");
   await expect(page.getByTestId("inspector-body")).toContainText("#\\H");
   await shots(page, "03-repl-inspector");
 
   await page.getByTestId("repl-input").locator(".cm-content").click();
-  await page.keyboard.press("Meta+ArrowDown");
+  await page.keyboard.press(KEY.docEnd);
   await page.keyboard.type("(length ");
   await result.click();
   await expect(page.locator(".repl-buffer .repl-ref")).toHaveText('"Hello, Lisp!"');
-  await page.keyboard.press("Meta+Enter");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.locator(".presentation", { hasText: /^12$/ }), "the clicked result is the object itself").toBeVisible();
 
   const repl = page.getByTestId("repl-input").locator(".cm-content");
   await repl.click();
-  await page.keyboard.press("Meta+ArrowDown");
+  await page.keyboard.press(KEY.docEnd);
   await page.keyboard.type("(defun twice (x)");
   await page.keyboard.press("Enter");
   await page.keyboard.type("(* 2 x");
@@ -89,7 +90,7 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
     message: "Enter inside the form opens a line indented past the prompt, and parinfer keeps the closers at the end",
   }).toBe(`(defun twice (x)\n${" ".repeat("CL-USER> ".length + 2)}(* 2 x))`);
   await shots(page, "10-repl-multiline");
-  await page.keyboard.press("Meta+Enter");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.locator(".presentation", { hasText: "TWICE" })).toBeVisible();
   await replEval(page, "(twice 21)");
   await expect(page.locator(".presentation", { hasText: /^42$/ })).toBeVisible();
@@ -101,7 +102,7 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await shots(page, "11-repl-menu");
   await replMenu.getByRole("menuitem", { name: "Copy to Input" }).click();
   await expect.poll(() => replInputText(page), { message: "Copy to Input puts the earlier input at the prompt" }).toBe("(twice 21)");
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.press("Backspace");
   // A click leaves the selection ⌘A made in the transcript; a right-click in it would act on the selection.
   await page.locator(".repl-buffer .cm-line").last().click();
@@ -136,7 +137,7 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await page.locator(".repl-buffer .cm-line", { hasText: "CL-USER> (twice 21)" }).click();
   await page.keyboard.press("Enter");
   await expect.poll(() => replInputText(page), { message: "Enter on an earlier input copies it to the prompt" }).toBe("(twice 21)");
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.press("Backspace");
   await expect.poll(() => replInputText(page), { message: "select all and delete only clears the input" }).toBe("");
 
@@ -189,7 +190,7 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await abortDebugger(page);
   await expect(page.getByTestId("debugger")).toHaveCount(0);
 
-  await page.getByTitle("Interrupt (⌃C)").click();
+  await page.getByTitle(`Interrupt (${shown("⌃C", "Ctrl+C")})`).click();
   await expect(page.getByText("Nothing is running in the REPL"), "an idle REPL is not interrupted").toBeVisible();
   await expect(page.getByTestId("debugger")).toHaveCount(0);
   await replEval(page, "(sleep 30)");
@@ -219,12 +220,15 @@ test("new project, evaluate, debug and inspect", async ({ page }) => {
   await expect(page.getByTestId("debugger"), "Close works 13 levels down").toHaveCount(0);
   await replEval(page, "(* 111 5)");
   await expect(page.locator(".repl-buffer .cm-line", { hasText: /^555$/ }), "and the REPL answers").toBeVisible();
-  await page.getByTitle("Clear REPL (⌘K or ⌃L)").click();
+  await page.getByTitle(shown("Clear REPL (⌘K or ⌃L)", "Clear REPL (Ctrl+K)")).click();
   await expect(page.locator(".repl-buffer"), "Clear empties the transcript").not.toContainText("outer");
   await replEval(page, "(* 111 4)");
   await expect(page.locator(".repl-buffer .cm-line", { hasText: /^444$/ })).toBeVisible();
-  await page.keyboard.press("Control+l");
-  await expect(page.locator(".repl-buffer"), "⌃L clears it too, as in a terminal").not.toContainText("444");
+  // On Linux, Ctrl+L opens the assistant instead.
+  if (MAC) {
+    await page.keyboard.press("Control+l");
+    await expect(page.locator(".repl-buffer"), "⌃L clears it too, as in a terminal").not.toContainText("444");
+  }
 
   // A program's output is not Lisp: the quote it prints does not color the input and result after it.
   await replEval(page, '(format t "a\\"b~%")');
@@ -324,7 +328,7 @@ test("assistant runs tools in the live image and its code can be inserted", asyn
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
 
-  await page.getByTitle("AI assistant (⌘L)").click();
+  await page.getByTitle(`AI assistant (${shown("⌘L", "Ctrl+L")})`).click();
   await page.getByPlaceholder("Ask Claude…  ⏎ to send").fill("What is six times seven?");
   await page.keyboard.press("Enter");
 
@@ -363,7 +367,7 @@ test("assistant runs tools in the live image and its code can be inserted", asyn
   await expect(page.locator(".chat-tool .dot.ready")).toHaveCount(2);
   await model.selectOption("claude:claude-sonnet-5-5");
   await expect(page.getByPlaceholder("Ask Claude…  ⏎ to send")).toBeVisible();
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await page.getByTestId("settings").getByRole("button", { name: "Assistant" }).click();
   await expect(page.getByRole("combobox", { name: "Assistant" }), "Settings shows the chat's choice").toHaveValue("claude");
   await expect(page.getByRole("combobox", { name: "Sign in with" })).toHaveValue("api");
@@ -387,7 +391,7 @@ test("assistant runs tools in the live image and its code can be inserted", asyn
 
   await page.reload();
   await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
-  await page.getByTitle("AI assistant (⌘L)").click();
+  await page.getByTitle(`AI assistant (${shown("⌘L", "Ctrl+L")})`).click();
   await expect(page.locator(".chat-user").first(), "opening the assistant again restores the latest conversation").toHaveText("What is six times seven?", { timeout: 10_000 });
   await page.getByTitle("Earlier conversations").click();
   const row = earlier.locator(".session", { hasText: "What is six times seven?" });
@@ -404,7 +408,7 @@ test("Stop ends the assistant's turn, and the Lisp work its tools started", asyn
   await page.getByPlaceholder("/Users/you/projects").fill(parent);
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
-  await page.getByTitle("AI assistant (⌘L)").click();
+  await page.getByTitle(`AI assistant (${shown("⌘L", "Ctrl+L")})`).click();
   const input = page.getByPlaceholder("Ask Claude…  ⏎ to send");
   const stop = page.getByRole("button", { name: "Stop", exact: true });
 
@@ -444,7 +448,7 @@ test("Claude Code and Codex answer with their own login, in the same conversatio
   await page.getByPlaceholder("/Users/you/projects").fill(parent);
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
-  await page.getByTitle("AI assistant (⌘L)").click();
+  await page.getByTitle(`AI assistant (${shown("⌘L", "Ctrl+L")})`).click();
   await page.getByTitle("New conversation").click();
   const model = page.getByRole("combobox", { name: "Model" });
   const reply = page.locator(".chat-assistant").last();
@@ -485,7 +489,7 @@ test("Claude Code and Codex answer with their own login, in the same conversatio
   await replEval(page, "(boundp 'cl-user::*unwound*)");
   await expect(page.locator(".repl-buffer"), "Stop also ends the Lisp work of the agent's tool call").toContainText(/\(boundp 'cl-user::\*unwound\*\)\s*T\s*CL-USER>/);
 
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await page.getByTestId("settings").getByRole("button", { name: "Assistant" }).click();
   await expect(page.getByRole("combobox", { name: "Assistant" })).toHaveValue("claude");
   await expect(page.getByRole("combobox", { name: "Sign in with" })).toHaveValue("login");
@@ -544,7 +548,7 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await page.keyboard.type("o");
   await page.keyboard.type("(defun oops () undefined-thing");
   await page.keyboard.press("Escape");
-  await page.keyboard.press("Meta+Shift+Enter");
+  await page.keyboard.press("ControlOrMeta+Shift+Enter");
   await expect(page.locator(".editor-host .cm-lintRange-warning")).toBeVisible();
 
   await page.locator(".editor-host .cm-line", { hasText: "(mapcar" }).getByText("mapcar").hover();
@@ -556,7 +560,7 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
 
   await page.locator(".editor-host .cm-content").click();
   const docBefore = await page.locator(".editor-host .cm-content").innerText();
-  await page.keyboard.press("Meta+Shift+/");
+  await page.keyboard.press("ControlOrMeta+Shift+/");
   await shots(page, "14-shortcuts");
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html"), "the theme follows the system into dark mode").toHaveAttribute("data-theme", "dark");
@@ -581,7 +585,7 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await expect(page.locator(".editor-host .cm-activeLine")).toHaveText("(a b c)");
   await page.keyboard.type("u");
   await expect(page.locator(".editor-host .cm-activeLine")).toHaveText("(a b) c");
-  await page.keyboard.press("Meta+Shift+P");
+  await page.keyboard.press("ControlOrMeta+Shift+P");
   await page.getByPlaceholder("Type a command…").fill("Structure: Slurp Forward");
   await expect(page.locator(".palette .item.selected")).toContainText("Structure: Slurp Forward");
   await page.keyboard.press("Enter");
@@ -614,7 +618,7 @@ test("vim editing with parinfer, completion, arglists, notes and definitions", a
   await page.keyboard.press("Escape");
   await page.keyboard.type(">>>>");
   await expect.poll(() => activeLineText(page)).toBe("      (print 1))");
-  await page.keyboard.press("Meta+Alt+l");
+  await page.keyboard.press(KEY.reindent);
   await expect.poll(() => activeLineText(page), { message: "reindent pulls the body back under when" }).toBe("  (print 1))");
 
   await page.keyboard.type("Go");
@@ -750,7 +754,7 @@ test("file tree creates and renames files, guards unsaved work and follows the d
   await page.locator(".editor-host .cm-content").click();
   await page.keyboard.type("i(defun helper () 1");
   await page.keyboard.press("Escape");
-  await page.keyboard.press("Meta+w");
+  await page.keyboard.press("ControlOrMeta+w");
   await expect(page.getByRole("alertdialog")).toContainText("Save changes to util.lisp?");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator(".tab", { hasText: "util.lisp" })).toHaveCount(0);
@@ -790,19 +794,19 @@ test("search, replace, outline, back and forward, and the problems panel", async
   const root = join(parent, "zen-nav");
   const activeLine = page.locator(".editor-host .cm-activeLine");
 
-  await page.keyboard.press("Meta+Shift+F");
+  await page.keyboard.press("ControlOrMeta+Shift+F");
   await page.getByPlaceholder("Search project").fill("greet");
   const results = page.getByTestId("search-results");
   await expect(page.locator(".search-summary")).toContainText("results in");
   await results.locator(".search-line", { hasText: '(write-line (greet "world"))' }).click();
   await expect(activeLine).toContainText('(write-line (greet "world"))');
 
-  await page.keyboard.press("Control+o");
+  await page.keyboard.press(KEY.back);
   await expect(activeLine).toContainText("(in-package #:zen-nav)");
-  await page.keyboard.press("Control+Shift+O");
+  await page.keyboard.press(KEY.forward);
   await expect(activeLine).toContainText('(write-line (greet "world"))');
 
-  await page.keyboard.press("Meta+Shift+O");
+  await page.keyboard.press("ControlOrMeta+Shift+O");
   await expect(page.locator(".palette .item")).toHaveCount(2);
   await page.getByPlaceholder("Go to definition in file…").fill("greet");
   await page.keyboard.press("Enter");
@@ -822,15 +826,15 @@ test("search, replace, outline, back and forward, and the problems panel", async
   await page.locator(".system").first().getByRole("button", { name: "Load" }).click();
   await expect(page.getByText("load zen-nav: done")).toBeVisible({ timeout: 60_000 });
   await page.locator(".editor-host .cm-content").click();
-  await page.keyboard.press("Meta+b");
+  await page.keyboard.press(KEY.compileFile);
   const problems = page.getByTestId("problems");
   await expect(problems).toContainText("undefined variable");
   expect(existsSync(join(root, "src/oops.fasl")), "compiling a file leaves no fasl beside it").toBe(false);
   expect(
-    execFileSync("find", [join(homedir(), "Library/Caches/ZParen/fasl"), "-path", `*${realpathSync(root)}/src/oops.fasl`]).toString(),
+    execFileSync("find", [MAC ? join(homedir(), "Library/Caches/ZParen/fasl") : join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "zparen/fasl"), "-path", `*${realpathSync(root)}/src/oops.fasl`]).toString(),
     "it goes where ASDF looks for it",
   ).toContain("oops.fasl");
-  await page.keyboard.press("Control+o");
+  await page.keyboard.press(KEY.back);
   await problems.locator(".problem").first().click();
   await expect(activeLine).toContainText("undefined-thing");
   await shots(page, "08-navigation");
@@ -846,7 +850,7 @@ test("search, replace, outline, back and forward, and the problems panel", async
   await page.getByTitle("Clear Output").click();
   await expect(page.getByTestId("output"), "on Output it clears finished builds").toHaveText("Builds and dependency installs stream here.");
   await page.locator(".panel-tab", { hasText: "REPL" }).click();
-  await expect(page.getByTitle("Clear REPL (⌘K or ⌃L)")).toBeEnabled();
+  await expect(page.getByTitle(shown("Clear REPL (⌘K or ⌃L)", "Clear REPL (Ctrl+K)"))).toBeEnabled();
 });
 
 test("trace calls, step through macros, disassemble and profile", async ({ page }) => {
@@ -862,7 +866,7 @@ test("trace calls, step through macros, disassemble and profile", async ({ page 
   const editor = page.locator(".editor-host");
 
   await editor.locator(".cm-line", { hasText: '(write-line (greet "world"))' }).getByText("greet").click();
-  await page.keyboard.press("Meta+Alt+t");
+  await page.keyboard.press(KEY.trace);
   await expect(editor.locator(".cm-inline-result")).toHaveText("⇒ tracing GREET");
   const trace = page.getByTestId("trace");
   await expect(trace.locator(".chip")).toHaveText("GREET");
@@ -881,7 +885,7 @@ test("trace calls, step through macros, disassemble and profile", async ({ page 
 
   await page.keyboard.press("Escape");
   await editor.locator(".cm-line", { hasText: "(defun main ()" }).getByText("defun").click();
-  await page.keyboard.press("Meta+Shift+M");
+  await page.keyboard.press("ControlOrMeta+Shift+M");
   const step = editor.locator(".cm-macrostep");
   await expect(step.locator(".cm-macrostep-body")).toContainText("SB-IMPL::%DEFUN");
   const before = await step.locator(".cm-macrostep-body").innerText();
@@ -901,7 +905,7 @@ test("trace calls, step through macros, disassemble and profile", async ({ page 
   await page.keyboard.type("Go");
   await page.keyboard.type('(loop repeat 300000 sum (length (greet "x")))');
   await page.keyboard.press("Escape");
-  await page.keyboard.press("Meta+Alt+p");
+  await page.keyboard.press("ControlOrMeta+Alt+p");
   const profile = page.getByTestId("profile");
   await expect(profile.locator(".summary")).toContainText("samples", { timeout: 30_000 });
   await expect(profile.locator(".summary")).toContainText("⇒ 2700000");
@@ -948,7 +952,7 @@ test("test results as a tree, jump to a test, rerun what failed", async ({ page 
 
   // ⌘U tests the first system listed, so the list must be read first.
   await expect(page.locator(".system").first()).toBeVisible();
-  await page.keyboard.press("Meta+u");
+  await page.keyboard.press(KEY.test);
   const tests = page.getByTestId("tests");
   await expect(tests.locator(".summary")).toContainText("1 passed1 failed", { timeout: 60_000 });
   await expect(page.locator(".panel-tab", { hasText: "Tests" }).locator(".count-badge")).toHaveText("1");
@@ -990,7 +994,7 @@ test("history search, a second REPL while the first is busy, and a long transcri
   await page.keyboard.type("sq 7");
   await expect(search.locator("li")).toHaveText(["(zz-sq 7)"]);
   await shots(page, "19-history-search");
-  await page.keyboard.press("Meta+Enter");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(search).toHaveCount(0);
   await expect(repl.locator(".presentation", { hasText: /^49$/ }), "the found input ran").toHaveCount(2);
 
@@ -1178,7 +1182,7 @@ test("documentation that follows the cursor, HyperSpec pages, and apropos", asyn
   const docs = page.getByTestId("docs");
 
   await editor.locator(".cm-line", { hasText: "(format nil" }).getByText("format").click();
-  await page.keyboard.press("Meta+Shift+D");
+  await page.keyboard.press("ControlOrMeta+Shift+D");
   await expect(docs.getByTestId("docs-symbol")).toHaveText("format");
   await expect(docs.locator(".docs-arglist")).toContainText("control-string");
   const spec = page.frameLocator("[data-testid=hyperspec]");
@@ -1200,14 +1204,14 @@ test("documentation that follows the cursor, HyperSpec pages, and apropos", asyn
   await docs.getByTitle("Back").click();
   await expect(docs.getByTestId("docs-symbol")).toHaveText("write-line");
 
-  await page.keyboard.press("Meta+Shift+P");
+  await page.keyboard.press("ControlOrMeta+Shift+P");
   await page.getByPlaceholder("Type a command…").fill("Getting Started");
   await page.keyboard.press("Enter");
   const tour = page.getByTestId("tour");
   await expect(tour.locator("li.done .tour-title")).toHaveText(["Open or create a project", "Look something up"]);
   await expect(tour.locator("li.next .tour-title")).toHaveText("Evaluate a form");
   await editor.locator(".cm-line", { hasText: "(write-line" }).click();
-  await page.keyboard.press("Meta+Enter");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(tour.locator("li.next .tour-title"), "steps check off as they are done").toHaveText("Use the REPL");
   await shots(page, "22-getting-started");
   await tour.getByTitle("Close the list").click();
@@ -1251,7 +1255,7 @@ test("settings change the editor at once and Lisp when it restarts", async ({ pa
   await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
   const settings = page.getByTestId("settings");
 
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await expect(settings).toBeVisible();
   await settings.getByRole("button", { name: "Dark" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
@@ -1284,7 +1288,7 @@ test("settings change the editor at once and Lisp when it restarts", async ({ pa
       return Math.abs(cursor.right - range.getBoundingClientRect().right);
     });
   await expect.poll(gap, { message: "the cursor sits on the last character in the new font's widths" }).toBeLessThan(2);
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await settings.getByRole("combobox", { name: "Editor font" }).selectOption("");
   await settings.getByRole("combobox", { name: "Interface font" }).selectOption("");
   expect(await fontOf("body")).toMatch(/-apple-system/);
@@ -1300,7 +1304,7 @@ test("settings change the editor at once and Lisp when it restarts", async ({ pa
   // Highlighting splits a result of several tokens across elements, so read the buffer's text.
   await expect(page.locator(".repl-buffer"), "development code is no longer forced to debug 3").toContainText("(:DEBUG NIL)");
 
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await settings.getByRole("button", { name: "Lisp", exact: true }).click();
   await settings.getByRole("switch", { name: "Compile for debugging" }).check();
   await settings.getByRole("button", { name: "Restart Lisp" }).click();
@@ -1332,7 +1336,7 @@ test("split the editor, edit one file in two panes, and drag tabs between them",
   const right = page.getByTestId("pane-1");
 
   await page.locator(".editor-host .cm-content").click();
-  await page.keyboard.press("Meta+\\");
+  await page.keyboard.press("ControlOrMeta+\\");
   await expect(right.locator(".tab.active")).toHaveText(/main\.lisp/);
   await right.locator(".cm-content").click();
   await page.keyboard.press("Escape");
@@ -1386,7 +1390,7 @@ test("git change markers, the inline diff with revert, and status in the file tr
   await expect(editor.locator(".cm-git-changed")).toHaveCount(1);
   await expect(editor.locator(".cm-git-added")).toHaveCount(1);
 
-  await page.keyboard.press("Meta+s");
+  await page.keyboard.press("ControlOrMeta+s");
   await expect(page.getByTestId("file-tree").locator(".tree-row", { hasText: "src" }).locator(".git-mark")).toHaveText("•");
   await page.getByTestId("file-tree").getByText("src").click();
   await expect(page.getByTestId("file-tree").locator(".tree-row", { hasText: "main.lisp" }).locator(".git-mark")).toHaveText("M");
@@ -1403,7 +1407,7 @@ test("git change markers, the inline diff with revert, and status in the file tr
 test("without SBCL the first screen says how to get it", async ({ page }) => {
   await fresh(page);
   const sbcl = execFileSync("/bin/sh", ["-c", "command -v sbcl"]).toString().trim();
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   const settings = page.getByTestId("settings");
   await settings.getByRole("button", { name: "Lisp", exact: true }).click();
   const path = settings.getByPlaceholder("Find it on PATH and in Homebrew");
@@ -1422,7 +1426,7 @@ test("without SBCL the first screen says how to get it", async ({ page }) => {
   await expect(card).toHaveCount(0);
   await expect(page.getByText("A live Common Lisp workbench on SBCL.")).toBeVisible();
 
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await settings.getByRole("button", { name: "Lisp", exact: true }).click();
   await expect(settings).toContainText(`Using ${sbcl}.`);
   await path.fill("");
@@ -1497,7 +1501,7 @@ test("go to definitions Lisp has not loaded, and see warnings as you type", asyn
   await page.keyboard.type("xxdd");
   await page.keyboard.type("ihello");
   await page.keyboard.press("Escape");
-  await page.keyboard.press("Meta+s");
+  await page.keyboard.press("ControlOrMeta+s");
   await expect(page.getByText("stream.lisp is outside the project, so it is read-only")).toBeVisible();
   expect(await editor.locator(".cm-content").evaluate((el) => el.textContent), "neither Vim edits nor typing change it").toBe(before);
 });
@@ -1526,7 +1530,7 @@ test("saving compiles only what changed, and gd goes to local bindings and back"
   await page.keyboard.type("(+ twice n");
   await page.keyboard.press("Escape");
   await expect(editor.locator(".cm-content")).toContainText("(defun added (n)  (let ((twice (* 2 n)))    (+ twice n)))");
-  await page.keyboard.press("Meta+s");
+  await page.keyboard.press("ControlOrMeta+s");
   await expect(flash, "saving compiles the new function, and only it").toHaveText("Compiled added");
   await page.locator(".panel-tab", { hasText: "REPL" }).click();
   await replEval(page, "(zen-inc::added 5)");
@@ -1536,13 +1540,13 @@ test("saving compiles only what changed, and gd goes to local bindings and back"
   await page.keyboard.press("Escape");
   await page.keyboard.type("gd");
   await expect(activeLine, "gd on a LET variable goes to its binding").toContainText("(let ((twice (* 2 n)))");
-  await page.keyboard.press("Control+o");
+  await page.keyboard.press(KEY.back);
   await expect(activeLine, "and C-o comes back").toContainText("(+ twice n)");
 
   await editor.locator(".cm-line", { hasText: "(* 2 n)" }).click();
   await page.keyboard.press("Escape");
   await page.keyboard.type("0f2r3");
-  await page.keyboard.press("Meta+s");
+  await page.keyboard.press("ControlOrMeta+s");
   await expect(flash, "an edit recompiles only the form it is in").toHaveText("Compiled added");
   await page.locator(".panel-tab", { hasText: "REPL" }).click();
   await replEval(page, "(zen-inc::added 5)");
@@ -1591,7 +1595,7 @@ test("the box for a mark never covers the line the cursor is on", async ({ page 
   writeFileSync(join(parent, "zen-cover/src/bad.lisp"), "(defpackage #:zen-cover-bad\n  (:use (:cl)))\n\n(defun f () 1)\n");
   await page.getByRole("button", { name: "Files" }).click();
   await page.getByTestId("file-tree").getByText("src").click();
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await page.getByTestId("settings").getByRole("button", { name: "General" }).click();
   await page.getByRole("combobox", { name: "Show problems" }).selectOption("box");
   await page.getByRole("button", { name: "Done" }).click();
@@ -1612,7 +1616,7 @@ test("the box for a mark never covers the line the cursor is on", async ({ page 
   expect(b && l && (b.y >= l.y + l.height || b.y + b.height <= l.y), `the box (${JSON.stringify(b)}) leaves line 2 (${JSON.stringify(l)}) visible`).toBe(true);
   const text = await editor.locator(".cm-scroller").boundingBox();
   expect(b && text && b.y >= text.y, "and the tab bar does not hide it").toBe(true);
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await page.getByTestId("settings").getByRole("button", { name: "General" }).click();
   await page.getByRole("combobox", { name: "Show problems" }).selectOption("inline");
   await page.getByRole("button", { name: "Done" }).click();
@@ -1677,7 +1681,7 @@ test("a file that uses a package from an unloaded file is still checked, and a c
   await page.keyboard.type("w");
   await expect(boxes).toHaveCount(0);
 
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await page.getByTestId("settings").getByRole("button", { name: "General" }).click();
   await page.getByRole("combobox", { name: "Show problems" }).selectOption("box");
   await page.getByRole("button", { name: "Done" }).click();
@@ -1697,7 +1701,7 @@ test("a file that uses a package from an unloaded file is still checked, and a c
   await page.keyboard.press("Escape");
   await expect(marks).toHaveText(["hello2"], { timeout: 10_000 });
 
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await page.getByTestId("settings").getByRole("button", { name: "General" }).click();
   await page.getByRole("combobox", { name: "Show problems" }).selectOption("inline");
   await page.getByRole("button", { name: "Done" }).click();
@@ -1770,15 +1774,15 @@ test("the REPL keeps its prompt in view when the debugger opens beside it", asyn
   await replEval(page, '(dotimes (i 80) (format t "line ~a of output long enough to wrap when the REPL narrows~%" i))');
   await expect(page.locator(".repl-buffer")).toContainText("line 79 of output");
   const focusedIn = () => page.evaluate(() => (document.activeElement?.closest(".editor-host") ? "editor" : document.activeElement?.closest(".repl") ? "repl" : "elsewhere"));
-  await page.keyboard.press("Meta+j");
+  await page.keyboard.press("ControlOrMeta+j");
   expect(await focusedIn(), "⌘J in the REPL goes back to the editor").toBe("editor");
-  await page.keyboard.press("Meta+j");
+  await page.keyboard.press("ControlOrMeta+j");
   expect(await focusedIn(), "and again to the REPL").toBe("repl");
   await page.getByTestId("repl-input").hover();
   await page.mouse.wheel(0, -5000);
   await expect(page.locator(".repl-buffer .repl-prompt").last()).not.toBeInViewport();
-  await page.keyboard.press("Meta+j");
-  await page.keyboard.press("Meta+j");
+  await page.keyboard.press("ControlOrMeta+j");
+  await page.keyboard.press("ControlOrMeta+j");
   await expect(page.locator(".repl-buffer .repl-prompt").last(), "⌘J from the editor scrolls the REPL back to its prompt").toBeInViewport();
   await expect(page.locator(".repl-buffer .cm-cursor-primary"), "with a cursor drawn where typing goes").toBeVisible();
   await replEval(page, '(error "stopped here")');
@@ -1801,7 +1805,7 @@ test("a DEFPACKAGE error while compiling is a note, and later checks still run",
   await page.getByTestId("file-tree").getByText("stops.lisp").click();
   const editor = page.locator(".editor-host");
   await editor.locator(".cm-content").click();
-  await page.keyboard.press("Meta+b");
+  await page.keyboard.press(KEY.compileFile);
   // SBCL raises this holding its package graph lock; a debugger there would stop every other compile.
   await expect(page.getByTestId("problems"), "the error is a note on the form").toContainText('"NO-SUCH-PACKAGE" does not designate any package');
   await expect(page.locator(".panel-tab", { hasText: "Problems" }).locator(".count-badge"), "once").toHaveText("1");
@@ -1835,7 +1839,7 @@ test("saving a file Lisp has not loaded compiles all of it, and other files see 
 
   await tree.getByText("helpers.lisp").click();
   await editor.locator(".cm-content").click();
-  await page.keyboard.press("Meta+s");
+  await page.keyboard.press("ControlOrMeta+s");
   await expect(page.getByTestId("flash"), "saving it unchanged still compiles it, since Lisp has none of it").toHaveText("Compiled #:zen-helpers, hello");
   await page.locator(".tab", { hasText: "caller.lisp" }).click();
   await expect(editor.locator(".cm-lintRange"), "and the other file's check now finds hello").toHaveCount(0, { timeout: 10_000 });
@@ -1865,7 +1869,7 @@ test("a file's check compiles the files it depends on first, so their functions 
   await expect(page.locator(".repl-buffer"), "and the check still leaves nothing in the image").toContainText("(:LEFT-BEHIND NIL)");
 
   await editor.locator(".cm-content").click();
-  await page.keyboard.press("Meta+b");
+  await page.keyboard.press(KEY.compileFile);
   await expect(page.getByTestId("problems"), "the one note is the undefined function").toContainText("NOWHERE");
   await page.locator(".panel-tab", { hasText: "REPL" }).click();
   await expect(page.locator(".repl-buffer"), "⌘B loads what main.lisp depends on first, then compiles it").toContainText(/Compiled main\.lisp in [\d.]+s: 1 note/);
@@ -1924,7 +1928,7 @@ test("a Coalton type error from ⌘Enter is a note on the expression Coalton bla
   await page.locator(".tab", { hasText: "main.lisp" }).click();
   const editor = page.locator(".editor-host");
   await editor.locator(".cm-line", { hasText: "(coalton:define w" }).click();
-  await page.keyboard.press("Meta+Enter");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(editor.locator(".cm-inline-error")).toHaveText("compile failed");
   await expect(editor.locator(".cm-lintRange-error").first()).toHaveText("(bad 1)");
   await page.locator(".panel-tab", { hasText: "Problems" }).click();
@@ -1940,7 +1944,7 @@ test("a Coalton type error from ⌘Enter is a note on the expression Coalton bla
     return route.fulfill({ contentType: "text/html", headers: { "access-control-allow-origin": "*" }, body });
   });
   await editor.locator(".cm-line", { hasText: "(coalton:define w" }).getByText("define").click();
-  await page.keyboard.press("Meta+Shift+D");
+  await page.keyboard.press("ControlOrMeta+Shift+D");
   const docs = page.getByTestId("docs");
   await expect(page.frameLocator("[data-testid=coalton-manual]").locator("h1").first()).toHaveText("Coalton manual");
   await expect(docs.getByTestId("coalton-manual")).toHaveAttribute("src", "https://coalton-lang.github.io/manual/operators/define/");
@@ -1989,7 +1993,7 @@ test("a .coal file compiles with Coalton, on ⌘B and again on save", async ({ p
   await expect(page.locator(".tab.active")).toHaveText(/shapes\.coal/);
 
   await page.locator(".editor-host .cm-content").click();
-  await page.keyboard.press("Meta+b");
+  await page.keyboard.press(KEY.compileFile);
   await expect(page.locator(".repl-notice", { hasText: "Compiled shapes.coal" })).toBeVisible({ timeout: 20_000 });
   await replEval(page, "(symbol-value (find-symbol \"AREA\" \"ZEN-SHAPES\"))");
   await expect(page.locator(".presentation", { hasText: /^42$/ })).toBeVisible();
@@ -1998,7 +2002,7 @@ test("a .coal file compiles with Coalton, on ⌘B and again on save", async ({ p
   await page.keyboard.press("Escape");
   await page.keyboard.type("$hr3");
   await expect(page.locator(".editor-host .cm-line", { hasText: "(define area 43)" })).toBeVisible();
-  await page.keyboard.press("Meta+s");
+  await page.keyboard.press("ControlOrMeta+s");
   await expect(page.getByTestId("flash")).toHaveText("Compiled shapes.coal");
   await replEval(page, "(symbol-value (find-symbol \"AREA\" \"ZEN-SHAPES\"))");
   await expect(page.locator(".presentation", { hasText: /^43$/ })).toBeVisible();
@@ -2094,7 +2098,7 @@ test("new project names are lowercased as typed, and fields are not autocorrecte
   await expect(create).toBeDisabled();
   await page.getByRole("button", { name: "Cancel" }).click();
 
-  await page.keyboard.press("Meta+Shift+P");
+  await page.keyboard.press("ControlOrMeta+Shift+P");
   const palette = page.getByPlaceholder("Type a command…");
   await expect(palette, "every one-line field is left as typed").toHaveAttribute("autocorrect", "off");
   await expect(palette).toHaveAttribute("autocapitalize", "off");
@@ -2160,7 +2164,7 @@ test("the title bar says when a project has no startup image or an old one, and 
   const chip = page.getByTestId("image-chip");
   await expect(chip, "a new project has no image").toHaveText("Save startup image");
 
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   const settings = page.getByTestId("settings");
   await settings.getByRole("button", { name: "Lisp", exact: true }).click();
   await settings.getByRole("switch", { name: "Keep a startup image up to date" }).check();
@@ -2208,7 +2212,7 @@ test("the sidebar and the right panel resize by their edges, and keep their widt
   await page.keyboard.press("ArrowRight");
   expect(await width(sidebar), "the arrow keys move the edge too").toBe(256);
 
-  await page.getByTitle("Inspector (⌥⌘I)").click();
+  await page.getByTitle(`Inspector (${shown("⌥⌘I", "Ctrl+Alt+I")})`).click();
   const right = page.locator(".workspace > .right");
   const rightBefore = await width(right);
   await drag(page.getByRole("separator", { name: "Panel width" }), -120);
@@ -2264,7 +2268,7 @@ test("a new session loads the systems the last one loaded, and ⌘B loads a file
   await page.locator(".tab", { hasText: "main.lisp" }).click();
   await expect(page.locator(".editor-host .cm-content")).toContainText("split-sequence:split-sequence");
   await page.locator(".editor-host .cm-content").click();
-  await page.keyboard.press("Meta+b");
+  await page.keyboard.press(KEY.compileFile);
   await page.locator(".panel-tab", { hasText: "REPL" }).click();
   await expect(repl, "⌘B loads split-sequence first, so the file compiles").toContainText(/Compiled main\.lisp in [\d.]+s: 0 notes/, { timeout: 60_000 });
 
@@ -2304,7 +2308,7 @@ test("themes: built-in ones per appearance, and the user's own from the themes f
   await fresh(page);
   const settings = page.getByTestId("settings");
   const color = (token: string) => page.evaluate((t) => getComputedStyle(document.documentElement).getPropertyValue(t).trim(), token);
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await settings.getByRole("combobox", { name: "Dark theme" }).selectOption({ label: "Nord" });
   await settings.getByRole("button", { name: "Dark" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
@@ -2337,7 +2341,7 @@ test("a plugin adds a command with a key, a setting, a save hook and a REPL comm
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
   const settings = page.getByTestId("settings");
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await settings.getByRole("button", { name: "Plugins", exact: true }).click();
   const plugin = join((await settings.getByTestId("plugins-dir").textContent())!, "demo.lisp");
   const example = join(dirname(plugin), "insert-datetime.lisp");
@@ -2366,35 +2370,35 @@ test("a plugin adds a command with a key, a setting, a save hook and a REPL comm
 
     const editor = page.locator(".editor-host");
     await editor.locator(".cm-line", { hasText: "(defun greet" }).click();
-    await page.keyboard.press("Meta+Alt+j");
+    await page.keyboard.press("ControlOrMeta+Alt+j");
     await expect(editor.locator(".cm-content"), "the plugin's key runs its command").toContainText("(time (defun greet");
-    await page.keyboard.press("Meta+z");
+    await page.keyboard.press("ControlOrMeta+z");
 
-    await page.keyboard.press("Meta+,");
+    await page.keyboard.press("ControlOrMeta+,");
     await settings.getByRole("button", { name: "Plugins", exact: true }).click();
     await settings.getByRole("combobox", { name: "demo: Wrap with" }).selectOption("progn");
     await settings.getByRole("button", { name: "Done" }).click();
     await editor.locator(".cm-line", { hasText: "(defun greet" }).click();
-    await page.keyboard.press("Meta+Shift+P");
+    await page.keyboard.press("ControlOrMeta+Shift+P");
     await page.getByPlaceholder("Type a command…").fill("Wrap Form");
     await page.keyboard.press("Enter");
     await expect(editor.locator(".cm-content"), "the palette runs it, with the setting's new value").toContainText("(progn (defun greet");
-    await page.keyboard.press("Meta+z");
+    await page.keyboard.press("ControlOrMeta+z");
 
     await editor.locator(".cm-line").first().click();
     await page.keyboard.press("Escape");
     await page.keyboard.type("O;; todo");
     await page.keyboard.press("Escape");
-    await page.keyboard.press("Meta+s");
+    await page.keyboard.press("ControlOrMeta+s");
     const main = join(parent, "zen-plug/src/main.lisp");
     await expect.poll(() => readFileSync(main, "utf8"), { message: "the before-save hook edits what is written" }).toContain(";; done");
     await expect(editor.locator(".cm-content"), "and the editor shows the edit").toContainText(";; done");
 
     copyFileSync("examples/plugins/insert-datetime.lisp", example);
-    await page.keyboard.press("Meta+Shift+P");
+    await page.keyboard.press("ControlOrMeta+Shift+P");
     await page.getByPlaceholder("Type a command…").fill("Reload Plugins");
     await page.keyboard.press("Enter");
-    await page.keyboard.press("Meta+Shift+P");
+    await page.keyboard.press("ControlOrMeta+Shift+P");
     await page.getByPlaceholder("Type a command…").fill("Insert Date and Time");
     await expect(page.locator(".palette"), "the example plugin's command shows its Emacs keys").toContainText("C-c t");
     await page.keyboard.press("Escape");
@@ -2403,10 +2407,10 @@ test("a plugin adds a command with a key, a setting, a save hook and a REPL comm
     await page.keyboard.press("t");
     await expect(editor.locator(".cm-line").first(), "C-c t inserts the date and time").toHaveText(/\d{4}-\d\d-\d\d \d\d:\d\d:\d\d/);
 
-    await page.keyboard.press("Meta+Shift+/");
+    await page.keyboard.press("ControlOrMeta+Shift+/");
     const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     const rows = help.locator("section", { has: page.locator("th", { hasText: /^Plugins$/ }) }).locator("tbody tr");
-    await expect(rows, "the shortcuts screen lists the plugins' keys").toHaveText([/Wrap Form.*from demo.*⌥⌘J/, /Insert Date and Time.*from insert-datetime.*C-c t/]);
+    await expect(rows, "the shortcuts screen lists the plugins' keys").toHaveText([MAC ? /Wrap Form.*from demo.*⌥⌘J/ : /Wrap Form.*from demo.*Ctrl\+Alt\+J/, /Insert Date and Time.*from insert-datetime.*C-c t/]);
     await page.keyboard.press("Escape");
 
     await page.locator(".panel-tab", { hasText: "REPL" }).click();
@@ -2431,7 +2435,7 @@ test("word wrap turns on and off from ⌥Z and Settings", async ({ page }) => {
   await content.click();
   await page.keyboard.press("Alt+z");
   await expect(content, "⌥Z wraps them").toHaveClass(/cm-lineWrapping/);
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await expect(page.getByTestId("settings").getByRole("switch", { name: "Wrap long lines" })).toBeChecked();
   await page.getByTestId("settings").getByRole("switch", { name: "Wrap long lines" }).uncheck();
   await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
@@ -2449,7 +2453,7 @@ test("with the setting on, the REPL follows the package of the file being edited
   const pkg = page.getByTitle("Current package");
   await expect(pkg, "off by default").toHaveValue("COMMON-LISP-USER");
 
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await page.getByTestId("settings").getByRole("switch", { name: "Follow the file being edited" }).check();
   await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
   await expect(pkg, "Lisp has no ZEN-FOLLOW until the system loads").toHaveValue("COMMON-LISP-USER");
@@ -2475,7 +2479,7 @@ test("the right panel keeps a tab for each view opened, and each view stays as i
   await page.getByRole("button", { name: "Create" }).click();
   await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
   const palette = async (name: string) => {
-    await page.keyboard.press("Meta+Shift+P");
+    await page.keyboard.press("ControlOrMeta+Shift+P");
     await page.getByPlaceholder("Type a command…").fill(name);
     await expect(page.locator(".palette .item.selected")).toContainText(name);
     await page.keyboard.press("Enter");
@@ -2509,7 +2513,7 @@ test("the right panel keeps a tab for each view opened, and each view stays as i
 
   await page.getByTestId("learn").getByRole("button", { name: "Close" }).click();
   await expect(page.locator(".workspace > .right"), "Close closes the panel").toHaveCount(0);
-  await page.getByTitle("Inspector (⌥⌘I)").click();
+  await page.getByTitle(`Inspector (${shown("⌥⌘I", "Ctrl+Alt+I")})`).click();
   await expect(tabs.getByRole("tab"), "and its tabs come back with it").toHaveText(["Learn", "Assistant", "Docs", "Inspector"]);
 });
 
@@ -2523,7 +2527,7 @@ test("the panel font size sets the text of the Assistant and Learn Lisp panels, 
   await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
   const size = (selector: string) => page.locator(selector).first().evaluate((e) => getComputedStyle(e).fontSize);
   const palette = async (name: string) => {
-    await page.keyboard.press("Meta+Shift+P");
+    await page.keyboard.press("ControlOrMeta+Shift+P");
     await page.getByPlaceholder("Type a command…").fill(name);
     await expect(page.locator(".palette .item.selected")).toContainText(name);
     await page.keyboard.press("Enter");
@@ -2534,7 +2538,7 @@ test("the panel font size sets the text of the Assistant and Learn Lisp panels, 
   const header = await size(".right-header .title");
   const editor = await size(".editor-host .cm-content");
 
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   const settings = page.getByTestId("settings");
   await settings.getByRole("button", { name: "Increase panel font size" }).click();
   await settings.getByRole("button", { name: "Increase panel font size" }).click();
@@ -2573,7 +2577,7 @@ test("a breakpoint stops the tests, Run and the REPL, though each loads the file
   // The test run loads the file's fasl again before the tests call GREET.
   await page.locator(".panel-tab", { hasText: "Tests" }).click();
   await page.locator(".editor-host .cm-content").click();
-  await page.keyboard.press("Meta+u");
+  await page.keyboard.press(KEY.test);
   await expect(stop, "the tests stop at the breakpoint").toContainText('Stopped at the breakpoint in greet', { timeout: 30_000 });
   await expect(stop).toContainText('Before (format nil "Hello, ~a!" name)');
   await expect(page.locator(".panel-tab.active"), "and the debugger's tab shows, though the Tests tab was open").toContainText("REPL");
@@ -2643,7 +2647,7 @@ test("indent guides run under the open paren of each form that spans lines, unti
   await expect(print, "and the form's guide is plain again").toHaveAttribute("style", /linear-gradient\(var\(--indent-guide\)/);
 
   const guides = page.getByTestId("settings").getByRole("switch", { name: "Show indent guides under open parentheses" });
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await expect(guides, "they are on at first").toBeChecked();
   await guides.uncheck();
   await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
@@ -2662,7 +2666,7 @@ test("the closing parens parinfer moves are dimmed, when Settings asks and parin
   await expect(trails, "nothing is dimmed at first").toHaveCount(0);
 
   const dim = page.getByTestId("settings").getByRole("switch", { name: "Dim the closing parentheses parinfer moves" });
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await dim.check();
   await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
 
@@ -2685,7 +2689,7 @@ test("the closing parens parinfer moves are dimmed, when Settings asks and parin
   await page.keyboard.type("u");
   await expect(print.locator(".cm-paren-trail"), "undo brings the dimming back").toHaveText("))");
 
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await dim.uncheck();
   await page.getByTestId("settings").getByRole("button", { name: "Done" }).click();
   await expect(trails, "and Settings turns it off").toHaveCount(0);
@@ -2797,13 +2801,13 @@ test("a Markdown file previews rendered, without running HTML it holds", async (
   await expect(preview.locator(".md-image"), "a local image shows its description").toHaveText("diagram");
   await shots(page, "35-markdown-preview");
 
-  await page.keyboard.press("Meta+Shift+V");
+  await page.keyboard.press("ControlOrMeta+Shift+V");
   await expect(preview, "⇧⌘V shows the text again").toHaveCount(0);
   await page.locator(".editor-host .cm-content").click();
   await page.keyboard.press("Escape");
   await page.keyboard.type("ggA, edited");
   await page.keyboard.press("Escape");
-  await page.keyboard.press("Meta+Shift+V");
+  await page.keyboard.press("ControlOrMeta+Shift+V");
   await expect(preview.locator("h1"), "the preview follows unsaved edits").toHaveText("zen-md, edited");
   await preview.getByRole("link", { name: "the main file" }).click();
   await expect(page.locator(".tab.active"), "a link to a project file opens it").toHaveText(/main\.lisp/);

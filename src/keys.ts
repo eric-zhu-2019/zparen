@@ -33,6 +33,9 @@ import { structuralCommands } from "./editor/structural";
 import { useSettings } from "./settings";
 import { activeDebugger, get, set } from "./store";
 import { toggleBreakpoint } from "./editor/breakpoints";
+import { displayKey, keyParts, modClick, platform, TEST_KEY } from "./os";
+
+export { displayKey } from "./os";
 
 export type Category = "Lisp" | "Navigation" | "Editing" | "Structure" | "Project" | "Window" | "REPL" | "Debugger" | "Tools" | "Plugins";
 
@@ -41,10 +44,14 @@ type Base = {
   label: string;
   category: Category;
   key?: string;
+  /** The key on Linux, when `key` there would take a key that Ctrl, the desktop or another binding already uses. */
+  linux?: string;
   vim?: string;
   /** An Emacs key sequence, written as Emacs documents it: "C-x C-e", "M-.", "C-c RET". */
   emacs?: string;
   note?: string;
+  /** The note on Linux, when it differs. */
+  linuxNote?: string;
   /** The editor built-in this window shortcut deliberately replaces. */
   overrides?: string;
 };
@@ -78,7 +85,7 @@ export const bindings: Binding[] = [
   { id: "eval", label: "Evaluate the top-level form at the cursor", category: "Lisp", key: "Mod-Enter", vim: ",e", emacs: "C-M-x", scope: "editor", run: evalForm },
   { id: "eval-last", label: "Evaluate the form before the cursor", category: "Lisp", emacs: "C-x C-e", scope: "editor", run: evalLastForm },
   { id: "compile-form", label: "Compile the form, with compiler notes", category: "Lisp", key: "Mod-Shift-Enter", vim: ",c", emacs: "C-c C-c", scope: "editor", run: compileForm },
-  { id: "compile-file", label: "Compile and load the file", category: "Lisp", key: "Mod-b", vim: ",l", emacs: "C-c C-k", scope: "editor", run: compileFile, note: "or :make" },
+  { id: "compile-file", label: "Compile and load the file", category: "Lisp", key: "Mod-b", linux: "Mod-Shift-b", vim: ",l", emacs: "C-c C-k", scope: "editor", run: compileFile, note: "or :make" },
   { id: "load-file", label: "Load the file without compiling", category: "Lisp", emacs: "C-c C-l", scope: "editor", run: loadFile },
   { id: "macroexpand", label: "Expand the macro a step", category: "Lisp", key: "Mod-Shift-m", vim: ",m", emacs: "C-c RET", note: "then click macros inside to expand them in place", scope: "editor", run: (v) => macroexpand(v) },
   { id: "macroexpand-all", label: "Macroexpand fully", category: "Lisp", key: "Mod-Alt-m", vim: ",M", emacs: "C-c M-m", scope: "editor", run: (v) => macroexpand(v, true) },
@@ -89,13 +96,13 @@ export const bindings: Binding[] = [
   { id: "interrupt", label: "Interrupt the evaluation", category: "Lisp", emacs: "C-c C-b", scope: "window", run: () => void actions.interrupt() },
   { id: "definition", label: "Go to definition", category: "Navigation", key: "F12", vim: "gd", emacs: "M-.", scope: "editor", run: goToDefinition },
   { id: "references", label: "Find references", category: "Navigation", key: "Shift-F12", vim: "gr", emacs: "C-c C-w c", scope: "editor", run: findReferencesAtCursor },
-  { id: "back", label: "Go back", category: "Navigation", key: "Ctrl-o", emacs: "M-,", overrides: "splitLine", note: "also in Vim", scope: "window", run: () => void actions.goBack() },
-  { id: "forward", label: "Go forward", category: "Navigation", key: "Ctrl-Shift-o", note: "also in Vim", scope: "window", run: () => void actions.goForward() },
+  { id: "back", label: "Go back", category: "Navigation", key: "Ctrl-o", linux: "Alt-ArrowLeft", emacs: "M-,", overrides: "splitLine", note: "also in Vim", linuxNote: "Ctrl+O opens a project", scope: "window", run: () => void actions.goBack() },
+  { id: "forward", label: "Go forward", category: "Navigation", key: "Ctrl-Shift-o", linux: "Alt-ArrowRight", note: "also in Vim", linuxNote: "", scope: "window", run: () => void actions.goForward() },
   { id: "files", label: "Go to file", category: "Navigation", key: "Mod-p", scope: "window", run: () => get().status.project && set({ palette: "files" }) },
   { id: "symbols", label: "Go to definition in file", category: "Navigation", key: "Mod-Shift-o", scope: "window", run: () => get().activeTab && set({ palette: "symbols" }) },
   { id: "search", label: "Search in project", category: "Navigation", key: "Mod-Shift-f", scope: "window", run: () => get().status.project && set({ sidebar: "search" }) },
   { id: "rename", label: "Rename the symbol", category: "Editing", key: "F2", vim: ",r", note: "a local in its form, a global across the project", scope: "editor", run: renameAtCursor },
-  { id: "reindent", label: "Reindent the top-level form", category: "Editing", key: "Mod-Alt-l", note: "Vim: =aF, or == for a line", scope: "editor", run: (v) => reindentForm(v) },
+  { id: "reindent", label: "Reindent the top-level form", category: "Editing", key: "Mod-Alt-l", linux: "Mod-Shift-i", note: "Vim: =aF, or == for a line", scope: "editor", run: (v) => reindentForm(v) },
   { id: "save", label: "Save", category: "Editing", key: "Mod-s", vim: ":w", scope: "editor", run: save },
   { id: "split", label: "Split the editor, or go to the other pane", category: "Window", key: "Mod-\\", scope: "window", run: () => actions.splitEditor() },
   { id: "pane-1", label: "Go to the left pane", category: "Window", key: "Mod-1", scope: "window", run: () => actions.focusPane(0) },
@@ -114,7 +121,7 @@ export const bindings: Binding[] = [
   { id: "assistant", label: "Toggle the assistant", category: "Window", key: "Mod-l", scope: "window", run: () => toggleRight("assistant") },
   { id: "inspector", label: "Toggle the inspector", category: "Window", key: "Mod-Alt-i", scope: "window", run: () => toggleRight("inspector") },
   { id: "docs-panel", label: "Toggle the documentation panel", category: "Window", scope: "window", run: () => toggleRight("docs") },
-  { id: "learn-panel", label: "Toggle Learn Lisp", category: "Window", note: "in the panel, ⌘[ and ⌘] move between lessons", scope: "window", run: () => toggleRight("learn") },
+  { id: "learn-panel", label: "Toggle Learn Lisp", category: "Window", note: `in the panel, ${displayKey("Mod-[")} and ${displayKey("Mod-]")} move between lessons`, scope: "window", run: () => toggleRight("learn") },
   { id: "md-preview", label: "Show a Markdown file rendered, or as text", category: "Window", key: "Mod-Shift-v", scope: "window", when: () => isMarkdown(get().activeTab), run: () => actions.togglePreview(get().activeTab!) },
   { id: "wrap", label: "Wrap long lines, or stop wrapping them", category: "Window", key: "Alt-z", scope: "window", run: () => useSettings.setState((s) => ({ wordWrap: !s.wordWrap })) },
   { id: "bigger", label: "Increase the font size", category: "Window", key: "Mod-=", scope: "window", run: () => useSettings.setState((s) => ({ fontSize: s.fontSize + 1 })) },
@@ -123,59 +130,44 @@ export const bindings: Binding[] = [
   { id: "repl-run", label: "Run the input from anywhere in it", category: "REPL", key: "Mod-Enter", scope: "elsewhere" },
   { id: "repl-newline", label: "Open an indented line", category: "REPL", key: "Shift-Enter", scope: "elsewhere" },
   { id: "repl-history", label: "Recall earlier input", category: "REPL", key: "ArrowUp", scope: "elsewhere", note: "and ↓" },
-  { id: "repl-interrupt", label: "Interrupt the evaluation", category: "REPL", key: "Ctrl-c", scope: "elsewhere" },
-  { id: "repl-clear", label: "Clear the REPL", category: "REPL", key: "Mod-k", note: "or ⌃L", scope: "elsewhere" },
-  { id: "repl-search", label: "Search earlier input", category: "REPL", key: "Ctrl-r", note: "⌃R again for older matches", scope: "elsewhere" },
-  { id: "repl-use-result", label: "Use a result in the input", category: "REPL", note: "click it; ⌘-click inspects it", scope: "elsewhere" },
+  { id: "repl-interrupt", label: "Interrupt the evaluation", category: "REPL", key: "Ctrl-c", linuxNote: "copies instead when text is selected", scope: "elsewhere" },
+  { id: "repl-clear", label: "Clear the REPL", category: "REPL", key: "Mod-k", note: "or ⌃L", linuxNote: "Ctrl+L opens the assistant", scope: "elsewhere" },
+  { id: "repl-search", label: "Search earlier input", category: "REPL", key: "Ctrl-r", note: `${displayKey("Ctrl-r")} again for older matches`, scope: "elsewhere" },
+  { id: "repl-use-result", label: "Use a result in the input", category: "REPL", note: `click it; ${modClick()} inspects it`, scope: "elsewhere" },
   { id: "breakpoint", label: "Toggle a breakpoint on the line", category: "Debugger", key: "Mod-F8", vim: ",b", note: "or click the gutter", scope: "editor", run: (v) => toggleBreakpoint(v) },
   { id: "step-into", label: "Step into the next form", category: "Debugger", key: "F7", note: "s in the debugger, as in SLIME", scope: "window", when: stepping, run: () => actions.stepActive("into") },
   { id: "step-over", label: "Step over the next form", category: "Debugger", key: "F8", note: "x in the debugger; otherwise F8 goes to the next problem", overrides: "nextDiagnostic", scope: "window", when: stepping, run: () => actions.stepActive("over") },
   { id: "step-out", label: "Step out of the function", category: "Debugger", key: "Shift-F8", note: "o in the debugger", scope: "window", when: stepping, run: () => actions.stepActive("out") },
   { id: "step-continue", label: "Stop stepping and run on", category: "Debugger", key: "F9", note: "c in the debugger", scope: "window", when: stepping, run: () => actions.stepActive("continue") },
-  { id: "test", label: "Run the project's tests", category: "Tools", key: "Mod-u", note: "the last system tested, or the first", overrides: "undoSelection", scope: "window", run: () => void testProject() },
+  { id: "test", label: "Run the project's tests", category: "Tools", key: TEST_KEY.mac, linux: TEST_KEY.linux, note: "the last system tested, or the first", overrides: "undoSelection", scope: "window", run: () => void testProject() },
   { id: "diff", label: "Show the file's changes since the last commit", category: "Tools", vim: ",g", note: "or click a change marker in the gutter", scope: "editor", run: (v) => {
     const path = viewPath.get(v);
     if (path) actions.toggleDiff(path);
     return !!path;
   } },
-  { id: "trace", label: "Trace the function, or stop tracing it", category: "Tools", key: "Mod-Alt-t", vim: ",t", emacs: "C-c M-t", note: "calls show in the Trace panel", scope: "editor", run: toggleTraceAtCursor },
+  { id: "trace", label: "Trace the function, or stop tracing it", category: "Tools", key: "Mod-Alt-t", linux: "Mod-Alt-Shift-t", vim: ",t", emacs: "C-c M-t", note: "calls show in the Trace panel", scope: "editor", run: toggleTraceAtCursor },
   { id: "profile", label: "Profile the form", category: "Tools", key: "Mod-Alt-p", vim: ",p", note: "the selection, or the top-level form", scope: "editor", run: profileAtCursor },
   { id: "profile-all", label: "Start or stop profiling every thread", category: "Tools", scope: "window", run: () => void (get().profiling === "all" ? actions.stopProfiling() : actions.startProfiling()) },
-  { id: "disassemble", label: "Disassemble the function", category: "Tools", vim: ",d", emacs: "C-c M-d", note: "⌥⌘D is the system's Dock shortcut", scope: "editor", run: disassembleAtCursor },
+  { id: "disassemble", label: "Disassemble the function", category: "Tools", vim: ",d", emacs: "C-c M-d", note: "⌥⌘D is the system's Dock shortcut", linuxNote: "", scope: "editor", run: disassembleAtCursor },
   { id: "restart", label: "Invoke a restart by number", category: "Debugger", key: "0-9", scope: "elsewhere" },
   { id: "abort", label: "Abort to top level", category: "Debugger", key: "q", scope: "elsewhere" },
 ];
 
-const GLYPHS: Record<string, string> = {
-  Mod: "⌘",
-  Cmd: "⌘",
-  Shift: "⇧",
-  Alt: "⌥",
-  Ctrl: "⌃",
-  Enter: "↩",
-  ArrowUp: "↑",
-  ArrowDown: "↓",
-  ArrowLeft: "←",
-  ArrowRight: "→",
-  Backspace: "⌫",
-  Escape: "⎋",
-};
-
-/** Splits "Mod-Shift--" into ["Mod", "Shift", "-"]. */
-function keyParts(key: string): string[] {
-  const parts = key.split("-");
-  if (key.endsWith("--")) return [...parts.slice(0, -2), "-"];
-  return parts;
+/** The binding's key on this platform. */
+export function keyOf(b: Pick<Base, "key" | "linux">): string | undefined {
+  return platform.mac ? b.key : (b.linux ?? b.key);
 }
 
-/** "Mod-Shift-p" as macOS shows it: ⇧⌘P. */
-export function displayKey(key: string): string {
-  const parts = keyParts(key);
-  const last = parts[parts.length - 1];
-  const mods = parts.slice(0, -1);
-  const order = ["Ctrl", "Alt", "Shift", "Mod", "Cmd"];
-  const shown = order.filter((m) => mods.includes(m)).map((m) => GLYPHS[m]);
-  return shown.join("") + (GLYPHS[last] ?? (last.length === 1 ? last.toUpperCase() : last));
+/** The binding's note on this platform; empty means none. */
+export function noteOf(b: Pick<Base, "note" | "linuxNote">): string | undefined {
+  return (platform.mac ? b.note : (b.linuxNote ?? b.note)) || undefined;
+}
+
+/** A binding's key as this platform shows it, such as ⌘B or Ctrl+B, for titles and hints; "" when it has none. */
+export function shortcut(id: string): string {
+  const b = bindings.find((x) => x.id === id);
+  const key = b && keyOf(b);
+  return key ? displayKey(key) : "";
 }
 
 const CODES: Record<string, string> = { "-": "Minus", "=": "Equal", "/": "Slash" };
@@ -185,7 +177,10 @@ export function matches(e: KeyboardEvent, key: string): boolean {
   const parts = keyParts(key);
   const last = parts[parts.length - 1];
   const mods = new Set(parts.slice(0, -1));
-  if (e.metaKey !== mods.has("Mod") || e.ctrlKey !== mods.has("Ctrl") || e.altKey !== mods.has("Alt") || e.shiftKey !== mods.has("Shift")) {
+  // ⌘ on macOS. Elsewhere Mod is Ctrl, and Cmd is the Super key.
+  const meta = mods.has("Cmd") || mods.has("Meta") || (platform.mac && mods.has("Mod"));
+  const ctrl = mods.has("Ctrl") || (!platform.mac && mods.has("Mod"));
+  if (e.metaKey !== meta || e.ctrlKey !== ctrl || e.altKey !== mods.has("Alt") || e.shiftKey !== mods.has("Shift")) {
     return false;
   }
   if (CODES[last]) return e.code === CODES[last];
@@ -195,7 +190,10 @@ export function matches(e: KeyboardEvent, key: string): boolean {
 }
 
 export function editorKeymap(): KeyBinding[] {
-  return bindings.flatMap((b) => (b.scope === "editor" && b.key ? [{ key: b.key, run: b.run }] : []));
+  return bindings.flatMap((b) => {
+    const key = keyOf(b);
+    return b.scope === "editor" && key ? [{ key, run: b.run }] : [];
+  });
 }
 
 /**
@@ -203,8 +201,11 @@ export function editorKeymap(): KeyBinding[] {
  * the editor or Vim see the key. Editor bindings are left to CodeMirror.
  */
 export function handleWindowKey(e: KeyboardEvent) {
+  // On Linux, Ctrl+N and Ctrl+P move through an open completion list before they act as shortcuts.
+  if (!platform.mac && completing(e)) return;
   for (const b of bindings) {
-    if (b.scope === "window" && b.key && matches(e, b.key) && (b.when?.() ?? true)) {
+    const key = keyOf(b);
+    if (b.scope === "window" && key && matches(e, key) && (b.when?.() ?? true)) {
       e.preventDefault();
       e.stopPropagation();
       b.run();
@@ -219,6 +220,18 @@ export function handleWindowKey(e: KeyboardEvent) {
       return;
     }
   }
+}
+
+function completing(e: KeyboardEvent): boolean {
+  return e.ctrlKey && !e.shiftKey && !e.altKey && (e.code === "KeyN" || e.code === "KeyP") && document.querySelector(".cm-tooltip-autocomplete") !== null;
+}
+
+/**
+ * On Linux, Ctrl+C and Ctrl+X copy and cut. With text selected they do that, and
+ * start no Emacs sequence, as Emacs's own cua-mode does.
+ */
+function copyOrCut(e: KeyboardEvent, view: EditorView, chord: boolean): boolean {
+  return !platform.mac && !chord && !view.state.selection.main.empty && (emacsKeyMatches(e, "C-c") || emacsKeyMatches(e, "C-x"));
 }
 
 const EMACS_NAMED: Record<string, string> = { RET: "Enter", TAB: "Tab", SPC: " ", ESC: "Escape", DEL: "Backspace" };
@@ -288,6 +301,11 @@ export type ChordStep =
 export class EmacsChords {
   private typed: string[] = [];
 
+  /** Whether a sequence is under way, such as after C-x. */
+  get pending(): boolean {
+    return this.typed.length > 0;
+  }
+
   constructor(private readonly table: () => Binding[] = () => bindings) {}
 
   feed(e: KeyboardEvent): ChordStep {
@@ -344,6 +362,7 @@ export function emacsKeyHandler() {
     if (!useSettings.getState().emacs) return;
     const view = activeEditor.view;
     if (!view || !(e.target instanceof Node) || !view.dom.contains(e.target)) return;
+    if (copyOrCut(e, view, chords.pending)) return;
     const step = chords.feed(e);
     if (step.kind === "pass") return;
     e.preventDefault();
@@ -391,9 +410,11 @@ bindings.push(
       label: c.name,
       category: "Structure",
       key: c.keys[0],
+      linux: c.linuxKeys?.[0],
       vim: c.vim.join(" "),
       emacs: (c.keys[0] && emacsNotation(c.keys[0])) || undefined,
       note: c.keys.length > 1 ? `or ${c.keys.slice(1).map(displayKey).join(", ")}` : undefined,
+      linuxNote: c.linuxKeys && c.linuxKeys.length < 2 ? "" : undefined,
       scope: "elsewhere",
     }),
   ),

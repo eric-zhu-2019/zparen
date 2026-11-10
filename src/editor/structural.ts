@@ -11,6 +11,7 @@ import {
 import { type EditorView, type KeyBinding, ViewPlugin } from "@codemirror/view";
 import type { CodeMirrorV, InputStateInterface, MotionArgs, Pos, Vim, vimState } from "@replit/codemirror-vim";
 import { bodyEnd, bodyStart, formAt, forms, parse, pathAt, type Node } from "../lisp/tree";
+import { displayKey, platform } from "../os";
 
 /** A paredit command: the edit to make at the main cursor, or null when it does not apply. */
 export type StructuralCommand = (state: EditorState) => TransactionSpec | null;
@@ -439,6 +440,8 @@ export type StructuralBinding = {
   name: string;
   /** CodeMirror key names. */
   keys: string[];
+  /** The keys on Linux, where the Super key in `keys` belongs to the desktop. */
+  linuxKeys?: string[];
   /** Vim key sequences, in Normal mode unless the description says otherwise. */
   vim: string[];
   description: string;
@@ -472,11 +475,12 @@ export const structuralCommands: StructuralBinding[] = [
   {
     name: "Expand selection",
     keys: ["Ctrl-Shift-Cmd-ArrowRight"],
+    linuxKeys: ["Alt-Shift-ArrowRight"],
     vim: [],
     description: "Select the form, then the enclosing list, then outward",
     run: expandSelection,
   },
-  { name: "Shrink selection", keys: ["Ctrl-Shift-Cmd-ArrowLeft"], vim: [], description: "Undo the last expansion", run: shrinkSelection },
+  { name: "Shrink selection", keys: ["Ctrl-Shift-Cmd-ArrowLeft"], linuxKeys: ["Alt-Shift-ArrowLeft"], vim: [], description: "Undo the last expansion", run: shrinkSelection },
   { name: "Next form", keys: ["Ctrl-Alt-f"], vim: [], description: "Move past the next form", run: forwardForm },
   { name: "Previous form", keys: ["Ctrl-Alt-b"], vim: [], description: "Move before the previous form", run: backwardForm },
   { name: "Up a level", keys: ["Ctrl-Alt-u"], vim: [], description: "Move to the start of the enclosing list", run: upList },
@@ -519,8 +523,13 @@ export function handleOptionKey(view: EditorView, event: KeyboardEvent): boolean
     return true;
 }
 
-export const structuralKeymap: KeyBinding[] = structuralCommands.flatMap(({ keys, run: command }) =>
-  command ? keys.map((key) => ({ key, run: (view: EditorView) => run(view, command) })) : [],
+/** A command's keys on this platform. */
+export function keysOf(c: Pick<StructuralBinding, "keys" | "linuxKeys">): string[] {
+  return platform.mac ? c.keys : (c.linuxKeys ?? c.keys);
+}
+
+export const structuralKeymap: KeyBinding[] = structuralCommands.flatMap((c) =>
+  c.run ? keysOf(c).map((key) => ({ key, run: (view: EditorView) => run(view, c.run!) })) : [],
 );
 
 /**
@@ -545,22 +554,9 @@ export const optionKeys = ViewPlugin.fromClass(
   },
 );
 
-const MAC_KEYS: Record<string, string> = {
-  Ctrl: "⌃",
-  Alt: "⌥",
-  Shift: "⇧",
-  Cmd: "⌘",
-  Mod: "⌘",
-  ArrowLeft: "←",
-  ArrowRight: "→",
-  ArrowUp: "↑",
-  ArrowDown: "↓",
-};
-
-/** "Ctrl-Shift-Cmd-ArrowRight" as "⌃⇧⌘→", for menus and help. */
+/** "Ctrl-Shift-Cmd-ArrowRight" as the platform shows it, "⌃⇧⌘→" on macOS, for menus and help. */
 export function keyLabel(key: string): string {
-  const parts = key.split(/-(?!$)/);
-  return parts.map((p, i) => MAC_KEYS[p] ?? (i === parts.length - 1 ? p.toUpperCase() : p)).join("");
+  return displayKey(key);
 }
 
 // Vim adapter. codemirror-vim resolves ">" to its indent operator before a second key can

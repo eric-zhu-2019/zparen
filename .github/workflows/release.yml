@@ -1,7 +1,8 @@
 name: Release
 
 # Runs only for a pushed version tag. The build job checks everything and
-# builds the app without any secret. The sign job runs only after approval in
+# builds the app without any secret. The linux job builds the x86-64 .deb, .rpm
+# and AppImage on Ubuntu 24.04, so they run with glibc 2.39 or later. The sign job runs only after approval in
 # the release environment, and gives the Developer ID certificate to Apple's
 # tools and scripts/sign.sh alone: no npm or cargo code runs next to it. The
 # App Store Connect key that notarizes the disk image is used in that job too.
@@ -9,8 +10,9 @@ name: Release
 # Updates: when the repository variable ZPAREN_UPDATE_PUBKEY holds the public
 # half of the update key, the app is built to check this repository's latest
 # release for latest.json. The sign job then deletes the certificate's
-# keychain, and only after that packs and signs the update archive with the
-# TAURI_SIGNING_PRIVATE_KEY secret. Without the variable, releases have no updates.
+# keychain, and only after that packs and signs the update archive and the
+# AppImage with the TAURI_SIGNING_PRIVATE_KEY secret. Without the variable,
+# releases have no updates. On Linux only the AppImage updates itself.
 on:
   push:
     tags: ["v*"]
@@ -63,8 +65,66 @@ jobs:
           path: ZParen.app.tgz
           retention-days: 7
 
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.12.1
+          cache: npm
+      - name: Tag matches the app version
+        run: |
+          version=$(node -p 'require("./src-tauri/tauri.conf.json").version')
+          [ "$GITHUB_REF_NAME" = "v$version" ] || { echo "tag $GITHUB_REF_NAME, app version $version"; exit 1; }
+      - name: Rust
+        run: rustup toolchain install 1.96.1 --profile minimal && rustup default 1.96.1
+      - name: Libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libxdo-dev patchelf file
+      - run: npm ci
+      # bundle-sbcl.sh downloads SBCL's x86-64 Linux build and checks its SHA-256.
+      - name: Build
+        env:
+          ZPAREN_UPDATE_PUBKEY: ${{ vars.ZPAREN_UPDATE_PUBKEY }}
+          ZPAREN_UPDATE_URL: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
+        run: |
+          config=$(python3 -c '
+          import json, os
+          c = {}
+          if os.environ["ZPAREN_UPDATE_PUBKEY"]:
+              c["plugins"] = {"updater": {"pubkey": os.environ["ZPAREN_UPDATE_PUBKEY"], "endpoints": [os.environ["ZPAREN_UPDATE_URL"]]}}
+          print(json.dumps(c))')
+          npx tauri build --bundles deb,rpm,appimage --config "$config"
+          mkdir linux
+          cp target/release/bundle/deb/*.deb target/release/bundle/rpm/*.rpm target/release/bundle/appimage/*.AppImage linux/
+          ls -l linux
+      # The packages must carry an SBCL that runs, and the AppImage's libraries
+      # must need no glibc newer than this runner's.
+      - name: Check the packages
+        run: |
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE"/linux/*.AppImage --appimage-extract > /dev/null
+          sbcl=squashfs-root/usr/lib/ZParen/sbcl
+          SBCL_HOME=$sbcl/lib/sbcl $sbcl/bin/sbcl --noinform --non-interactive --no-userinit \
+            --eval '(require :sb-introspect)' --eval '(format t "SBCL ~a in the AppImage~%" (lisp-implementation-version))'
+          dpkg-deb -c "$GITHUB_WORKSPACE"/linux/*.deb | grep -q 'usr/lib/ZParen/sbcl/bin/sbcl$'
+          newest=$(find squashfs-root -type f \( -name '*.so*' -o -path '*/bin/*' \) -exec objdump -T {} + 2>/dev/null \
+            | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1)
+          echo "newest glibc symbol: $newest"
+          [ "$(printf '%s\n' "$newest" GLIBC_2.39 | sort -V | tail -1)" = GLIBC_2.39 ]
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux
+          path: linux/
+          retention-days: 7
+
   sign:
-    needs: build
+    needs: [build, linux]
     runs-on: macos-15
     timeout-minutes: 30
     environment: release
@@ -75,6 +135,10 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: app
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: linux
+          path: linux
       - name: Certificate into a keychain of its own
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
@@ -151,13 +215,16 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           npm ci --ignore-scripts
-          scripts/update-archive.sh ZParen.app "${GITHUB_REF_NAME#v}" \
-            "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/ZParen.app.tar.gz"
+          base="https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}"
+          appimage=$(ls linux/*.AppImage)
+          scripts/update-archive.sh ZParen.app "${GITHUB_REF_NAME#v}" "$base/ZParen.app.tar.gz" \
+            "$appimage" "$base/$(basename "$appimage")"
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          files=(ZParen_*_aarch64.dmg)
-          if [ -f latest.json ]; then files+=(ZParen.app.tar.gz latest.json); fi
+          files=(ZParen_*_aarch64.dmg linux/*.deb linux/*.rpm linux/*.AppImage)
+          if [ -f latest.json ]; then files+=(ZParen.app.tar.gz latest.json linux/*.AppImage.sig); fi
+          linux="Linux: x86-64 with glibc 2.39 or later, such as Ubuntu 24.04, Debian 13 or Fedora 40. The AppImage updates itself. A .deb or .rpm updates when you install the new package."
           gh release create "$GITHUB_REF_NAME" "${files[@]}" \
-            --title "ZParen ${GITHUB_REF_NAME#v}" --generate-notes --notes "$NOTES"
+            --title "ZParen ${GITHUB_REF_NAME#v}" --generate-notes --notes "$NOTES"$'\n\n'"$linux"

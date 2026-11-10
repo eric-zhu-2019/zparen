@@ -5,6 +5,7 @@ import type { TestNode } from "../protocol/TestNode";
 import type { TraceEntry } from "../protocol/TraceEntry";
 import { useStore } from "../store";
 import { Icon } from "./Icon";
+import { shortcut } from "../keys";
 
 function TraceCall({ entry, kids, depth }: { entry: TraceEntry; kids: Map<number, TraceEntry[]>; depth: number }) {
   const children = kids.get(entry.id) ?? [];
@@ -99,7 +100,7 @@ export function TracePanel() {
         {entries.length === 0 ? (
           <div className="tool-empty">
             {specs.length === 0
-              ? "Trace a function with ⌥⌘T on its name (,t in Vim). Each call it makes is recorded here with its arguments and what it returned."
+              ? `Trace a function with ${shortcut("trace")} on its name (,t in Vim). Each call it makes is recorded here with its arguments and what it returned.`
               : "No calls yet. Run code that calls a traced function."}
           </div>
         ) : (
@@ -174,7 +175,7 @@ export function ProfilePanel() {
           <div className="tool-empty">
             {profile
               ? "The profiler took no samples in your code. Profile something that runs longer, such as a loop around the call."
-              : "Profile a form with ⌥⌘P (,p in Vim): it runs under SBCL's statistical profiler, and the functions it spent its time in are listed here."}
+              : `Profile a form with ${shortcut("profile")} (,p in Vim): it runs under SBCL's statistical profiler, and the functions it spent its time in are listed here.`}
           </div>
         </div>
       ) : (

@@ -6,6 +6,46 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out=src-tauri/sbcl
+
+# Linux has no Homebrew SBCL to copy, so the app carries SBCL's own x86-64 Linux
+# build. It needs only libc. To change the version, change both lines: the hash is
+# the .tar's SHA-256 from the release's signed sbcl-<version>-crhodes.asc.
+if [ "$(uname -s)" = Linux ]; then
+  version=2.6.9
+  tar_sha256=c6265653fc4e34f72b20d36e3851d696f2aee624059575711b6069095de22cd4
+  if [ "$(uname -m)" != x86_64 ]; then
+    echo "bundle-sbcl: SBCL has no $(uname -m) Linux build; the app will use the SBCL it finds when it runs" >&2
+    rm -rf "$out" && mkdir -p "$out"
+    exit 0
+  fi
+  stamp="sbcl-$version-x86-64-linux"
+  if [ -f "$out/VERSION" ] && [ "$(cat "$out/VERSION")" = "$stamp" ]; then
+    exit 0
+  fi
+  cache=${XDG_CACHE_HOME:-$HOME/.cache}/zparen-build
+  archive="$cache/$stamp-binary.tar.bz2"
+  mkdir -p "$cache"
+  if [ ! -f "$archive" ] || [ "$(bunzip2 -c "$archive" | sha256sum | cut -d' ' -f1)" != "$tar_sha256" ]; then
+    curl -fsSL -o "$archive.part" "https://downloads.sourceforge.net/project/sbcl/sbcl/$version/$stamp-binary.tar.bz2"
+    mv "$archive.part" "$archive"
+  fi
+  if [ "$(bunzip2 -c "$archive" | sha256sum | cut -d' ' -f1)" != "$tar_sha256" ]; then
+    echo "bundle-sbcl: $archive does not match the SHA-256 that SBCL published" >&2
+    exit 1
+  fi
+  work=$(mktemp -d)
+  trap 'rm -rf "$work"' EXIT
+  tar xjf "$archive" -C "$work"
+  rm -rf "$out"
+  (dest=$PWD/$out && cd "$work/$stamp" && INSTALL_ROOT="$dest" sh install.sh >/dev/null)
+  rm -rf "$out/share"
+  cp "$work/$stamp/COPYING" "$out/SBCL-COPYING"
+  echo "$stamp" > "$out/VERSION"
+  SBCL_HOME="$out/lib/sbcl" "$out/bin/sbcl" --noinform --non-interactive --no-userinit \
+    --eval '(require :sb-introspect)' --eval '(format t "bundle-sbcl: SBCL ~a bundled~%" (lisp-implementation-version))'
+  exit 0
+fi
+
 prefix=$(brew --prefix sbcl 2>/dev/null || true)
 if [ -z "$prefix" ] || [ ! -d "$prefix" ]; then
   echo "bundle-sbcl: no Homebrew SBCL; the app will use the SBCL it finds when it runs" >&2

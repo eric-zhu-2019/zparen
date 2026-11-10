@@ -7,8 +7,8 @@ import { openProjectFlow } from "./Chrome";
 import { openTour } from "../tour";
 import { continueCourse, findCourse, openCourse, refreshCourse, useLearn } from "../learn/learn";
 import { useReturnFocus } from "./focus";
-import { displayKey } from "../keys";
-import { runStructural, structuralCommands } from "../editor/structural";
+import { displayKey, shortcut } from "../keys";
+import { keysOf, runStructural, structuralCommands } from "../editor/structural";
 import { activeEditor } from "../editor/commands";
 import { reloadPlugins, runPluginCommand, usePlugins } from "../plugins";
 import { isMarkdown } from "./MarkdownPreview";
@@ -30,29 +30,29 @@ export function commands(openNew: () => void): Command[] {
   ]);
   const settings = useSettings.getState();
   return [
-    { id: "open", label: "Open Project…", keys: "⌘O", run: () => openProjectFlow() },
-    { id: "new", label: "New Project…", keys: "⇧⌘N", run: openNew },
-    { id: "files", label: "Go to File…", keys: "⌘P", run: () => set({ palette: "files" }) },
-    ...(tab ? [{ id: "symbols", label: "Go to Definition in File…", keys: "⇧⌘O", run: () => set({ palette: "symbols" }) }] : []),
-    { id: "search", label: "Search in Project", keys: "⇧⌘F", run: () => set({ sidebar: "search" }) },
+    { id: "open", label: "Open Project…", keys: shortcut("open"), run: () => openProjectFlow() },
+    { id: "new", label: "New Project…", keys: shortcut("new"), run: openNew },
+    { id: "files", label: "Go to File…", keys: shortcut("files"), run: () => set({ palette: "files" }) },
+    ...(tab ? [{ id: "symbols", label: "Go to Definition in File…", keys: shortcut("symbols"), run: () => set({ palette: "symbols" }) }] : []),
+    { id: "search", label: "Search in Project", keys: shortcut("search"), run: () => set({ sidebar: "search" }) },
     { id: "packages", label: "Show Packages", run: () => set({ sidebar: "packages" }) },
-    ...(isMarkdown(get().activeTab) ? [{ id: "md-preview", label: "Toggle Markdown Preview", keys: "⇧⌘V", run: () => actions.togglePreview(get().activeTab!) }] : []),
-    { id: "wrap", label: "Toggle Word Wrap", keys: "⌥Z", run: () => updateSettings({ wordWrap: !useSettings.getState().wordWrap }) },
-    { id: "back", label: "Go Back", keys: "⌃O", run: actions.goBack },
-    { id: "forward", label: "Go Forward", keys: "⌃⇧O", run: actions.goForward },
+    ...(isMarkdown(get().activeTab) ? [{ id: "md-preview", label: "Toggle Markdown Preview", keys: shortcut("md-preview"), run: () => actions.togglePreview(get().activeTab!) }] : []),
+    { id: "wrap", label: "Toggle Word Wrap", keys: shortcut("wrap"), run: () => updateSettings({ wordWrap: !useSettings.getState().wordWrap }) },
+    { id: "back", label: "Go Back", keys: shortcut("back"), run: actions.goBack },
+    { id: "forward", label: "Go Forward", keys: shortcut("forward"), run: actions.goForward },
     ...(s.status.project ? [{ id: "close", label: "Close Project", run: actions.closeProject }] : []),
     ...(tab
       ? [
-          { id: "save", label: "Save File", keys: "⌘S", run: () => actions.saveTab(tab) },
+          { id: "save", label: "Save File", keys: shortcut("save"), run: () => actions.saveTab(tab) },
           { id: "diff", label: s.diffOn.includes(tab) ? "Hide Changes Since Last Commit" : "Show Changes Since Last Commit", run: () => actions.toggleDiff(tab) },
-          { id: "split", label: s.panes.length > 1 ? "Go to the Other Pane" : "Split Editor Right", keys: "⌘\\", run: actions.splitEditor },
+          { id: "split", label: s.panes.length > 1 ? "Go to the Other Pane" : "Split Editor Right", keys: shortcut("split"), run: actions.splitEditor },
           ...(s.panes.length > 1
             ? [
                 { id: "move", label: "Move File to the Other Pane", run: () => actions.moveTab(tab, s.focusedPane, s.focusedPane === 0 ? 1 : 0) },
                 { id: "join", label: "Join Editor Panes", run: actions.joinPanes },
               ]
             : []),
-          { id: "compile", label: "Compile and Load File", keys: "⌘B", run: () => actions.compileFile(tab) },
+          { id: "compile", label: "Compile and Load File", keys: shortcut("compile-file"), run: () => actions.compileFile(tab) },
           // Structural edits act on the editor at its cursor, as their keys do.
           ...structuralCommands.flatMap((c) =>
             c.run
@@ -60,7 +60,7 @@ export function commands(openNew: () => void): Command[] {
                   {
                     id: `structure:${c.name}`,
                     label: `Structure: ${titleCase(c.name)}`,
-                    keys: c.keys[0] ? displayKey(c.keys[0]) : undefined,
+                    keys: keysOf(c)[0] ? displayKey(keysOf(c)[0]) : undefined,
                     run: () => {
                       const view = activeEditor.view;
                       if (!view) return;
@@ -82,17 +82,17 @@ export function commands(openNew: () => void): Command[] {
     ...(usePlugins.getState().manifest ? [{ id: "reload-plugins", label: "Reload Plugins", run: () => void reloadPlugins() }] : []),
     { id: "restart", label: "Restart Lisp", run: actions.restartSession },
     { id: "tour", label: "Getting Started", run: openTour },
-    { id: "settings", label: "Settings…", keys: "⌘,", run: () => set({ settingsOpen: true }) },
+    { id: "settings", label: "Settings…", keys: shortcut("settings"), run: () => set({ settingsOpen: true }) },
     { id: "diagnostics", label: "Copy Diagnostics for a Report", run: actions.copyDiagnostics },
-    { id: "interrupt", label: "Interrupt Lisp", keys: "⌃C", run: actions.interrupt },
-    { id: "clear", label: "Clear REPL", keys: "⌘K", run: actions.clearRepl },
+    { id: "interrupt", label: "Interrupt Lisp", keys: shortcut("repl-interrupt"), run: actions.interrupt },
+    { id: "clear", label: "Clear REPL", keys: shortcut("repl-clear"), run: actions.clearRepl },
     { id: "new-repl", label: "New REPL in Its Own Thread", run: actions.newRepl },
-    { id: "inspector", label: "Toggle Inspector", keys: "⌥⌘I", run: () => set({ right: get().right === "inspector" ? null : "inspector" }) },
+    { id: "inspector", label: "Toggle Inspector", keys: shortcut("inspector"), run: () => set({ right: get().right === "inspector" ? null : "inspector" }) },
     { id: "docs", label: "Toggle Documentation", run: () => set({ right: get().right === "docs" ? null : "docs" }) },
     { id: "learn", label: "Toggle Learn Lisp", run: () => set({ right: get().right === "learn" ? null : "learn" }) },
     { id: "learn-continue", label: "Continue Lisp Course", run: () => void continueOrOpenCourse() },
     { id: "learn-new", label: "New Lisp Course Project…", run: () => set({ newProject: "course" }) },
-    { id: "assistant", label: "Toggle AI Assistant", keys: "⌘L", run: () => set({ right: get().right === "assistant" ? null : "assistant" }) },
+    { id: "assistant", label: "Toggle AI Assistant", keys: shortcut("assistant"), run: () => set({ right: get().right === "assistant" ? null : "assistant" }) },
     { id: "trace", label: "Show Traced Calls", run: () => set({ bottom: "trace" }) },
     ...(s.traces.specs.length ? [{ id: "untrace", label: "Untrace All Functions", run: actions.untraceAll }] : []),
     s.profiling === "all"
@@ -113,8 +113,8 @@ export function commands(openNew: () => void): Command[] {
       label: `Theme: ${settings.theme === "dark" ? "Light" : settings.theme === "light" ? "System" : "Dark"}`,
       run: () => updateSettings({ theme: settings.theme === "dark" ? "light" : settings.theme === "light" ? "system" : "dark" }),
     },
-    { id: "bigger", label: "Increase Font Size", keys: "⌘+", run: () => updateSettings({ fontSize: settings.fontSize + 1 }) },
-    { id: "smaller", label: "Decrease Font Size", keys: "⌘-", run: () => updateSettings({ fontSize: Math.max(9, settings.fontSize - 1) }) },
+    { id: "bigger", label: "Increase Font Size", keys: displayKey("Mod-+"), run: () => updateSettings({ fontSize: settings.fontSize + 1 }) },
+    { id: "smaller", label: "Decrease Font Size", keys: shortcut("smaller"), run: () => updateSettings({ fontSize: Math.max(9, settings.fontSize - 1) }) },
   ];
 }
 

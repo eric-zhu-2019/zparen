@@ -13,9 +13,12 @@ import "./styles.css";
 import { clearRecentProjects, loadedSystems, rememberLoaded, syncRecentMenu } from "./platform";
 import { useSettings } from "./settings";
 import { guardWindowClose } from "./ui/Dialog";
+import { platform } from "./os";
 
 // The window is transparent with macOS's sidebar material behind it; the page lets it show through.
-if (inTauri && /Mac/.test(navigator.platform)) document.documentElement.dataset.vibrancy = "";
+if (inTauri && platform.mac) document.documentElement.dataset.vibrancy = "";
+// The title bar leaves room for macOS's window buttons; elsewhere the system draws its own frame.
+if (platform.mac) document.documentElement.dataset.mac = "";
 await initParinfer();
 guardWindowClose();
 followFilePackage();
@@ -89,7 +92,7 @@ const MENU: Record<string, () => void> = {
   settings: () => set({ palette: null, settingsOpen: true }),
 };
 
-type UpdateNews = { kind: "available" | "current" | "unconfigured" | "error"; version: string; notes: string };
+type UpdateNews = { kind: "available" | "current" | "unconfigured" | "package" | "error"; version: string; notes: string };
 
 function announceUpdate(n: UpdateNews) {
   const ok = [{ label: "OK", kind: "primary" as const, run: () => {} }];
@@ -106,6 +109,8 @@ function announceUpdate(n: UpdateNews) {
       { label: "Later", run: () => {} },
     ]);
   } else if (n.kind === "current") ask("ZParen is up to date", `${n.version} is the latest release.`, ok);
+  else if (n.kind === "package")
+    ask("Update with a new package", `This copy of ZParen ${n.version} was installed from a .deb or .rpm, which does not update itself. Install the latest package from ${n.notes || "the releases page"}.`, ok);
   else if (n.kind === "unconfigured") ask("Updates are off in this build", "It was built without an update source, so it cannot look for new releases.", ok);
   else ask("Could not check for updates", n.notes, ok);
 }

@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { bindings, displayKey, EmacsChords, emacsKeyMatches, emacsNotation, matches } from "./keys";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { bindings, displayKey, EmacsChords, emacsKeyMatches, emacsNotation, keyOf, matches, noteOf } from "./keys";
+import { platform } from "./os";
+
+const realMac = platform.mac;
+afterAll(() => {
+  platform.mac = realMac;
+});
 
 const key = (init: Partial<KeyboardEvent>) =>
   ({ metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, code: "", ...init }) as KeyboardEvent;
@@ -59,6 +65,10 @@ describe("Emacs key sequences", () => {
 });
 
 describe("key registry", () => {
+  beforeEach(() => {
+    platform.mac = true;
+  });
+
   it("shows keys the way macOS menus do", () => {
     expect(displayKey("Mod-Shift-p")).toBe("⇧⌘P");
     expect(displayKey("Ctrl-Shift--")).toBe("⌃⇧-");
@@ -81,6 +91,61 @@ describe("key registry", () => {
       expect(seen.get(id), `${b.id} and ${seen.get(id)} both use ${b.key}`).toBeUndefined();
       seen.set(id, b.id);
     }
+  });
+});
+
+describe("keys on Linux", () => {
+  beforeEach(() => {
+    platform.mac = false;
+  });
+
+  /** A key as Linux reads it: Mod is Ctrl, and the modifiers in one order. */
+  const linuxKey = (k: string) => {
+    const parts = k.endsWith("--") ? [...k.slice(0, -2).split("-"), "-"] : k.split("-");
+    const base = parts.pop()!.toLowerCase();
+    return [...new Set(parts.map((m) => (m === "Mod" ? "Ctrl" : m)))].sort().concat(base).join("-");
+  };
+
+  it("shows keys with Ctrl, as Linux menus do", () => {
+    expect(displayKey("Mod-Shift-p")).toBe("Ctrl+Shift+P");
+    expect(displayKey("Mod-Enter")).toBe("Ctrl+Enter");
+    expect(displayKey("Alt-ArrowLeft")).toBe("Alt+←");
+    expect(displayKey("F12")).toBe("F12");
+  });
+
+  it("reads Mod as Ctrl", () => {
+    expect(matches(key({ key: "p", ctrlKey: true, shiftKey: true }), "Mod-Shift-p")).toBe(true);
+    expect(matches(key({ key: "p", metaKey: true, shiftKey: true }), "Mod-Shift-p")).toBe(false);
+    expect(matches(key({ key: "o", ctrlKey: true }), "Ctrl-o")).toBe(true);
+  });
+
+  it("never gives two editor, window or structure bindings the same key, with Mod and Ctrl one key", () => {
+    const seen = new Map<string, string>();
+    for (const b of bindings) {
+      const k = keyOf(b);
+      if (!k || (b.scope === "elsewhere" && b.category !== "Structure")) continue;
+      const id = linuxKey(k);
+      expect(seen.get(id), `${b.id} and ${seen.get(id)} both use ${id}`).toBeUndefined();
+      seen.set(id, b.id);
+    }
+  });
+
+  it("leaves the desktop's keys and the Super key alone", () => {
+    const desktop = ["Alt-Ctrl-t", "Alt-Ctrl-l", "Alt-Ctrl-delete", "Alt-tab", "Alt-f4"];
+    for (const b of bindings) {
+      const k = keyOf(b);
+      if (!k) continue;
+      expect(desktop, `${b.id} uses ${k}`).not.toContain(linuxKey(k));
+      expect(/\b(Cmd|Meta)\b/.test(k), `${b.id} uses ${k}`).toBe(false);
+    }
+  });
+
+  it("moves the keys that collide on Linux", () => {
+    const of = (id: string) => keyOf(bindings.find((b) => b.id === id)!);
+    expect(of("back")).toBe("Alt-ArrowLeft");
+    expect(of("forward")).toBe("Alt-ArrowRight");
+    expect(of("test")).toBe("Mod-Shift-t");
+    expect(noteOf(bindings.find((b) => b.id === "forward")!)).toBeUndefined();
   });
 });
 

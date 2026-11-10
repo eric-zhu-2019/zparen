@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { KEY } from "./keys";
 
 const shots = (page: Page, name: string) => page.screenshot({ path: `e2e/.results/${name}.png` });
 const git = (root: string, ...args: string[]) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8" });
@@ -12,7 +13,7 @@ async function fresh(page: Page) {
   const welcome = page.getByText("A live Common Lisp workbench on SBCL.");
   await expect(welcome.or(page.locator(".workspace"))).toBeVisible();
   if (await page.locator(".workspace").isVisible()) {
-    await page.keyboard.press("Meta+Shift+P");
+    await page.keyboard.press("ControlOrMeta+Shift+P");
     await page.getByPlaceholder("Type a command…").fill("Close Project");
     await expect(page.locator(".palette .item.selected")).toContainText("Close Project");
     await page.keyboard.press("Enter");
@@ -23,7 +24,7 @@ async function fresh(page: Page) {
 
 async function replEval(page: Page, form: string) {
   await page.getByTestId("repl-input").locator(".cm-content").click();
-  await page.keyboard.press("Meta+ArrowDown");
+  await page.keyboard.press(KEY.docEnd);
   await page.keyboard.type(form);
   await page.keyboard.press("Enter");
 }

@@ -17,7 +17,7 @@ struct Updates {
     pending: tokio::sync::Mutex<Option<tauri_plugin_updater::Update>>,
 }
 
-/// What a check found, for the UI: "available", "current", "unconfigured" or "error".
+/// What a check found, for the UI: "available", "current", "unconfigured", "package" or "error".
 #[derive(Clone, serde::Serialize)]
 struct UpdateNews {
     kind: &'static str,
@@ -35,6 +35,15 @@ async fn check_for_update(app: tauri::AppHandle, asked: bool) {
     if !updates.enabled {
         if asked {
             let _ = app.emit("update", news("unconfigured", &current, ""));
+        }
+        return;
+    }
+    // On Linux only the AppImage replaces itself. A .deb or .rpm updates by
+    // installing the new package, from the releases page that serves latest.json.
+    #[cfg(target_os = "linux")]
+    if !matches!(tauri::utils::platform::bundle_type(), Some(tauri::utils::config::BundleType::AppImage)) {
+        if asked {
+            let _ = app.emit("update", news("package", &current, &releases_page(&app)));
         }
         return;
     }
@@ -62,6 +71,14 @@ async fn check_for_update(app: tauri::AppHandle, asked: bool) {
             }
         }
     }
+}
+
+/// The releases page of the update source, such as
+/// https://github.com/o/r/releases/latest for .../releases/latest/download/latest.json.
+#[cfg(target_os = "linux")]
+fn releases_page(app: &tauri::AppHandle) -> String {
+    let endpoint = app.config().plugins.0.get("updater").and_then(|u| u.get("endpoints")).and_then(|e| e.get(0)).and_then(|e| e.as_str()).unwrap_or("");
+    endpoint.strip_suffix("/download/latest.json").unwrap_or(endpoint).to_string()
 }
 
 /// Downloads and installs the update the last check found, then restarts into it.
@@ -96,8 +113,19 @@ fn resources_dir(app: &tauri::App) -> PathBuf {
 /// The File menu's Open Recent submenu, rebuilt whenever the UI's list of recent projects changes.
 struct RecentMenu(Submenu<tauri::Wry>);
 
+/// ZParen's own Help items, in the order both platforms show them.
+fn help_items(app: &tauri::AppHandle) -> tauri::Result<[MenuItem<tauri::Wry>; 4]> {
+    Ok([
+        MenuItem::with_id(app, "help-shortcuts", "Keyboard Shortcuts", true, Some("CmdOrCtrl+Shift+/"))?,
+        MenuItem::with_id(app, "help-docs", "Lisp Documentation", true, None::<&str>)?,
+        MenuItem::with_id(app, "help-tour", "Getting Started", true, None::<&str>)?,
+        MenuItem::with_id(app, "help-learn", "Learn Lisp", true, None::<&str>)?,
+    ])
+}
+
 /// macOS's standard menus, with project items at the top of File and ZParen's
 /// own Help items in front of the system's search field.
+#[cfg(target_os = "macos")]
 fn menu(app: &tauri::AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Submenu<tauri::Wry>)> {
     let menu = Menu::default(app)?;
     let recent = Submenu::with_id(app, "open-recent", "Open Recent", true)?;
@@ -127,12 +155,7 @@ fn menu(app: &tauri::AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Submenu<taur
         app_menu.insert(&PredefinedMenuItem::separator(app)?, 2)?;
         app_menu.insert(&settings, 3)?;
     }
-    let help_items = [
-        MenuItem::with_id(app, "help-shortcuts", "Keyboard Shortcuts", true, Some("CmdOrCtrl+Shift+/"))?,
-        MenuItem::with_id(app, "help-docs", "Lisp Documentation", true, None::<&str>)?,
-        MenuItem::with_id(app, "help-tour", "Getting Started", true, None::<&str>)?,
-        MenuItem::with_id(app, "help-learn", "Learn Lisp", true, None::<&str>)?,
-    ];
+    let help_items = help_items(app)?;
     let report = MenuItem::with_id(app, "help-report", "Copy Diagnostics for a Report", true, None::<&str>)?;
     let help = match menu.items()?.into_iter().find_map(|i| i.as_submenu().cloned().filter(|s| s.text().is_ok_and(|t| t == "Help"))) {
         Some(h) => h,
@@ -148,6 +171,48 @@ fn menu(app: &tauri::AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Submenu<taur
     help.append(&PredefinedMenuItem::separator(app)?)?;
     help.append(&report)?;
     Ok((menu, recent))
+}
+
+/// On Linux, a File and a Help menu of ZParen's own items. The system's Edit
+/// items would take Ctrl+C, Ctrl+X, Ctrl+V and Ctrl+A before the page sees them,
+/// and the page needs those keys: the editor copies and pastes, the REPL
+/// interrupts, and Emacs and Vim use them. Settings and Check for Updates,
+/// which macOS keeps in the app menu, go in File and Help.
+#[cfg(not(target_os = "macos"))]
+fn menu(app: &tauri::AppHandle) -> tauri::Result<(Menu<tauri::Wry>, Submenu<tauri::Wry>)> {
+    let recent = Submenu::with_id(app, "open-recent", "Open Recent", true)?;
+    let file = Submenu::with_items(
+        app,
+        "File",
+        true,
+        &[
+            &MenuItem::with_id(app, "new-project", "New Project…", true, Some("Ctrl+Shift+N"))?,
+            &MenuItem::with_id(app, "open-project", "Open Project…", true, Some("Ctrl+O"))?,
+            &recent,
+            &MenuItem::with_id(app, "close-project", "Close Project", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "settings", "Settings…", true, Some("Ctrl+,"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "quit", "Quit", true, Some("Ctrl+Q"))?,
+        ],
+    )?;
+    let [shortcuts, docs, tour, learn] = help_items(app)?;
+    let help = Submenu::with_items(
+        app,
+        "Help",
+        true,
+        &[
+            &shortcuts,
+            &docs,
+            &tour,
+            &learn,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "check-updates", "Check for Updates…", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "help-report", "Copy Diagnostics for a Report", true, None::<&str>)?,
+        ],
+    )?;
+    Ok((Menu::with_items(app, &[&file, &help])?, recent))
 }
 
 /// Fills Open Recent with the UI's recent projects, newest first.
@@ -253,6 +318,11 @@ pub fn run() {
             app.on_menu_event(|app, event| {
                 if event.id().0 == "check-updates" {
                     tauri::async_runtime::spawn(check_for_update(app.clone(), true));
+                    return;
+                }
+                // Linux's Quit item asks the UI first, as ⌘Q does on macOS.
+                if event.id().0 == "quit" {
+                    let _ = app.emit("quit-requested", ());
                     return;
                 }
                 let _ = app.emit("menu", event.id().0.as_str());

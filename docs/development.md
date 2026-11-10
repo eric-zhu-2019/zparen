@@ -26,11 +26,25 @@ files change.
 parinfer wasm tests, the TypeScript tests, and the WebKit end-to-end tests.
 Add `--network` to include the ocicl test, which downloads from `ghcr.io`.
 
-The app runs on macOS only. The Rust core and `zparen-dev` also build on
-Linux. `.github/workflows/linux.yml` runs their tests there, and the TypeScript
-tests, for each pull request. On Linux, ZParen keeps its data in
-`~/.local/share/zparen` and its cache in `~/.cache/zparen`, or under
-`$XDG_DATA_HOME` and `$XDG_CACHE_HOME`.
+Releases are for macOS and x86-64 Linux. The app builds on Linux with
+WebKitGTK 4.1 and GTK 3 and their headers installed (`libwebkit2gtk-4.1-dev`
+and `libgtk-3-dev` on Debian and Ubuntu):
+
+```sh
+npm install
+npx tauri build      # target/release/bundle/deb/*.deb and appimage/*.AppImage
+```
+
+The packages carry SBCL's own x86-64 Linux build, which
+`scripts/bundle-sbcl.sh` downloads and checks against the SHA-256 that SBCL
+publishes. It needs glibc 2.38 or later. The AppImage also carries the
+libraries of the system that built it, so it runs only where glibc is at least
+as new as there. Releases build on Ubuntu 24.04 for that reason. On arm64 Linux nothing is bundled,
+and the app uses the installed SBCL. `.github/workflows/linux.yml` runs the
+Rust core's and `zparen-dev`'s tests on Linux, and the TypeScript tests, for
+each pull request. On Linux, ZParen keeps its data in `~/.local/share/zparen`
+and its cache in `~/.cache/zparen`, or under `$XDG_DATA_HOME` and
+`$XDG_CACHE_HOME`.
 
 To run the UI in a browser against a real SBCL, start the bridge and Vite:
 
@@ -48,13 +62,17 @@ must match the version in `src-tauri/tauri.conf.json`. To prepare a release,
 set the same version in `package.json`, `package-lock.json`,
 `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` and `Cargo.lock`.
 
-The workflow has two jobs:
+The workflow has three jobs:
 
 1. **build** runs `scripts/verify.sh` and builds `ZParen.app` with no secret
    in reach.
-2. **sign** signs the app and its disk image with `scripts/sign.sh`, has
-   Apple notarize the disk image, staples the ticket, and publishes the
-   release. No npm or cargo code runs in this job.
+2. **linux** builds the x86-64 `.deb`, `.rpm` and AppImage on Ubuntu 24.04,
+   also with no secret in reach. It checks that the AppImage's SBCL runs and
+   that its libraries need no glibc newer than 2.39.
+3. **sign** waits for both. It signs the app and its disk image with
+   `scripts/sign.sh`, has Apple notarize the disk image, staples the ticket,
+   and publishes the release with the Linux packages. No npm or cargo code
+   runs in this job.
 
 The sign job reads these repository secrets:
 
@@ -122,8 +140,11 @@ The release workflow ships updates when they are set up. Do this once:
 Then each release is built to read
 `releases/latest/download/latest.json` from this repository. After the sign job
 deletes the certificate's keychain, `scripts/update-archive.sh` packs the signed
-app as `ZParen.app.tar.gz`, signs it with the update key and writes
-`latest.json`. Both files go into the release with the disk image. A build from
+app as `ZParen.app.tar.gz`, signs it and the AppImage with the update key, and
+writes `latest.json`. These files go into the release with the disk image. On
+Linux only the AppImage updates itself. A `.deb` or `.rpm` cannot replace
+itself without root, so Check for Updates… there says to install the new
+package. A build from
 before the variable was set has no updates. Its users download the next disk
 image once, and update from the app after that.
 

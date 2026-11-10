@@ -19,6 +19,8 @@ import {
   type SummaryRestart,
 } from "./debuggerSummary";
 import { Icon } from "./Icon";
+import { shortcut } from "../keys";
+import { displayKey } from "../os";
 
 /** Text with `code` marked shown in the code font. */
 function Code({ text }: { text: string }) {
@@ -319,7 +321,7 @@ function Stale({ dbg, summary }: { dbg: Dbg; summary: Summary }) {
 const STEPS = [
   { how: "into", icon: "stepInto", label: "Into", key: "F7" },
   { how: "over", icon: "stepOver", label: "Over", key: "F8" },
-  { how: "out", icon: "stepOut", label: "Out", key: "⇧F8" },
+  { how: "out", icon: "stepOut", label: "Out", key: displayKey("Shift-F8") },
   { how: "continue", icon: "play", label: "Continue", key: "F9" },
 ] as const;
 
@@ -421,7 +423,7 @@ function Help({ onClose }: { onClose: () => void }) {
         <b>Frames</b> are the calls that led here, the innermost first. Yours show, and SBCL's fold. Click one to see its values, and to evaluate a form with them.
       </p>
       <p>
-        <b>Fix and go on:</b> change the function, compile it (⌘B or ⌘↩), then <b>Restart frame</b> runs the new code from that call.
+        <b>Fix and go on:</b> change the function, compile it ({shortcut("compile-file")} or {shortcut("eval")}), then <b>Restart frame</b> runs the new code from that call.
       </p>
       <p>
         <b>Levels:</b> an error while the debugger is open opens another level. <b>Back to the earlier error</b> leaves it.

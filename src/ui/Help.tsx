@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { bindings, displayKey, pluginBindings, type Category } from "../keys";
+import { bindings, displayKey, keyOf, noteOf, pluginBindings, type Category } from "../keys";
 import { usePlugins } from "../plugins";
 import { set, useStore } from "../store";
 import { useReturnFocus } from "./focus";
@@ -15,7 +15,8 @@ export function HelpScreen() {
     // Every word typed must appear: a scattered match is noise across long labels.
     const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
     const hits = [...bindings, ...pluginBindings(commands)].filter((b) => {
-      const text = `${b.label} ${b.key ? displayKey(b.key) : ""} ${b.key ?? ""} ${b.vim ?? ""} ${b.emacs ?? ""} ${b.note ?? ""}`.toLowerCase();
+      const key = keyOf(b);
+      const text = `${b.label} ${key ? displayKey(key) : ""} ${key ?? ""} ${b.vim ?? ""} ${b.emacs ?? ""} ${noteOf(b) ?? ""}`.toLowerCase();
       return terms.every((t) => text.includes(t));
     });
     return ORDER.map((c) => [c, hits.filter((b) => b.category === c)] as const).filter(([, list]) => list.length);
@@ -52,9 +53,9 @@ export function HelpScreen() {
                     <tr key={b.id}>
                       <td>
                         {b.label}
-                        {b.note && <div className="note">{b.note}</div>}
+                        {noteOf(b) && <div className="note">{noteOf(b)}</div>}
                       </td>
-                      <td className="keys">{b.key && <kbd className="keycap">{displayKey(b.key)}</kbd>}</td>
+                      <td className="keys">{keyOf(b) && <kbd className="keycap">{displayKey(keyOf(b)!)}</kbd>}</td>
                       <td className="keys">{b.vim && <kbd className="keycap mono">{b.vim}</kbd>}</td>
                       <td className="keys">{b.emacs && <kbd className="keycap mono">{b.emacs}</kbd>}</td>
                     </tr>

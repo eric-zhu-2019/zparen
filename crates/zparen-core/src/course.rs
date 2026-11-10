@@ -133,11 +133,7 @@ fn commit_staged_or_empty(root: &Path, message: &str, allow_empty: bool) -> Resu
     if empty && !allow_empty {
         return Ok(false);
     }
-    let named = git(root, &["config", "user.email"]).is_ok_and(|e| !e.trim().is_empty());
-    let mut args: Vec<String> = Vec::new();
-    if !named {
-        args.extend(["-c".into(), format!("user.name={FALLBACK_NAME}"), "-c".into(), format!("user.email={FALLBACK_EMAIL}")]);
-    }
+    let mut args = identity(root);
     args.extend(["commit".into(), "--quiet".into(), "-m".into(), message.into()]);
     if empty {
         args.push("--allow-empty".into());
@@ -145,6 +141,16 @@ fn commit_staged_or_empty(root: &Path, message: &str, allow_empty: bool) -> Resu
     let refs: Vec<&str> = args.iter().map(String::as_str).collect();
     git(root, &refs)?;
     Ok(true)
+}
+
+/// Git options that give a stand-in identity when git has none, so commits and
+/// merges work without `user.name` and `user.email`.
+fn identity(root: &Path) -> Vec<String> {
+    let named = git(root, &["config", "user.email"]).is_ok_and(|e| !e.trim().is_empty());
+    if named {
+        return Vec::new();
+    }
+    vec!["-c".into(), format!("user.name={FALLBACK_NAME}"), "-c".into(), format!("user.email={FALLBACK_EMAIL}")]
 }
 
 /// A relative path that stays inside the project.
@@ -266,7 +272,9 @@ pub fn run(root: &Path, op: &CourseGitOp) -> Result<CourseGitReply, String> {
             Ok(CourseGitReply::Committed { committed: commit_staged_or_empty(root, message, *allow_empty)? })
         }
         CourseGitOp::Merge { branch, message } => {
-            git(root, &["merge", "--no-ff", "--quiet", "-m", message, branch])?;
+            let mut args = identity(root);
+            args.extend(["merge", "--no-ff", "--quiet", "-m", message, branch].map(String::from));
+            git(root, &args.iter().map(String::as_str).collect::<Vec<_>>())?;
             Ok(CourseGitReply::Done)
         }
         CourseGitOp::AbortMerge => {

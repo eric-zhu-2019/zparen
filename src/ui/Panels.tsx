@@ -10,6 +10,8 @@ import { EdgeHandle } from "./EdgeHandle";
 import { RIGHT_WIDTH, updateSettings, useSettings } from "../settings";
 import { Repl } from "./Repl";
 import { ProfilePanel, TestsPanel, TracePanel } from "./Tools";
+import { shortcut } from "../keys";
+import { displayKey, platform } from "../os";
 
 export function Inspector() {
   const page = useStore((s) => s.inspector);
@@ -32,7 +34,7 @@ export function Inspector() {
       </div>
       {!page ? (
         <div className="empty" style={{ padding: 20 }}>
-          <div>Click a REPL result, a local in the debugger, or press ⌘I on a symbol to inspect it.</div>
+          <div>Click a REPL result, a local in the debugger, or press {shortcut("inspect")} on a symbol to inspect it.</div>
         </div>
       ) : (
         <>
@@ -98,7 +100,7 @@ export function RightPanel() {
               role="tab"
               aria-selected={v === right}
               className={`right-tab${v === right ? " selected" : ""}`}
-              title={`${RIGHT_NAMES[v]} (⌃Tab for the next)`}
+              title={`${RIGHT_NAMES[v]} (${displayKey("Ctrl-Tab")} for the next)`}
               onClick={() => set({ right: v })}
             >
               {RIGHT_NAMES[v]}
@@ -144,7 +146,7 @@ function Problems() {
   const notes = useStore((s) => s.notes);
   const root = useStore((s) => s.status.project?.root ?? "");
   const files = Object.entries(notes).filter(([, list]) => list.length > 0);
-  if (files.length === 0) return <div className="output">No compiler notes. Compile a form (⇧⌘↩) or a file (⌘B) to check it.</div>;
+  if (files.length === 0) return <div className="output">{`No compiler notes. Compile a form (${shortcut("compile-form")}) or a file (${shortcut("compile-file")}) to check it.`}</div>;
   return (
     <div className="problems" data-testid="problems">
       {files.map(([path, list]) => (
@@ -206,7 +208,7 @@ export function BottomPanel() {
   const tested = useStore((s) => s.tests !== null);
   const shownTask = useStore((s) => (s.activeTask ? s.tasks[s.activeTask] : undefined));
   const clears: Record<State["bottom"], { title: string; can: boolean; run: () => unknown }> = {
-    repl: { title: "Clear REPL (⌘K or ⌃L)", can: true, run: actions.clearRepl },
+    repl: { title: `Clear REPL (${shortcut("repl-clear")}${platform.mac ? " or ⌃L" : ""})`, can: true, run: actions.clearRepl },
     problems: { title: "Clear Problems", can: problemCount > 0, run: actions.clearProblems },
     output: { title: "Clear Output", can: !!shownTask && !shownTask.running, run: actions.clearOutput },
     tests: { title: "Clear Test Results", can: tested && !testing, run: actions.clearTests },
@@ -243,7 +245,7 @@ export function BottomPanel() {
             <Icon name="plus" size={12} />
           </button>
         )}
-        <button className="icon-btn" title="Interrupt (⌃C)" onClick={actions.interrupt}>
+        <button className="icon-btn" title={`Interrupt (${displayKey("Ctrl-c")})`} onClick={actions.interrupt}>
           <Icon name="stop" size={11} />
         </button>
         {dbg && (

@@ -7,6 +7,8 @@ import { useSettings } from "../settings";
 import { set, useStore } from "../store";
 import { Icon } from "./Icon";
 import { createCourse, findCourse, openCourse } from "../learn/learn";
+import { shortcut } from "../keys";
+import { platform } from "../os";
 
 export const openProjectFlow = actions.requestOpenProject;
 
@@ -60,12 +62,12 @@ export function TitleBar() {
           ))}
         </select>
       )}
-      <button className="icon-btn" title="Command palette (⇧⌘P)" onClick={() => set({ palette: "commands" })}>
+      <button className="icon-btn" title={`Command palette (${shortcut("palette")})`} onClick={() => set({ palette: "commands" })}>
         <Icon name="search" />
       </button>
       <button
         className={`icon-btn`}
-        title="Inspector (⌥⌘I)"
+        title={`Inspector (${shortcut("inspector")})`}
         style={right === "inspector" ? { color: "var(--accent)" } : undefined}
         onClick={() => set({ right: right === "inspector" ? null : "inspector" })}
       >
@@ -73,7 +75,7 @@ export function TitleBar() {
       </button>
       <button
         className="icon-btn"
-        title="AI assistant (⌘L)"
+        title={`AI assistant (${shortcut("assistant")})`}
         style={right === "assistant" ? { color: "var(--accent)" } : undefined}
         onClick={() => set({ right: right === "assistant" ? null : "assistant" })}
       >
@@ -131,10 +133,10 @@ function ProjectMenu({ name, root }: { name: string; root: string }) {
       {open && (
         <div className="menu" role="menu">
           <button role="menuitem" onClick={choose(() => set({ newProject: true }))}>
-            New Project… <span className="kbd">⇧⌘N</span>
+            New Project… <span className="kbd">{shortcut("new")}</span>
           </button>
           <button role="menuitem" onClick={choose(() => void actions.requestOpenProject())}>
-            Open Project… <span className="kbd">⌘O</span>
+            Open Project… <span className="kbd">{shortcut("open")}</span>
           </button>
           {others.length > 0 && <div className="menu-label">Recent</div>}
           {others.map((r) => (
@@ -338,7 +340,7 @@ export function NewProjectDialog({ onClose, course: startAsCourse = false }: { o
         {name && !nameOk && <div className="dialog-hint error-hint">Use letters, digits and dashes, starting with a letter.</div>}
         <label>Location</label>
         <div style={{ display: "flex", gap: 6 }}>
-          <input type="text" {...PLAIN} value={parent} onChange={(e) => setParent(e.target.value)} placeholder="/Users/you/projects" />
+          <input type="text" {...PLAIN} value={parent} onChange={(e) => setParent(e.target.value)} placeholder={platform.mac ? "/Users/you/projects" : "/home/you/projects"} />
           <button type="button" className="btn" onClick={async () => setParent((await pickFolder("Choose Location")) ?? parent)}>
             Choose…
           </button>
@@ -529,15 +531,15 @@ export function Welcome({ onNew }: { onNew: () => void }) {
 
 export function EditorEmpty() {
   const rows: [string, string][] = [
-    ["⌘↩", "Evaluate form"],
-    ["⇧⌘↩", "Compile form"],
-    ["⌘B", "Compile and load file"],
-    ["⇧⌘M", "Macroexpand"],
+    [shortcut("eval"), "Evaluate form"],
+    [shortcut("compile-form"), "Compile form"],
+    [shortcut("compile-file"), "Compile and load file"],
+    [shortcut("macroexpand"), "Macroexpand"],
     ["F12 / gd", "Go to definition"],
     ["K", "Documentation popup"],
-    ["⌘D", "Describe symbol"],
-    ["⌘P", "Open file"],
-    ["⇧⌘P", "Commands"],
+    [shortcut("describe"), "Describe symbol"],
+    [shortcut("files"), "Open file"],
+    [shortcut("palette"), "Commands"],
   ];
   return (
     <div className="empty">
