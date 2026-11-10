@@ -8,6 +8,7 @@ import { set, useStore } from "../store";
 import { Icon } from "./Icon";
 import { createCourse, findCourse, openCourse } from "../learn/learn";
 import { shortcut } from "../keys";
+import { platform } from "../os";
 
 export const openProjectFlow = actions.requestOpenProject;
 
@@ -339,7 +340,7 @@ export function NewProjectDialog({ onClose, course: startAsCourse = false }: { o
         {name && !nameOk && <div className="dialog-hint error-hint">Use letters, digits and dashes, starting with a letter.</div>}
         <label>Location</label>
         <div style={{ display: "flex", gap: 6 }}>
-          <input type="text" {...PLAIN} value={parent} onChange={(e) => setParent(e.target.value)} placeholder="/Users/you/projects" />
+          <input type="text" {...PLAIN} value={parent} onChange={(e) => setParent(e.target.value)} placeholder={platform.mac ? "/Users/you/projects" : "/home/you/projects"} />
           <button type="button" className="btn" onClick={async () => setParent((await pickFolder("Choose Location")) ?? parent)}>
             Choose…
           </button>
