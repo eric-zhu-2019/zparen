@@ -21,6 +21,7 @@ import {
   forwardForm,
   joinLists,
   keyLabel,
+  keysOf,
   killForm,
   listInsertPoint,
   raise,
@@ -446,7 +447,7 @@ describe("bindings", () => {
   it("binds every command's keys once, with no key bound twice", () => {
     const keys = structuralKeymap.flatMap((b) => (b.key ? [b.key] : []));
     expect(new Set(keys).size).toBe(keys.length);
-    const declared = structuralCommands.filter((c) => c.run).flatMap((c) => c.keys);
+    const declared = structuralCommands.filter((c) => c.run).flatMap(keysOf);
     expect(keys).toEqual(declared);
   });
 
