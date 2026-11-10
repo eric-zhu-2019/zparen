@@ -2,6 +2,8 @@
 
 ## Install
 
+### macOS
+
 Download `ZParen_<version>_aarch64.dmg` from the
 [latest release](https://github.com/eric-zhu-2019/zparen/releases/latest),
 open it, and drag ZParen to Applications.
@@ -11,8 +13,23 @@ open it, and drag ZParen to Applications.
   with a double-click.
 - Releases carry their own SBCL. When `sbcl` is installed, for example with
   Homebrew, ZParen uses that one instead.
-- Releases from GitHub do not update themselves yet. To update, download the
-  new disk image.
+- ZParen checks for a newer release when it starts, and from ZParen ▸ Check
+  for Updates…. It installs the update and restarts when you agree.
+
+### Linux
+
+ZParen needs x86-64 Linux with glibc 2.39 or later, such as Ubuntu 24.04,
+Debian 13 or Fedora 40. Each release has three packages:
+
+| Package | Install | Updates |
+| --- | --- | --- |
+| `ZParen_<version>_amd64.AppImage` | `chmod +x` it and run it. It needs FUSE, which most desktops have. Without it, add `--appimage-extract-and-run`. | Updates itself, as on macOS |
+| `ZParen_<version>_amd64.deb` | `sudo apt install ./ZParen_<version>_amd64.deb` | Install the next `.deb` |
+| `ZParen-<version>-1.x86_64.rpm` | `sudo dnf install ./ZParen-<version>-1.x86_64.rpm` | Install the next `.rpm` |
+
+The packages carry their own SBCL, as on macOS, and use an installed `sbcl`
+when there is one. On Linux, Ctrl takes the place of ⌘, and a few keys move.
+[Edit code](editing.md#on-linux) lists them.
 
 To build ZParen yourself, see [Develop and release](development.md).
 

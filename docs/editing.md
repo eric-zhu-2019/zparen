@@ -48,8 +48,7 @@ Settings (⌘,).
 
 ### On Linux
 
-There is no Linux release yet, but the app builds and runs there. Ctrl takes the
-place of ⌘: ⌘↩ is Ctrl+Enter, and ⇧⌘P is Ctrl+Shift+P. The shortcuts screen
+On Linux, Ctrl takes the place of ⌘: ⌘↩ is Ctrl+Enter, and ⇧⌘P is Ctrl+Shift+P. The shortcuts screen
 shows each key as Linux writes it. A few keys move, because Ctrl, Vim or the
 desktop already uses the macOS key there:
 
