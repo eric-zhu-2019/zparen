@@ -17,7 +17,7 @@ struct Updates {
     pending: tokio::sync::Mutex<Option<tauri_plugin_updater::Update>>,
 }
 
-/// What a check found, for the UI: "available", "current", "unconfigured" or "error".
+/// What a check found, for the UI: "available", "current", "unconfigured", "package" or "error".
 #[derive(Clone, serde::Serialize)]
 struct UpdateNews {
     kind: &'static str,
@@ -35,6 +35,15 @@ async fn check_for_update(app: tauri::AppHandle, asked: bool) {
     if !updates.enabled {
         if asked {
             let _ = app.emit("update", news("unconfigured", &current, ""));
+        }
+        return;
+    }
+    // On Linux only the AppImage replaces itself. A .deb or .rpm updates by
+    // installing the new package, from the releases page that serves latest.json.
+    #[cfg(target_os = "linux")]
+    if !matches!(tauri::utils::platform::bundle_type(), Some(tauri::utils::config::BundleType::AppImage)) {
+        if asked {
+            let _ = app.emit("update", news("package", &current, &releases_page(&app)));
         }
         return;
     }
@@ -62,6 +71,14 @@ async fn check_for_update(app: tauri::AppHandle, asked: bool) {
             }
         }
     }
+}
+
+/// The releases page of the update source, such as
+/// https://github.com/o/r/releases/latest for .../releases/latest/download/latest.json.
+#[cfg(target_os = "linux")]
+fn releases_page(app: &tauri::AppHandle) -> String {
+    let endpoint = app.config().plugins.0.get("updater").and_then(|u| u.get("endpoints")).and_then(|e| e.get(0)).and_then(|e| e.as_str()).unwrap_or("");
+    endpoint.strip_suffix("/download/latest.json").unwrap_or(endpoint).to_string()
 }
 
 /// Downloads and installs the update the last check found, then restarts into it.
