@@ -77,6 +77,8 @@ pub enum Provider {
     ClaudeCode,
     /// The user's Codex, with its own login.
     Codex,
+    /// A server the user names, such as Ollama or LM Studio, through its OpenAI-compatible chat API.
+    Local,
 }
 
 impl Provider {
@@ -84,7 +86,7 @@ impl Provider {
         match self {
             Provider::ClaudeCode => Some(Agent::ClaudeCode),
             Provider::Codex => Some(Agent::Codex),
-            Provider::Claude | Provider::OpenAI => None,
+            Provider::Claude | Provider::OpenAI | Provider::Local => None,
         }
     }
 }
@@ -99,6 +101,9 @@ pub struct AssistantConfig {
     pub openai_model: String,
     pub claude_code_model: String,
     pub codex_model: String,
+    /// The local server's address, such as `localhost:11434`. Empty until the user sets one.
+    pub local_url: String,
+    pub local_model: String,
 }
 
 impl Default for AssistantConfig {
@@ -109,6 +114,8 @@ impl Default for AssistantConfig {
             openai_model: OPENAI_MODELS[0].into(),
             claude_code_model: DEFAULT_MODEL.into(),
             codex_model: DEFAULT_MODEL.into(),
+            local_url: String::new(),
+            local_model: String::new(),
         }
     }
 }
@@ -134,6 +141,7 @@ pub struct AssistantStatus {
     pub openai: ProviderStatus,
     pub claude_code: ProviderStatus,
     pub codex: ProviderStatus,
+    pub local: ProviderStatus,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, TS, PartialEq)]
@@ -293,6 +301,7 @@ impl Assistant {
         Some(self.data_dir.join(match provider {
             Provider::Claude => "anthropic-api-key",
             Provider::OpenAI => "openai-api-key",
+            Provider::Local => "local-api-key",
             Provider::ClaudeCode | Provider::Codex => return None,
         }))
     }
@@ -312,6 +321,9 @@ impl Assistant {
             if !k.trim().is_empty() {
                 return Some((Credential::ApiKey(k.trim().into()), CredentialSource::Settings));
             }
+        }
+        if provider == Provider::Local {
+            return None;
         }
         let env = if provider == Provider::Claude { "ANTHROPIC_API_KEY" } else { "OPENAI_API_KEY" };
         if let Ok(k) = std::env::var(env) {
@@ -337,19 +349,22 @@ impl Assistant {
     }
 
     pub async fn status(&self) -> AssistantStatus {
-        let (claude, openai, claude_code, codex) = tokio::join!(
+        let config = self.config();
+        let (claude, openai, claude_code, codex, local) = tokio::join!(
             self.provider_status(Provider::Claude, &CLAUDE_MODELS),
             self.provider_status(Provider::OpenAI, &OPENAI_MODELS),
             self.provider_status(Provider::ClaudeCode, &CLAUDE_MODELS),
             self.provider_status(Provider::Codex, &OPENAI_MODELS),
+            self.local_status(&config.local_url),
         );
         AssistantStatus {
             busy: self.running.lock().await.as_ref().is_some_and(|r| !r.task.is_finished()),
-            config: self.config(),
+            config,
             claude,
             openai,
             claude_code,
             codex,
+            local,
         }
     }
 
@@ -361,6 +376,45 @@ impl Assistant {
         }
         let source = self.credential(provider).await.map(|(_, s)| s);
         ProviderStatus { configured: source.is_some(), source, models: models.iter().map(|m| m.to_string()).collect(), note: None }
+    }
+
+    /// Whether the local server answers, and the models it offers.
+    async fn local_status(&self, url: &str) -> ProviderStatus {
+        let source = self.credential(Provider::Local).await.map(|(_, s)| s);
+        let Some(base) = local_base(url) else {
+            let note = if url.trim().is_empty() {
+                "Add the address of a server with an OpenAI-compatible API, such as Ollama (localhost:11434) or LM Studio (localhost:1234)."
+            } else {
+                "The server address must be a host and port, such as localhost:11434, or an http:// or https:// URL."
+            };
+            return ProviderStatus { configured: false, source, models: Vec::new(), note: Some(note.into()) };
+        };
+        match self.local_models(&base).await {
+            Ok(models) if models.is_empty() => ProviderStatus {
+                configured: true,
+                source,
+                models,
+                note: Some(format!("The server at {base} lists no models. Load or pull a model there first.")),
+            },
+            Ok(models) => ProviderStatus { configured: true, source, models, note: None },
+            Err(e) => ProviderStatus { configured: false, source, models: Vec::new(), note: Some(format!("Could not reach {base}: {e}")) },
+        }
+    }
+
+    /// The model names the local server lists at `/models`.
+    async fn local_models(&self, base: &str) -> Result<Vec<String>, String> {
+        let mut req = local_client(&self.http, base).get(format!("{base}/models")).timeout(std::time::Duration::from_secs(3));
+        if let Some((Credential::ApiKey(k) | Credential::OAuth(k), _)) = self.credential(Provider::Local).await {
+            req = req.bearer_auth(k);
+        }
+        let resp = req.send().await.map_err(|e| without_url(&e))?;
+        if !resp.status().is_success() {
+            return Err(format!("the server answered {}", resp.status()));
+        }
+        let body: Value = resp.json().await.map_err(|_| "the server did not answer with a model list".to_string())?;
+        let mut models: Vec<String> = body["data"].as_array().into_iter().flatten().filter_map(|m| m["id"].as_str().map(String::from)).collect();
+        models.sort();
+        Ok(models)
     }
 
     pub fn set_key(&self, provider: Provider, key: &str) -> std::io::Result<()> {
@@ -445,6 +499,9 @@ impl Assistant {
         let config = self.config();
         if let Some(agent) = config.provider.agent() {
             return self.agent_turn(wb, agent, config.provider, turn, user, emit).await;
+        }
+        if config.provider == Provider::Local {
+            return self.local_turn(wb, &config, user, emit).await;
         }
         let (cred, _) = self.credential(config.provider).await.ok_or(if config.provider == Provider::Claude {
             "No Anthropic credentials. Add an API key in the assistant settings, set ANTHROPIC_API_KEY, or run `ant auth login`."
@@ -557,6 +614,87 @@ impl Assistant {
             Some(last) => format!("{} stopped: {last}", agent.name()),
             None => format!("{} stopped ({status}) before it finished the reply.", agent.name()),
         })
+    }
+
+    /// A turn answered by the local server: the same tool loop as the APIs, through its chat API.
+    async fn local_turn(&self, wb: &Arc<Workbench>, config: &AssistantConfig, user: Value, emit: &Emit) -> Result<String, String> {
+        let base = local_base(&config.local_url).ok_or("Add the local server's address in the assistant settings.")?;
+        let key = self.credential(Provider::Local).await.map(|(Credential::ApiKey(k) | Credential::OAuth(k), _)| k);
+        let model = match config.local_model.trim() {
+            "" => self.local_models(&base).await?.into_iter().next().ok_or(format!("The server at {base} lists no models. Load or pull a model there first."))?,
+            m => m.to_string(),
+        };
+        self.history.lock().await.push(user);
+        let mut tools = true;
+        for _ in 0..MAX_TOOL_ROUNDS {
+            let messages = self.history.lock().await.clone();
+            let reply = match self.stream_local(&base, key.as_deref(), &model, &messages, tools, emit).await {
+                Err(LocalError::NoTools(_)) if tools => {
+                    tools = false;
+                    emit(AssistantEvent::Text { text: format!("_{model} cannot call tools, so it answers without running code in your Lisp._\n\n") });
+                    self.stream_local(&base, key.as_deref(), &model, &messages, false, emit).await
+                }
+                other => other,
+            }
+            .map_err(LocalError::message)?;
+            if reply.stop_reason == "refusal" {
+                return Err(format!("The model declined this request{}", reply.refusal_note()));
+            }
+            self.history.lock().await.push(json!({ "role": "assistant", "content": reply.content }));
+            let calls = reply.tool_uses();
+            if calls.is_empty() {
+                return Ok(reply.stop_reason);
+            }
+            let truncated = reply.stop_reason == "max_tokens";
+            let results = futures::future::join_all(calls.into_iter().map(|call| run_tool(wb, call, truncated, emit))).await;
+            self.history.lock().await.push(json!({ "role": "user", "content": results }));
+            if truncated {
+                return Err("The response hit the output limit in the middle of a tool call.".into());
+            }
+        }
+        Err(format!("Stopped after {MAX_TOOL_ROUNDS} rounds of tool calls."))
+    }
+
+    /// One streamed chat completion from the local server.
+    async fn stream_local(&self, base: &str, key: Option<&str>, model: &str, messages: &[Value], tools: bool, emit: &Emit) -> Result<Reply, LocalError> {
+        let mut body = json!({ "model": model, "messages": chat_messages(messages), "stream": true });
+        if tools {
+            body["tools"] = tools::specs()
+                .into_iter()
+                .map(|t| json!({ "type": "function", "function": { "name": t.name, "description": t.description, "parameters": t.input_schema } }))
+                .collect();
+        }
+        let mut req = local_client(&self.http, base).post(format!("{base}/chat/completions")).json(&body);
+        if let Some(k) = key {
+            req = req.bearer_auth(k);
+        }
+        let resp = req.send().await.map_err(|e| LocalError::Other(format!("could not reach {base}: {}", without_url(&e))))?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            let message = serde_json::from_str::<Value>(&text)
+                .ok()
+                .and_then(|v| v.pointer("/error/message").or_else(|| v.get("error")).and_then(Value::as_str).map(String::from))
+                .unwrap_or(text);
+            let message = format!("The local server answered {status}: {message}");
+            // Ollama and llama.cpp refuse tools for a model that cannot call them.
+            return Err(if tools && message.to_lowercase().contains("tool") { LocalError::NoTools(message) } else { LocalError::Other(message) });
+        }
+        let mut stream = resp.bytes_stream();
+        let mut sse = SseBuffer::default();
+        let mut chat = ChatReply::default();
+        use futures::StreamExt;
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|e| LocalError::Other(format!("stream interrupted: {e}")))?;
+            for data in sse.push(&chunk) {
+                if data.trim() == "[DONE]" {
+                    return Ok(chat.finish());
+                }
+                let Ok(event) = serde_json::from_str::<Value>(&data) else { continue };
+                chat.apply(&event, emit).map_err(LocalError::Other)?;
+            }
+        }
+        Ok(chat.finish())
     }
 
     fn body(&self, model: &str, messages: &[Value]) -> Value {
@@ -787,6 +925,185 @@ fn openai_reply(response: &Value) -> Reply {
     }
     .into();
     reply
+}
+
+/// The base URL of the local server's OpenAI-compatible API, from what the
+/// user typed: `localhost:11434`, `http://host:1234` or a full `.../v1` URL.
+/// A bare host and port is reached over http, and an address without a path
+/// gets `/v1`. A pasted `/chat/completions` or `/models` is dropped.
+fn local_base(url: &str) -> Option<String> {
+    let url = url.trim();
+    if url.is_empty() {
+        return None;
+    }
+    let url = if url.contains("://") { url.to_string() } else { format!("http://{url}") };
+    let url = url.trim_end_matches('/');
+    let parsed = reqwest::Url::parse(url).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none_or(str::is_empty) {
+        return None;
+    }
+    let mut base = url.trim_end_matches('/').to_string();
+    for tail in ["/chat/completions", "/models"] {
+        if let Some(rest) = base.strip_suffix(tail) {
+            base = rest.to_string();
+        }
+    }
+    if parsed.path().trim_matches('/').is_empty() {
+        base.push_str("/v1");
+    }
+    Some(base)
+}
+
+/// A server on this computer is reached directly, never through a proxy the system sets.
+fn local_client(http: &reqwest::Client, base: &str) -> reqwest::Client {
+    let host = reqwest::Url::parse(base).ok().and_then(|u| u.host_str().map(String::from)).unwrap_or_default();
+    let loopback = host == "localhost" || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback()) || host == "[::1]";
+    if loopback {
+        reqwest::Client::builder().no_proxy().build().unwrap_or_else(|_| http.clone())
+    } else {
+        http.clone()
+    }
+}
+
+/// Why a request failed, without the URL, which the message already names.
+fn without_url(e: &reqwest::Error) -> String {
+    if e.is_timeout() {
+        return "the server did not answer in time".into();
+    }
+    let mut cause: &dyn std::error::Error = e;
+    while let Some(next) = cause.source() {
+        cause = next;
+    }
+    cause.to_string()
+}
+
+enum LocalError {
+    /// The server will not take tools for this model.
+    NoTools(String),
+    Other(String),
+}
+
+impl LocalError {
+    fn message(self) -> String {
+        match self {
+            LocalError::NoTools(m) | LocalError::Other(m) => m,
+        }
+    }
+}
+
+/// The history as chat completion messages, with the system prompt first.
+/// Thinking and OpenAI's own items are left out; tool calls and their results
+/// keep their ids, so any provider's turns read the same.
+fn chat_messages(messages: &[Value]) -> Vec<Value> {
+    let mut out = vec![json!({ "role": "system", "content": SYSTEM })];
+    for m in messages {
+        let content = m["content"].as_array().cloned().unwrap_or_default();
+        let texts: Vec<&str> = content.iter().filter(|b| b["type"] == "text").filter_map(|b| b["text"].as_str()).collect();
+        if m["role"] == "user" {
+            for b in content.iter().filter(|b| b["type"] == "tool_result") {
+                let output = match &b["content"] {
+                    Value::String(s) => s.clone(),
+                    Value::Array(parts) => parts.iter().filter_map(|p| p["text"].as_str()).collect(),
+                    _ => String::new(),
+                };
+                out.push(json!({ "role": "tool", "tool_call_id": b["tool_use_id"], "content": output }));
+            }
+            if !texts.is_empty() {
+                out.push(json!({ "role": "user", "content": texts.join("\n\n") }));
+            }
+        } else {
+            let calls: Vec<Value> = content
+                .iter()
+                .filter(|b| b["type"] == "tool_use")
+                .map(|b| json!({ "id": b["id"], "type": "function", "function": { "name": b["name"], "arguments": b["input"].to_string() } }))
+                .collect();
+            if texts.is_empty() && calls.is_empty() {
+                continue;
+            }
+            let mut message = json!({ "role": "assistant", "content": texts.join("") });
+            if !calls.is_empty() {
+                message["tool_calls"] = Value::Array(calls);
+            }
+            out.push(message);
+        }
+    }
+    out
+}
+
+/// A streamed chat completion, folded chunk by chunk.
+#[derive(Default)]
+struct ChatReply {
+    text: String,
+    /// Tool calls by their index in the stream: id, name and the arguments so far.
+    calls: BTreeMap<u64, (String, String, String)>,
+    finish: Option<String>,
+}
+
+impl ChatReply {
+    fn apply(&mut self, event: &Value, emit: &Emit) -> Result<(), String> {
+        if let Some(e) = event.get("error") {
+            return Err(e["message"].as_str().or(e.as_str()).unwrap_or("stream error").to_string());
+        }
+        let Some(choice) = event["choices"].get(0) else { return Ok(()) };
+        let delta = &choice["delta"];
+        // Ollama and LM Studio send a reasoning model's thinking apart from its answer.
+        for field in ["reasoning_content", "reasoning"] {
+            if let Some(t) = delta[field].as_str().filter(|t| !t.is_empty()) {
+                emit(AssistantEvent::Thinking { text: t.into() });
+            }
+        }
+        if let Some(t) = delta["content"].as_str().filter(|t| !t.is_empty()) {
+            self.text.push_str(t);
+            emit(AssistantEvent::Text { text: t.into() });
+        }
+        for (n, call) in delta["tool_calls"].as_array().into_iter().flatten().enumerate() {
+            let index = call["index"].as_u64().unwrap_or(n as u64);
+            let entry = self.calls.entry(index).or_default();
+            if let Some(id) = call["id"].as_str().filter(|i| !i.is_empty()) {
+                entry.0 = id.into();
+            }
+            if let Some(name) = call["function"]["name"].as_str() {
+                entry.1.push_str(name);
+            }
+            match &call["function"]["arguments"] {
+                Value::String(a) => entry.2.push_str(a),
+                // Some servers send the arguments as an object, not as JSON text.
+                v @ Value::Object(_) => entry.2 = v.to_string(),
+                _ => {}
+            }
+        }
+        if let Some(f) = choice["finish_reason"].as_str() {
+            self.finish = Some(f.into());
+        }
+        Ok(())
+    }
+
+    /// The reply in the history's own blocks. A call without an id gets one,
+    /// and ids keep only the characters every provider accepts.
+    fn finish(self) -> Reply {
+        let mut reply = Reply::default();
+        if !self.text.is_empty() {
+            reply.content.push(json!({ "type": "text", "text": self.text }));
+            reply.partial_json.push(String::new());
+        }
+        let stamp = new_session_id();
+        for (i, (id, name, raw)) in self.calls.into_values().enumerate() {
+            let id: String = id.chars().map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' }).collect();
+            let id = if id.is_empty() { format!("call_{stamp}_{i}") } else { id };
+            let input = serde_json::from_str::<Value>(&raw).ok().filter(Value::is_object).unwrap_or_else(|| json!({}));
+            reply.content.push(json!({ "type": "tool_use", "id": id, "name": name, "input": input }));
+            reply.partial_json.push(raw);
+        }
+        reply.stop_reason = match self.finish.as_deref() {
+            Some("length") => "max_tokens",
+            Some("content_filter") => "refusal",
+            // Some servers finish with "stop" even after a tool call.
+            _ if reply.content.iter().any(|b| b["type"] == "tool_use") => "tool_use",
+            _ => "end_turn",
+        }
+        .into();
+        reply
+    }
 }
 
 fn user_message(text: &str, context: Option<&EditorContext>) -> Value {
@@ -1026,6 +1343,81 @@ mod tests {
         assert_eq!(r.content[1]["input"], json!({"form":"(+ 1 2)"}));
         let calls = r.tool_uses();
         assert_eq!(calls[0].input, Ok(json!({"form":"(+ 1 2)"})));
+    }
+
+    #[test]
+    fn reads_the_local_server_address_as_typed() {
+        let base = |u: &str| local_base(u);
+        assert_eq!(base("localhost:11434").as_deref(), Some("http://localhost:11434/v1"));
+        assert_eq!(base(" http://127.0.0.1:1234/ ").as_deref(), Some("http://127.0.0.1:1234/v1"));
+        assert_eq!(base("http://gpu-box:8000/v1").as_deref(), Some("http://gpu-box:8000/v1"));
+        assert_eq!(base("http://localhost:8080/v1/chat/completions").as_deref(), Some("http://localhost:8080/v1"));
+        assert_eq!(base("https://llm.example.com/openai/v1/models").as_deref(), Some("https://llm.example.com/openai/v1"));
+        assert_eq!(base("[::1]:11434").as_deref(), Some("http://[::1]:11434/v1"));
+        assert_eq!(base(""), None);
+        assert_eq!(base("ftp://host:21"), None);
+        assert_eq!(base("http://"), None);
+    }
+
+    #[test]
+    fn the_history_becomes_chat_messages_with_tool_calls_and_results() {
+        let history = vec![
+            user_message("What is (+ 1 2)?", None),
+            json!({"role":"assistant","content":[
+                {"type":"thinking","thinking":"hmm","signature":"s"},
+                {"type":"text","text":"Let me check."},
+                {"type":"tool_use","id":"toolu_1","name":"eval","input":{"form":"(+ 1 2)"}},
+                {"type":OPENAI_OUTPUT,"items":[]},
+            ]}),
+            json!({"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"3","is_error":false}]}),
+            json!({"role":"assistant","content":[{"type":"text","text":"It is 3."}]}),
+        ];
+        let m = chat_messages(&history);
+        assert_eq!(m[0]["role"], "system");
+        assert_eq!(m[1], json!({"role":"user","content":"What is (+ 1 2)?"}));
+        assert_eq!(
+            m[2],
+            json!({"role":"assistant","content":"Let me check.","tool_calls":[{"id":"toolu_1","type":"function","function":{"name":"eval","arguments":"{\"form\":\"(+ 1 2)\"}"}}]})
+        );
+        assert_eq!(m[3], json!({"role":"tool","tool_call_id":"toolu_1","content":"3"}));
+        assert_eq!(m[4], json!({"role":"assistant","content":"It is 3."}));
+        assert_eq!(m.len(), 5);
+    }
+
+    #[test]
+    fn folds_a_streamed_chat_completion() {
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = seen.clone();
+        let emit: Emit = Arc::new(move |e| log.lock().unwrap().push(e));
+        let mut c = ChatReply::default();
+        for e in [
+            json!({"choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"think"}}]}),
+            json!({"choices":[{"index":0,"delta":{"content":"Checking. "}}]}),
+            json!({"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call:1","type":"function","function":{"name":"eval","arguments":"{\"form\":"}}]}}]}),
+            json!({"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"(+ 1 2)\"}"}}]}}]}),
+            // Ollama sends a whole call at once, sometimes without an id.
+            json!({"choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"name":"describe_symbol","arguments":{"symbol":"car"}}}]}}]}),
+            json!({"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}),
+        ] {
+            c.apply(&e, &emit).unwrap();
+        }
+        let r = c.finish();
+        assert_eq!(r.content[0], json!({"type":"text","text":"Checking. "}));
+        assert_eq!(r.content[1], json!({"type":"tool_use","id":"call_1","name":"eval","input":{"form":"(+ 1 2)"}}));
+        assert_eq!(r.content[2]["input"], json!({"symbol":"car"}));
+        assert!(r.content[2]["id"].as_str().unwrap().starts_with("call_"), "a call without an id gets one");
+        assert_eq!(r.stop_reason, "tool_use", "a finish of stop after tool calls still runs them");
+        assert_eq!(r.tool_uses()[0].input, Ok(json!({"form":"(+ 1 2)"})));
+        {
+            let events = seen.lock().unwrap();
+            assert_eq!(events[0], AssistantEvent::Thinking { text: "think".into() });
+            assert_eq!(events[1], AssistantEvent::Text { text: "Checking. ".into() });
+        }
+
+        let mut cut = ChatReply::default();
+        cut.apply(&json!({"choices":[{"index":0,"delta":{"content":"Long"},"finish_reason":"length"}]}), &emit).unwrap();
+        assert_eq!(cut.finish().stop_reason, "max_tokens");
+        assert!(ChatReply::default().apply(&json!({"error":{"message":"model not found"}}), &emit).is_err());
     }
 
     #[test]

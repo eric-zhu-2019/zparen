@@ -32,7 +32,8 @@ over MCP.
 - **Checking as you type.** SBCL's warnings show on the code, and the status
   bar shows the argument list.
 - **An AI assistant in your image.** Claude or Codex, with an API key or your
-  own Claude Code or Codex login. Answers show as formatted text, and each
+  own Claude Code or Codex login, or a local model on Ollama or LM Studio.
+  Answers show as formatted text, and each
   code block has Copy, Insert and Eval. A right-click in the editor or the
   REPL explains the code or asks about it.
 - **MCP for outside agents.** Claude Code and other MCP clients use the same
@@ -83,7 +84,7 @@ Three decisions follow from that goal:
 | Coalton | Coalton projects, `.ct` and `.coal` files, types on hover, and type errors on the expression Coalton blames | [Coalton](docs/coalton.md) |
 | Learn | A course from your first form to a query compiler, after *ANSI Common Lisp* and *On Lisp*: 28 lessons with a file and FiveAM tests each, four projects from lesson 16 on (a spreadsheet, an inventory to debug, a test framework, a query engine), and a git branch per lesson that records your progress | [Learn Lisp](docs/learn.md) |
 | Panels | The Learn panel, the assistant, Documentation and the Inspector share the right side, with a tab for each view you opened, so you can go back to one as you left it | [Run and debug](docs/run-and-debug.md#repl-and-inspector) |
-| AI | An assistant that works in your image and answers with Claude or Codex, through an API key or your own Claude Code or Codex login, answers formatted as Markdown with Copy, Insert and Eval on each code block, and an MCP server for Claude Code | [Assistant and MCP](docs/assistant.md) |
+| AI | An assistant that works in your image and answers with Claude or Codex, through an API key or your own Claude Code or Codex login, or with a local model on Ollama, LM Studio or another OpenAI-compatible server, answers formatted as Markdown with Copy, Insert and Eval on each code block, and an MCP server for Claude Code | [Assistant and MCP](docs/assistant.md) |
 | Extend | Plugins written in Common Lisp, and themes as JSON files | [Plugins](docs/plugins.md) |
 
 ![Checking as you type: SBCL's warning marks the undefined variable, and the status bar shows the argument list](docs/screenshots/live-check.png)

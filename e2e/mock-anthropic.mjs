@@ -15,11 +15,24 @@ function openai({ input }, res) {
   res.end(sse([...events, { type: "response.completed", response: { id: "resp_o", status: "completed", output } }]));
 }
 
+// A local server's OpenAI-compatible chat API, as Ollama offers it: evaluate (* 6 7), then answer.
+function chat({ messages }, res) {
+  res.writeHead(200, { "content-type": "text/event-stream" });
+  const answered = messages[messages.length - 1].role === "tool";
+  const delta = answered
+    ? { content: "The local model says **42**." }
+    : { tool_calls: [{ index: 0, id: "call_local", type: "function", function: { name: "eval", arguments: '{"form": "(* 6 7)"}' } }] };
+  const chunk = { choices: [{ index: 0, delta, finish_reason: answered ? "stop" : "tool_calls" }] };
+  res.end(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`);
+}
+
 createServer((req, res) => {
   let body = "";
   req.on("data", (c) => (body += c));
   req.on("end", () => {
     if (req.url === "/v1/responses") return openai(JSON.parse(body), res);
+    if (req.url === "/v1/models") return res.end(JSON.stringify({ object: "list", data: [{ id: "qwen3:8b" }, { id: "llama3.2:3b" }] }));
+    if (req.url === "/v1/chat/completions") return chat(JSON.parse(body), res);
     const { messages } = JSON.parse(body);
     // As the API does, refuse a tool call whose result does not come next.
     const unanswered = messages.some((m, i) => m.role === "assistant" && Array.isArray(m.content) && m.content.some((b) => b.type === "tool_use" &&

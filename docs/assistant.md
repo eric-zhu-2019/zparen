@@ -3,7 +3,8 @@
 ## The assistant
 
 Open the assistant with ⌘L. You make two choices: the assistant, Claude or
-Codex, and how it signs in. Settings ▸ General ▸ Panel font size sets the
+Codex, and how it signs in. Or choose a local model that runs on a server you
+name, such as Ollama. Settings ▸ General ▸ Panel font size sets the
 size of its text.
 
 | Assistant | Sign in with | What ZParen does | Who pays |
@@ -12,6 +13,7 @@ size of its text.
 | Claude | Login | Runs your `claude` command (Claude Code) | Your Claude plan |
 | Codex | API key | Calls the OpenAI API with your key | Your API account, per token |
 | Codex | Login | Runs your `codex` command | Your ChatGPT plan |
+| Local model | | Calls your server's OpenAI-compatible API | Your own hardware |
 
 Settings ▸ Assistant, which the gear icon in the assistant panel opens, has both choices, then the model and the key or login
 for that pair. The model menu under the chat groups the models the same way,
@@ -56,6 +58,31 @@ can switch in the middle of a conversation.
 
 Stop ends the command and the Lisp work its tool calls started. A tool call
 that reaches ZParen after Stop does not run.
+
+### A local model
+
+A local model answers from a server that you run, such as Ollama, LM Studio,
+llama.cpp's `llama-server` or vLLM. ZParen uses the server's OpenAI-compatible
+chat API (`/v1/chat/completions`), with the same tools in your Lisp as the
+other choices.
+
+1. Start the server and load a model. Ollama listens on `localhost:11434`,
+   and LM Studio on `localhost:1234`.
+2. In Settings ▸ Assistant, set **Assistant** to **Local model**.
+3. Type the server's address in **Server**, and click **Connect**. A host and
+   port is enough. ZParen adds `http://` and `/v1`. A full URL, such as
+   `https://gpu-box:8000/v1`, also works.
+4. Choose one of the models that the server lists. ZParen chooses the first
+   one for you.
+
+The chat's model menu then has a **Local model** group. If the server asks
+for a key, as vLLM started with `--api-key` does, save it in **API key**.
+
+A model that cannot call tools still answers, but it cannot run code in your
+Lisp. The reply says so. Small models often call tools badly, so choose a
+model made for tool use, such as Qwen 3. Ollama keeps a short context by
+default, so the tool descriptions can fill it. Give the model a context of
+16k tokens or more.
 
 ![The assistant evaluates (* 6 7) in the live image and offers code with Copy, Insert and Eval](screenshots/assistant.png)
 

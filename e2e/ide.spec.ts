@@ -400,6 +400,51 @@ test("assistant runs tools in the live image and its code can be inserted", asyn
   await expect(row, "and one can be deleted").toHaveCount(0);
 });
 
+test("a local model answers through its server's OpenAI-compatible API, with the same tools", async ({ page }) => {
+  const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
+  await fresh(page);
+  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByPlaceholder("my-app").fill("zen-local");
+  await page.getByPlaceholder(shown("/Users/you/projects", "/home/you/projects")).fill(parent);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page.locator(".dot.ready")).toBeVisible({ timeout: 60_000 });
+  await page.getByTitle(`AI assistant (${shown("⌘L", "Ctrl+L")})`).click();
+  await page.getByTitle("Assistant settings").click();
+  const settings = page.getByTestId("settings");
+  await settings.getByRole("combobox", { name: "Assistant" }).selectOption("local");
+  await expect(settings.getByRole("combobox", { name: "Sign in with" }), "a local model has no sign-in choice").toHaveCount(0);
+  await expect(settings.getByText(/Add the address of a server/)).toBeVisible();
+
+  const address = settings.getByRole("textbox", { name: "Server address" });
+  await address.fill("127.0.0.1:1");
+  await settings.getByRole("button", { name: "Connect" }).click();
+  await expect(settings.getByText(/Could not reach http:\/\/127\.0\.0\.1:1\/v1/), "an address with no server says so").toBeVisible();
+  await address.fill("127.0.0.1:7899");
+  await settings.getByRole("button", { name: "Connect" }).click();
+  await expect(settings.getByText(/Connected\. The server lists 2 models\./)).toBeVisible();
+  const picker = settings.getByRole("combobox", { name: "Local model" });
+  await expect(picker, "the server's first model is chosen").toHaveValue("llama3.2:3b");
+  await picker.selectOption("qwen3:8b");
+  await expect(settings.getByRole("textbox", { name: "Local server API key" }), "a key is optional").toHaveAttribute("placeholder", "None");
+  await shots(page, "assistant-local-settings");
+  await settings.getByRole("button", { name: "Done" }).click();
+
+  const model = page.getByRole("combobox", { name: "Model" });
+  await expect(model).toHaveValue("local:qwen3:8b");
+  await page.getByPlaceholder("Ask qwen3:8b…  ⏎ to send").fill("What is six times seven?");
+  await page.keyboard.press("Enter");
+  const tool = page.locator(".chat-tool");
+  await expect(tool).toContainText("eval");
+  await expect(tool.locator(".dot.ready")).toBeVisible();
+  await expect(page.locator(".chat-assistant strong"), "the local model ran the tool in the image and answered").toHaveText("42");
+  await expect(page.locator(".chat-assistant")).toContainText("The local model says");
+  await shots(page, "assistant-local-chat");
+  await expect(page.locator(".chat-error")).toHaveCount(0);
+
+  await model.selectOption("claude:claude-opus-5-5");
+  await expect(page.getByPlaceholder("Ask Claude…  ⏎ to send")).toBeVisible();
+});
+
 test("Stop ends the assistant's turn, and the Lisp work its tools started", async ({ page }) => {
   const parent = mkdtempSync(join(tmpdir(), "zparen-e2e-"));
   await fresh(page);

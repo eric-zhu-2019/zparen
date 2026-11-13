@@ -5,6 +5,7 @@ import * as actions from "../actions";
 import { modelName } from "./modelName";
 import { ALL_PROVIDERS, FAMILY_NAMES, familyOf, isAgent, METHOD_HINTS, MODEL_KEY, providerLabel } from "./providers";
 import { toolInput } from "./toolInput";
+import { connectLocal, localName } from "./localModel";
 import { highlightLispHtml, looksLikeLisp } from "../editor/lispSyntax";
 import { editorContext, insertAtCursor } from "../editor/commands";
 import type { AssistantStatus } from "../protocol/AssistantStatus";
@@ -186,7 +187,7 @@ function ModelMenu({ status, onChange }: { status: AssistantStatus; onChange: (s
   const { config } = status;
   const models = (p: Provider) => {
     const chosen = config[MODEL_KEY[p]];
-    return status[p].models.includes(chosen) ? status[p].models : [chosen, ...status[p].models];
+    return (status[p].models.includes(chosen) ? status[p].models : [chosen, ...status[p].models]).filter(Boolean);
   };
   return (
     <select
@@ -199,7 +200,8 @@ function ModelMenu({ status, onChange }: { status: AssistantStatus; onChange: (s
         actions.request({ type: "assistantConfigure", config: next }).then((r) => r.type === "assistant" && onChange(r));
       }}
     >
-      {ALL_PROVIDERS.map((p) => (
+      {/* A local model shows once a server is set. */}
+      {ALL_PROVIDERS.filter((p) => models(p).length > 0).map((p) => (
         <optgroup key={p} label={providerLabel(p)}>
           {models(p).map((m) => (
             <option key={m} value={`${p}:${m}`} title={m}>
@@ -212,10 +214,38 @@ function ModelMenu({ status, onChange }: { status: AssistantStatus; onChange: (s
   );
 }
 
+/** Where the local server is, when it does not answer yet. */
+function LocalSetup({ status, onSaved }: { status: AssistantStatus; onSaved: () => void }) {
+  const [url, setUrl] = useState(status.config.localUrl);
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        await connectLocal(status.config, url);
+        onSaved();
+      }}
+    >
+      <h3>Connect a local model</h3>
+      <p>
+        <Inline text={status.local.note ?? ""} />
+      </p>
+      <p>
+        ZParen talks to the server through its OpenAI-compatible API, with the same tools in your Lisp as the other assistants. Ollama
+        listens on <code>localhost:11434</code>, LM Studio on <code>localhost:1234</code>.
+      </p>
+      <input aria-label="Server address" placeholder="localhost:11434" spellCheck={false} value={url} onChange={(e) => setUrl(e.target.value)} />
+      <button className="btn primary" disabled={!url.trim()}>
+        Connect
+      </button>
+    </form>
+  );
+}
+
 function Setup({ status, onSaved }: { status: AssistantStatus | null; onSaved: () => void }) {
   const [key, setKey] = useState("");
   const provider = status?.config.provider ?? "claude";
   const name = FAMILY_NAMES[familyOf(provider)];
+  if (status && provider === "local") return <div className="chat-setup">{!status.local.configured && <LocalSetup status={status} onSaved={onSaved} />}</div>;
   return (
     <div className="chat-setup">
       {status && !status[provider].configured && isAgent(provider) && (
@@ -350,7 +380,8 @@ export function Chat() {
   };
 
   const needsSetup = status !== null && !status[status.config.provider].configured;
-  const name = FAMILY_NAMES[familyOf(status?.config.provider ?? "claude")];
+  const provider = status?.config.provider ?? "claude";
+  const name = status && provider === "local" ? localName(status.config) : FAMILY_NAMES[familyOf(provider)];
 
   return (
     <>
