@@ -230,3 +230,8 @@ ZParen is MIT licensed. See [LICENSE](LICENSE). It includes Swank from
 public domain, and the parinfer engine from
 [parinfer-rust](https://github.com/eraserhd/parinfer-rust) in
 `crates/parinfer-wasm`, which is ISC licensed.
+
+Release builds carry the
+[Common Lisp Community Spec](https://cl-community-spec.github.io), which is
+MIT licensed, copyright 2022 cl-community-spec. It is made from the draft
+ANSI standard's sources, which are in the public domain.

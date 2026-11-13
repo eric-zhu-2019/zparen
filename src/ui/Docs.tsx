@@ -11,7 +11,8 @@ type Shown = {
   arglist: string | null;
   doc: string | null;
   standard: boolean;
-  hyperspec: { installed: boolean; page: string | null };
+  /** The standard's page: from the Community Spec the app carries, or a HyperSpec. `name` says which. */
+  hyperspec: { installed: boolean; page: string | null; name: string };
   /** Coalton's manual on the symbol, for Coalton's operators and library, and the package a library entry is in. */
   manual: { page: string; packageName: string | null; packagePage: string | null } | null;
 };
@@ -59,7 +60,8 @@ async function lookUp(symbol: string, pkg: string): Promise<Shown> {
     doc: described?.kind === "text" ? trimDoc(described.text, Infinity) : null,
     arglist: arglist?.kind === "arglist" && arglist.text.startsWith("(") ? arglist.text : null,
     standard: cl?.kind === "evaluated" && cl.value === "T",
-    hyperspec: hs?.type === "hyperspec" ? { installed: hs.installed, page: hs.page } : { installed: false, page: null },
+    hyperspec:
+      hs?.type === "hyperspec" ? { installed: hs.installed, page: hs.page, name: hs.name ?? "HyperSpec" } : { installed: false, page: null, name: "HyperSpec" },
     manual: coalton?.kind === "evaluated" ? parseManual(coalton.value) : null,
   };
 }
@@ -101,8 +103,8 @@ function Apropos({ onPick }: { onPick: (name: string) => void }) {
   );
 }
 
-function HyperSpecPage({ page }: { page: string }) {
-  return <iframe className="hyperspec" title="Common Lisp HyperSpec" src={hyperspecUrl(page)} data-testid="hyperspec" />;
+function HyperSpecPage({ page, name }: { page: string; name: string }) {
+  return <iframe className="hyperspec" title={`Common Lisp ${name}`} src={hyperspecUrl(page)} data-testid="hyperspec" />;
 }
 
 const REFERENCE = `${COALTON_SITE}reference/`;
@@ -253,8 +255,8 @@ export function DocsPanel() {
         </div>
       ) : !topic ? (
         <div className="docs-empty">
-          Put the cursor on a symbol, or search above. Lisp's own documentation for it shows here, with its HyperSpec page for
-          Common Lisp symbols and Coalton's manual for Coalton's operators and library.
+          Put the cursor on a symbol, or search above. Lisp's own documentation for it shows here, with its page in the standard
+          for Common Lisp symbols and Coalton's manual for Coalton's operators and library.
         </div>
       ) : (
         <div className="docs-body">
@@ -275,7 +277,7 @@ export function DocsPanel() {
                 <div className="segmented" role="tablist">
                   {(["hyperspec", "docstring"] as const).map((v) => (
                     <button key={v} role="tab" className={view === v ? "active" : ""} onClick={() => setView(v)}>
-                      {v === "docstring" ? "Docstring" : shown.hyperspec.page ? "HyperSpec" : "Coalton manual"}
+                      {v === "docstring" ? "Docstring" : shown.hyperspec.page ? shown.hyperspec.name : "Coalton manual"}
                     </button>
                   ))}
                 </div>
@@ -299,7 +301,7 @@ export function DocsPanel() {
               )}
               {shown.manual && !shown.hyperspec.page && view === "hyperspec" && <CoaltonManualPage url={shown.manual.page} />}
               {shown.hyperspec.page ? (
-                view === "hyperspec" && <HyperSpecPage page={shown.hyperspec.page} />
+                view === "hyperspec" && <HyperSpecPage page={shown.hyperspec.page} name={shown.hyperspec.name} />
               ) : (
                 !shown.hyperspec.installed &&
                 shown.standard && <InstallHyperSpec symbol={topic.symbol} onInstalled={() => setNonce((n) => n + 1)} />

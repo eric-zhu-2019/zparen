@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "scripts/bundle-sbcl.sh && npm run build",
+    "beforeBuildCommand": "scripts/bundle-sbcl.sh && scripts/bundle-clcs.sh && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -45,7 +45,8 @@
     "resources": {
       "../resources/swank/": "resources/swank/",
       "../resources/lisp/": "resources/lisp/",
-      "sbcl/": "sbcl/"
+      "sbcl/": "sbcl/",
+      "clcs/": "clcs/"
     },
     "category": "DeveloperTool",
     "macOS": {

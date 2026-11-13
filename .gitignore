@@ -35,6 +35,9 @@ playwright-report/
 # The SBCL bundled into the app, copied by scripts/bundle-sbcl.sh.
 src-tauri/sbcl/
 
+# The Common Lisp Community Spec bundled into the app, made by scripts/bundle-clcs.sh.
+src-tauri/clcs/
+
 # TypeScript build info
 *.tsbuildinfo
 

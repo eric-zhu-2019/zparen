@@ -3,7 +3,13 @@
 ## Build from the source
 
 You need Node.js, Rust and SBCL. ZParen looks for `sbcl` on `PATH`.
-Release builds carry their own SBCL, so they run on Macs without one.
+Release builds carry their own SBCL, so they run on Macs without one. They
+also carry the Common Lisp Community Spec for the Docs panel.
+`scripts/bundle-clcs.sh` downloads a pinned commit of the site, checks its
+SHA-256, and runs `scripts/clcs-pages.mjs`, which keeps only each page's entry
+and writes `symbols.json`, the index of every Common Lisp symbol. The whole
+site is 224 MB, and what the app carries is 10 MB. Set `ZPAREN_HYPERSPEC` to
+`src-tauri/clcs`, or to a HyperSpec, to use it in a development build.
 
 To build and open the app:
 

@@ -11,8 +11,8 @@ extra=()
 # saved conversations of theirs are read, changed or moved.
 export ZPAREN_CONFIG_DIR=$(mktemp -d) ZPAREN_DATA_DIR=$(mktemp -d)
 [ "${1:-}" = "--network" ] && extra=(--include-ignored)
-# The app build lists the bundled SBCL folder, which a fresh checkout lacks.
-mkdir -p src-tauri/sbcl
+# The app build lists the bundled SBCL and spec folders, which a fresh checkout lacks.
+mkdir -p src-tauri/sbcl src-tauri/clcs
 
 echo "== rust"
 bins=$(cargo test --workspace --no-run --message-format=json 2>/dev/null \

@@ -39,7 +39,7 @@ async fn main() {
 /// The HyperSpec's pages, as the app's clhs: scheme serves them.
 async fn hyperspec_file(axum::extract::Path(path): axum::extract::Path<String>) -> Response {
     use axum::response::IntoResponse;
-    match zparen_core::docs::hyperspec().and_then(|hs| hs.read(&path)) {
+    match zparen_core::docs::spec().and_then(|hs| hs.read(&path)) {
         Some((bytes, mime)) => ([(axum::http::header::CONTENT_TYPE, mime)], bytes).into_response(),
         None => axum::http::StatusCode::NOT_FOUND.into_response(),
     }

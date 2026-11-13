@@ -281,7 +281,7 @@ export function describeSymbol(view: EditorView): boolean {
   return true;
 }
 
-/** Opens the documentation panel on the symbol at the cursor, with its HyperSpec page. */
+/** Opens the documentation panel on the symbol at the cursor, with its page in the standard. */
 export function documentSymbol(view: EditorView): boolean {
   const sym = symbolAt(view.state.doc.toString(), view.state.selection.main.head);
   if (!sym) return false;

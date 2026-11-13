@@ -103,7 +103,7 @@ jobs:
           mkdir linux
           cp target/release/bundle/deb/*.deb target/release/bundle/rpm/*.rpm target/release/bundle/appimage/*.AppImage linux/
           ls -l linux
-      # The packages must carry an SBCL that runs, and the AppImage's libraries
+      # The packages must carry an SBCL that runs and the Community Spec, and the AppImage's libraries
       # must need no glibc newer than this runner's.
       - name: Check the packages
         run: |
@@ -113,6 +113,8 @@ jobs:
           SBCL_HOME=$sbcl/lib/sbcl $sbcl/bin/sbcl --noinform --non-interactive --no-userinit \
             --eval '(require :sb-introspect)' --eval '(format t "SBCL ~a in the AppImage~%" (lisp-implementation-version))'
           dpkg-deb -c "$GITHUB_WORKSPACE"/linux/*.deb | grep -q 'usr/lib/ZParen/sbcl/bin/sbcl$'
+          dpkg-deb -c "$GITHUB_WORKSPACE"/linux/*.deb | grep -q 'usr/lib/ZParen/clcs/symbols.json$'
+          [ -f squashfs-root/usr/lib/ZParen/clcs/pages/nconc.html ]
           newest=$(find squashfs-root -type f \( -name '*.so*' -o -path '*/bin/*' \) -exec objdump -T {} + 2>/dev/null \
             | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1)
           echo "newest glibc symbol: $newest"

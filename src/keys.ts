@@ -91,7 +91,7 @@ export const bindings: Binding[] = [
   { id: "macroexpand-all", label: "Macroexpand fully", category: "Lisp", key: "Mod-Alt-m", vim: ",M", emacs: "C-c M-m", scope: "editor", run: (v) => macroexpand(v, true) },
   { id: "doc-tip", label: "Show the symbol's documentation in a popup", category: "Lisp", vim: "K", note: "Escape closes it", scope: "editor", run: (v) => showDocTip(v) },
   { id: "describe", label: "Describe the symbol in full", category: "Lisp", key: "Mod-d", emacs: "C-c C-d d", scope: "editor", run: describeSymbol },
-  { id: "docs", label: "Show the symbol's documentation and HyperSpec page", category: "Lisp", key: "Mod-Shift-d", vim: ",h", emacs: "C-c C-d h", scope: "editor", run: documentSymbol },
+  { id: "docs", label: "Show the symbol's documentation and its page in the standard", category: "Lisp", key: "Mod-Shift-d", vim: ",h", emacs: "C-c C-d h", scope: "editor", run: documentSymbol },
   { id: "inspect", label: "Inspect the symbol or selection", category: "Lisp", key: "Mod-i", vim: ",i", emacs: "C-c I", scope: "editor", run: inspectAtCursor },
   { id: "interrupt", label: "Interrupt the evaluation", category: "Lisp", emacs: "C-c C-b", scope: "window", run: () => void actions.interrupt() },
   { id: "definition", label: "Go to definition", category: "Navigation", key: "F12", vim: "gd", emacs: "M-.", scope: "editor", run: goToDefinition },
