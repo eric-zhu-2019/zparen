@@ -4,4 +4,8 @@ import type { Provider } from "./Provider";
 /**
  * Which provider answers, and the model chosen for each. Kept in `assistant.json`.
  */
-export type AssistantConfig = { provider: Provider, claudeModel: string, openaiModel: string, claudeCodeModel: string, codexModel: string, };
+export type AssistantConfig = { provider: Provider, claudeModel: string, openaiModel: string, claudeCodeModel: string, codexModel: string, 
+/**
+ * The local server's address, such as `localhost:11434`. Empty until the user sets one.
+ */
+localUrl: string, localModel: string, };

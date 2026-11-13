@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ZParen",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "identifier": "dev.zparen.ide",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "scripts/bundle-sbcl.sh && npm run build",
+    "beforeBuildCommand": "scripts/bundle-sbcl.sh && scripts/bundle-clcs.sh && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -45,7 +45,8 @@
     "resources": {
       "../resources/swank/": "resources/swank/",
       "../resources/lisp/": "resources/lisp/",
-      "sbcl/": "sbcl/"
+      "sbcl/": "sbcl/",
+      "clcs/": "clcs/"
     },
     "category": "DeveloperTool",
     "macOS": {

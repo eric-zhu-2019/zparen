@@ -114,7 +114,11 @@ new SBCL, so it does not stop there.
 ## Documentation
 
 The Docs panel (⇧⌘D) shows argument lists, docstrings, apropos and the
-HyperSpec. Hover a symbol to see its documentation, or its argument list when
+standard's page for each Common Lisp symbol. Release builds carry the
+[Common Lisp Community Spec](https://cl-community-spec.github.io), made from
+the draft ANSI standard. To see the HyperSpec instead, set
+`ZPAREN_HYPERSPEC` to its folder. A build without the Community Spec uses a
+HyperSpec from Quicklisp, or offers to install one. Hover a symbol to see its documentation, or its argument list when
 it has none. In Vim, `K` shows a symbol's documentation in a popup.
 
 ## Sessions

@@ -9,7 +9,7 @@ export const TOUR = [
   { id: "repl", title: "Use the REPL", how: "{repl} goes to the REPL. Return at the end of a complete form runs it." },
   { id: "debug", title: "Meet the debugger", how: 'Run (error "oops") in the REPL. Lisp stops and shows its stack.' },
   { id: "restart", title: "Carry on from an error", how: "Pick a restart, or restart a frame after fixing the code, without losing state." },
-  { id: "docs", title: "Look something up", how: "{docs} shows a symbol's documentation, with its HyperSpec page." },
+  { id: "docs", title: "Look something up", how: "{docs} shows a symbol's documentation, with its page in the Common Lisp standard." },
   { id: "tests", title: "Run the tests", how: "{test} runs the project's tests and lists them by result." },
 ] as const;
 

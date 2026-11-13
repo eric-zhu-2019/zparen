@@ -62,8 +62,9 @@ undo, and redo pass through untouched.
 `tools.rs` is one table of tools with LLM-facing descriptions and typed
 parameters. `mcp.rs` serves it over MCP Streamable HTTP with rmcp. It listens
 only on loopback, needs a bearer token, and rejects foreign `Origin` headers.
-`assistant.rs` offers the same table to Claude through the Messages API, and
-to OpenAI models through the Responses API.
+`assistant.rs` offers the same table to Claude through the Messages API, to
+OpenAI models through the Responses API, and to a local model through the
+server's OpenAI-compatible Chat Completions API.
 
 For Claude Code and Codex, `agent.rs` runs the user's own `claude -p` or
 `codex exec` with its JSON output, and passes the table through the MCP

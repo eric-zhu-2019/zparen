@@ -186,10 +186,11 @@ pub enum Response {
     Replaced { count: usize },
     #[serde(rename_all = "camelCase")]
     Mcp { info: Option<McpInfo> },
-    /// `page` is relative to the HyperSpec root, as its server serves it;
-    /// `installed` is false when no local HyperSpec was found.
+    /// `page` is relative to the spec's root, as its server serves it;
+    /// `installed` is false when no spec was found. `name` is what the Docs
+    /// panel calls the spec: "HyperSpec" or "Community Spec".
     #[serde(rename_all = "camelCase")]
-    Hyperspec { installed: bool, page: Option<String> },
+    Hyperspec { installed: bool, page: Option<String>, name: Option<String> },
     /// The saved options, and the sbcl they find, if any.
     #[serde(rename_all = "camelCase")]
     LispOptions { options: LispOptions, sbcl: Option<String> },
@@ -889,9 +890,9 @@ impl Workbench {
                 *self.options.lock().unwrap() = options;
                 Ok(Response::Ok)
             }
-            Request::Hyperspec { symbol } => Ok(match crate::docs::hyperspec() {
-                Some(hs) => Response::Hyperspec { installed: true, page: hs.page(&symbol).map(String::from) },
-                None => Response::Hyperspec { installed: false, page: None },
+            Request::Hyperspec { symbol } => Ok(match crate::docs::spec() {
+                Some(spec) => Response::Hyperspec { installed: true, page: spec.page(&symbol).map(String::from), name: Some(spec.kind.name().into()) },
+                None => Response::Hyperspec { installed: false, page: None, name: None },
             }),
             Request::ListDir { path } => Ok(Response::Dir { entries: list_dir(Path::new(&path))? }),
             Request::ReadFile { path } => {

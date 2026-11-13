@@ -13,7 +13,8 @@ import { allThemes, readThemeFiles, type ThemeKind, useThemes } from "../themes"
 import { type PluginSetting, reloadPlugins, setPluginSetting, usePlugins } from "../plugins";
 import { useReturnFocus } from "./focus";
 import { modelName } from "./modelName";
-import { FAMILY_NAMES, type Family, familyOf, type Method, METHOD_HINTS, METHOD_NAMES, methodOf, MODEL_KEY, providerOf } from "./providers";
+import { FAMILIES, FAMILY_NAMES, type Family, familyOf, type Method, METHOD_HINTS, METHOD_NAMES, methodOf, MODEL_KEY, providerOf } from "./providers";
+import { connectLocal } from "./localModel";
 import { displayKey } from "../os";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -549,6 +550,69 @@ function LoginRow({ provider, status, onCheck }: { provider: "claudeCode" | "cod
   );
 }
 
+/** The local server's address, and whether it answers. */
+function ServerRow({ status, onConnect }: { status: AssistantStatus; onConnect: (url: string) => Promise<unknown> }) {
+  const [url, setUrl] = useState(status.config.localUrl);
+  const [checking, setChecking] = useState(false);
+  const n = status.local.models.length;
+  const connect = async () => {
+    setChecking(true);
+    await onConnect(url);
+    setChecking(false);
+  };
+  return (
+    <Row
+      label="Server"
+      hint={
+        checking
+          ? "Connecting…"
+          : (status.local.note ?? `Connected. The server lists ${n} model${n === 1 ? "" : "s"}. ${METHOD_HINTS.local}`)
+      }
+    >
+      <div className="path-input">
+        <input
+          aria-label="Server address"
+          placeholder="localhost:11434"
+          spellCheck={false}
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void connect()}
+        />
+        <button className="btn" disabled={checking} onClick={() => void connect()}>
+          {url.trim() === status.config.localUrl && status.config.localUrl ? "Check Again" : "Connect"}
+        </button>
+      </div>
+    </Row>
+  );
+}
+
+/** A key for a local server that asks for one. Most do not. */
+function LocalKeyRow({ status, onSaved }: { status: ProviderStatus; onSaved: () => void }) {
+  const [key, setKey] = useState("");
+  const saved = status.source !== null;
+  return (
+    <Row
+      label="API key"
+      hint={saved ? "Saved in ZParen's data folder. Save an empty key to remove it." : "Optional. Only for a server that asks for a key, such as vLLM started with --api-key."}
+    >
+      <div className="path-input">
+        <input type="password" aria-label="Local server API key" placeholder={saved ? "•••••••• saved" : "None"} value={key} onChange={(e) => setKey(e.target.value)} />
+        <button
+          className="btn"
+          disabled={!key.trim() && !saved}
+          onClick={async () => {
+            await actions.request({ type: "assistantSetKey", provider: "local", key: key.trim() });
+            setKey("");
+            onSaved();
+          }}
+        >
+          {key.trim() || !saved ? "Save" : "Remove"}
+        </button>
+      </div>
+    </Row>
+  );
+}
+
 /** The command that lets Claude Code in a terminal work in this image. */
 function McpRow() {
   const [mcp, setMcp] = useState<McpInfo | null>(null);
@@ -573,7 +637,10 @@ function McpRow() {
   );
 }
 
-/** Two choices, the assistant and how it signs in, then the model and the key or login for that pair. */
+/**
+ * Two choices, the assistant and how it signs in, then the model and the key
+ * or login for that pair. A local model has a server address instead.
+ */
 function Assistant() {
   const [status, setStatus] = useState<AssistantStatus | null>(null);
   const refresh = () => actions.request({ type: "assistantStatus" }).then((r) => r.type === "assistant" && setStatus(r));
@@ -592,32 +659,38 @@ function Assistant() {
     <>
       <Row label="Assistant" hint="The chat's model menu switches too.">
         <select className="select" aria-label="Assistant" value={family} onChange={(e) => void configure({ provider: providerOf(e.target.value as Family, method) })}>
-          {(["claude", "codex"] as const).map((f) => (
+          {FAMILIES.map((f) => (
             <option key={f} value={f}>
               {FAMILY_NAMES[f]}
             </option>
           ))}
         </select>
       </Row>
-      <Row label="Sign in with" hint={METHOD_HINTS[provider]}>
-        <select className="select" aria-label="Sign in with" value={method} onChange={(e) => void configure({ provider: providerOf(family, e.target.value as Method) })}>
-          {(["api", "login"] as const).map((m) => (
-            <option key={m} value={m}>
-              {METHOD_NAMES[m]}
-            </option>
-          ))}
-        </select>
-      </Row>
+      {provider === "local" ? (
+        <ServerRow key={status.config.localUrl} status={status} onConnect={(url) => connectLocal(status.config, url).then((r) => r && setStatus(r))} />
+      ) : (
+        <Row label="Sign in with" hint={METHOD_HINTS[provider]}>
+          <select className="select" aria-label="Sign in with" value={method} onChange={(e) => void configure({ provider: providerOf(family, e.target.value as Method) })}>
+            {(["api", "login"] as const).map((m) => (
+              <option key={m} value={m}>
+                {METHOD_NAMES[m]}
+              </option>
+            ))}
+          </select>
+        </Row>
+      )}
       <Row label="Model">
         <ModelPicker
-          key={provider}
-          label={`${FAMILY_NAMES[family]} model`}
+          key={`${provider}:${status[provider].models.join()}`}
+          label={family === "local" ? "Local model" : `${FAMILY_NAMES[family]} model`}
           value={status.config[MODEL_KEY[provider]]}
           models={status[provider].models}
           onChange={(model) => void configure({ [MODEL_KEY[provider]]: model })}
         />
       </Row>
-      {provider === "claude" || provider === "openai" ? (
+      {provider === "local" ? (
+        <LocalKeyRow status={status.local} onSaved={refresh} />
+      ) : provider === "claude" || provider === "openai" ? (
         <KeyRow provider={provider} status={status[provider]} onSaved={refresh} />
       ) : (
         <LoginRow provider={provider} status={status[provider]} onCheck={refresh} />

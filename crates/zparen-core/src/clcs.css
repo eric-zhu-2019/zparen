@@ -1,0 +1,131 @@
+/* ZParen's look for the Common Lisp Community Spec. scripts/clcs-pages.mjs
+   makes every page link ../clcs.css, and docs.rs serves this there. */
+:root {
+  color-scheme: light dark;
+  --text: #1d1d1f;
+  --dim: #6e6e73;
+  --bg: #ffffff;
+  --code-bg: rgba(0, 0, 0, 0.045);
+  --rule: rgba(0, 0, 0, 0.1);
+  --link: #2b8a6e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e8e8ea;
+    --dim: #a1a1a6;
+    --bg: #1e1e20;
+    --code-bg: rgba(255, 255, 255, 0.06);
+    --rule: rgba(255, 255, 255, 0.12);
+    --link: #5fc4a6;
+  }
+}
+body {
+  max-width: 46em;
+  margin: 0 auto;
+  padding: 10px 20px 40px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+b {
+  font-weight: 600;
+}
+i {
+  color: var(--text);
+}
+/* Previous, Up and Next, on one line above the entry. */
+.nav {
+  display: flex;
+  gap: 4px 14px;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+}
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dim);
+}
+.nav-btn.disabled {
+  display: none;
+}
+.nav__next {
+  margin-left: auto;
+}
+.node-type {
+  color: var(--dim);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+h1, h2, h3, h4 {
+  font-weight: 600;
+  line-height: 1.25;
+}
+h4.subsection,
+.top-most h4 {
+  font-size: 1.5em;
+  margin: 2px 0 8px;
+}
+h4.subsubheading {
+  font-size: 1em;
+  margin: 20px 0 6px;
+}
+/* The pages that link here: useful, but after everything else. */
+.section:last-child h3 {
+  font-size: 1em;
+  color: var(--dim);
+  margin: 28px 0 4px;
+}
+.section:last-child:has(h3) {
+  color: var(--dim);
+  font-size: 13px;
+}
+tt, code, kbd, pre {
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  font-size: 0.9em;
+}
+pre {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--code-bg);
+  overflow-x: auto;
+  line-height: 1.45;
+}
+pre code {
+  font-size: 1em;
+}
+hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 18px 0;
+}
+table {
+  border-collapse: collapse;
+}
+td, th {
+  padding: 2px 10px 2px 0;
+  vertical-align: top;
+  text-align: left;
+}
+.arguments-table td:first-child {
+  white-space: nowrap;
+}
+dt {
+  font-weight: 600;
+  margin-top: 8px;
+}
+dd {
+  margin-left: 1.5em;
+}

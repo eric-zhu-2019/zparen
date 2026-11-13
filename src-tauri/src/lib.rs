@@ -267,15 +267,18 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        // The HyperSpec's pages, served unmodified from the local copy.
+        // The spec's pages: the Community Spec the app carries, or a local HyperSpec.
         .register_uri_scheme_protocol("clhs", |_ctx, request| {
             let path = percent_decode(request.uri().path());
-            match zparen_core::docs::hyperspec().and_then(|hs| hs.read(&path)) {
+            match zparen_core::docs::spec().and_then(|hs| hs.read(&path)) {
                 Some((bytes, mime)) => tauri::http::Response::builder().header("Content-Type", mime).body(bytes).unwrap(),
                 None => tauri::http::Response::builder().status(404).body(Vec::new()).unwrap(),
             }
         })
         .setup(|app| {
+            if let Ok(dir) = app.path().resource_dir() {
+                zparen_core::docs::set_bundled(dir.join("clcs"));
+            }
             // A Mac without SBCL uses the one the app carries, if it was built with one.
             let bundled = app.path().resource_dir().map(|d| d.join("sbcl")).unwrap_or_default();
             let config = SessionConfig::new(resources_dir(app)).with_bundled_sbcl(&bundled);
