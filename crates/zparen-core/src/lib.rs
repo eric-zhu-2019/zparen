@@ -2,6 +2,7 @@ pub mod agent;
 pub mod assistant;
 pub mod course;
 pub mod docs;
+pub mod novaspec;
 pub mod files;
 pub mod git;
 pub mod mcp;

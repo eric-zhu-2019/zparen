@@ -1,0 +1,295 @@
+/* ZParen's look for the Nova Spec's pages. novaspec.rs removes the site's own
+   stylesheet and links this one, so the pages match the Docs panel. */
+:root {
+  color-scheme: light dark;
+  --text: #1d1d1f;
+  --dim: #6e6e73;
+  --bg: #ffffff;
+  --code-bg: rgba(0, 0, 0, 0.045);
+  --rule: rgba(0, 0, 0, 0.1);
+  --link: #2b8a6e;
+  --mono: "SF Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e8e8ea;
+    --dim: #a1a1a6;
+    --bg: #1e1e20;
+    --code-bg: rgba(255, 255, 255, 0.06);
+    --rule: rgba(255, 255, 255, 0.12);
+    --link: #5fc4a6;
+  }
+}
+html {
+  background: var(--bg);
+}
+body {
+  max-width: 46em;
+  margin: 0 auto;
+  padding: 10px 20px 40px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+b,
+.cmbx {
+  font-weight: 600;
+}
+i,
+.cmti,
+.cmmi,
+.cmbxsl {
+  font-style: italic;
+}
+
+/* Where the page is: the chapter and section above the entry. */
+.topnav {
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--dim);
+}
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+.breadcrumb-item a {
+  color: var(--dim);
+}
+.breadcrumb-item:first-child {
+  display: none;
+}
+.breadcrumb-item:nth-child(2) {
+  font-size: 0;
+}
+.breadcrumb-item:nth-child(2) a {
+  font-size: 12px;
+}
+
+/* The entry's name and kind. */
+.begincom hr,
+.com > hr {
+  display: none;
+}
+.begincom table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.name h1 {
+  margin: 0;
+  font-size: 1.5em;
+  line-height: 1.25;
+}
+.name h1 b {
+  font-weight: 600;
+}
+.ftype {
+  padding-left: 12px;
+  color: var(--dim);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.ftype i {
+  font-style: normal;
+}
+ul.subtoc:empty {
+  display: none;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  line-height: 1.25;
+}
+h1 {
+  font-size: 1.5em;
+}
+h2 {
+  font-size: 1.25em;
+}
+h3,
+h4,
+h5,
+h6 {
+  font-size: 1.05em;
+}
+.anchorbtn {
+  display: none;
+}
+
+/* Syntax, Arguments and Values, Description, Examples, and the rest. */
+.com > dl > dt,
+dl > dt {
+  margin: 18px 0 4px;
+  font-weight: 600;
+}
+.com > dl > dt b {
+  font-weight: 600;
+}
+dd {
+  margin-left: 0;
+}
+dd dd {
+  margin-left: 1.5em;
+}
+dl dl > dt {
+  margin: 8px 0 2px;
+}
+p,
+.p {
+  margin: 0 0 8px;
+}
+ul,
+ol {
+  padding-left: 1.5em;
+}
+li {
+  margin: 2px 0;
+}
+
+/* Parameters, code and the arrow that shows a value. */
+var,
+.param,
+.cmssi {
+  font-style: italic;
+}
+.cmtt,
+tt,
+code,
+pre {
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+pre,
+.screen {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--code-bg);
+  overflow-x: auto;
+  line-height: 1.45;
+  white-space: pre;
+}
+pre .cmtt,
+pre code {
+  font-size: 1em;
+}
+pre i,
+code i {
+  font-family: var(--mono);
+}
+.arrow {
+  color: var(--dim);
+  padding: 0 0.15em;
+}
+sup,
+sub {
+  font-size: 0.75em;
+  line-height: 0;
+}
+
+/* Names of other entries, in code type. */
+.funref b,
+.macref b,
+.typeref b,
+.keyref b,
+.misc b,
+a:link b {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  font-weight: 600;
+}
+.secref,
+.secref * {
+  font-family: inherit;
+}
+
+/* Glossary words: a quiet link, since most sentences have several. */
+a .term,
+.term {
+  font-style: normal;
+}
+a:link .term {
+  color: var(--text);
+  text-decoration: underline dotted var(--dim);
+  text-underline-offset: 2px;
+}
+a:link:hover .term {
+  color: var(--link);
+}
+.termdef {
+  display: none;
+}
+
+/* Figures and tables. */
+table {
+  border-collapse: collapse;
+}
+td,
+th {
+  padding: 2px 10px 2px 0;
+  vertical-align: top;
+  text-align: left;
+}
+.boxfig,
+figure {
+  margin: 14px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.caption,
+figcaption {
+  margin-top: 6px;
+  color: var(--dim);
+  font-size: 12px;
+}
+.displaymath {
+  margin: 10px 0;
+  text-align: center;
+}
+hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 18px 0;
+}
+
+/* The chapter list on the first page and on chapter pages. */
+.menu {
+  padding-left: 1.2em;
+}
+
+/* Previous and next, and the conversion's credit. */
+.footer {
+  margin-top: 28px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+  color: var(--dim);
+  font-size: 12px;
+}
+.btmnav {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.btmnav a {
+  color: var(--dim);
+}
+.trail {
+  margin-top: 6px;
+}

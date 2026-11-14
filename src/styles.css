@@ -2936,8 +2936,8 @@ button.image-chip:hover {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 8px;
-  /* HyperSpec pages assume a white page; they are shown as published. */
-  background: #fff;
+  /* Each spec's stylesheet paints its own page, in light and dark. */
+  background: transparent;
 }
 .docs-card {
   display: flex;

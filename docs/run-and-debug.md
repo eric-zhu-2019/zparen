@@ -114,9 +114,12 @@ new SBCL, so it does not stop there.
 ## Documentation
 
 The Docs panel (⇧⌘D) shows argument lists, docstrings, apropos and the
-standard's page for each Common Lisp symbol. Release builds carry the
-[Common Lisp Community Spec](https://cl-community-spec.github.io), made from
-the draft ANSI standard. To see the HyperSpec instead, set
+standard's page for each Common Lisp symbol. When you are online, the page
+comes from the [Common Lisp Nova Spec](https://novaspec.org/cl/), shown in
+ZParen's style. ZParen asks novaspec.org only for the page's name, such as
+`f_mapc`. Offline, release builds show the
+[Common Lisp Community Spec](https://cl-community-spec.github.io) they carry.
+Both are made from the draft ANSI standard. To always see the HyperSpec, set
 `ZPAREN_HYPERSPEC` to its folder. A build without the Community Spec uses a
 HyperSpec from Quicklisp, or offers to install one. Hover a symbol to see its documentation, or its argument list when
 it has none. In Vim, `K` shows a symbol's documentation in a popup.

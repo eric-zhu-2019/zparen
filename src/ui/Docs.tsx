@@ -11,7 +11,7 @@ type Shown = {
   arglist: string | null;
   doc: string | null;
   standard: boolean;
-  /** The standard's page: from the Community Spec the app carries, or a HyperSpec. `name` says which. */
+  /** The standard's page: from the Nova Spec online, the Community Spec the app carries, or a HyperSpec. `name` says which. */
   hyperspec: { installed: boolean; page: string | null; name: string };
   /** Coalton's manual on the symbol, for Coalton's operators and library, and the package a library entry is in. */
   manual: { page: string; packageName: string | null; packagePage: string | null } | null;

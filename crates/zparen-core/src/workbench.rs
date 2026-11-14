@@ -890,10 +890,10 @@ impl Workbench {
                 *self.options.lock().unwrap() = options;
                 Ok(Response::Ok)
             }
-            Request::Hyperspec { symbol } => Ok(match crate::docs::spec() {
-                Some(spec) => Response::Hyperspec { installed: true, page: spec.page(&symbol).map(String::from), name: Some(spec.kind.name().into()) },
-                None => Response::Hyperspec { installed: false, page: None, name: None },
-            }),
+            Request::Hyperspec { symbol } => {
+                let found = crate::docs::lookup(&symbol).await;
+                Ok(Response::Hyperspec { installed: found.installed, page: found.page, name: found.name.map(String::from) })
+            }
             Request::ListDir { path } => Ok(Response::Dir { entries: list_dir(Path::new(&path))? }),
             Request::ReadFile { path } => {
                 Ok(Response::File { content: std::fs::read_to_string(&path).map_err(|e| format!("{path}: {e}"))? })
