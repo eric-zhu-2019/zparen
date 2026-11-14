@@ -267,13 +267,15 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        // The spec's pages: the Community Spec the app carries, or a local HyperSpec.
-        .register_uri_scheme_protocol("clhs", |_ctx, request| {
+        // The spec's pages: the Nova Spec online, the Community Spec the app carries, or a local HyperSpec.
+        .register_asynchronous_uri_scheme_protocol("clhs", |_ctx, request, responder| {
             let path = percent_decode(request.uri().path());
-            match zparen_core::docs::spec().and_then(|hs| hs.read(&path)) {
-                Some((bytes, mime)) => tauri::http::Response::builder().header("Content-Type", mime).body(bytes).unwrap(),
-                None => tauri::http::Response::builder().status(404).body(Vec::new()).unwrap(),
-            }
+            tauri::async_runtime::spawn(async move {
+                responder.respond(match zparen_core::docs::read(&path).await {
+                    Some((bytes, mime)) => tauri::http::Response::builder().header("Content-Type", mime).body(bytes).unwrap(),
+                    None => tauri::http::Response::builder().status(404).body(Vec::new()).unwrap(),
+                });
+            });
         })
         .setup(|app| {
             if let Ok(dir) = app.path().resource_dir() {

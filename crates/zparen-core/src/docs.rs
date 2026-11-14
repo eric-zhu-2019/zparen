@@ -1,6 +1,6 @@
-//! The Common Lisp standard's pages for the Docs panel: the Common Lisp
-//! Community Spec the app carries, or a HyperSpec the user has, such as
-//! Quicklisp's "clhs" release. The HyperSpec's license allows only complete,
+//! The Common Lisp standard's pages for the Docs panel: the Nova Spec online
+//! (see novaspec.rs), the Common Lisp Community Spec the app carries, or a
+//! HyperSpec the user has, such as Quicklisp's "clhs" release. The HyperSpec's license allows only complete,
 //! unmodified copies, so ZParen serves its pages as they are. The Community
 //! Spec is MIT licensed, and scripts/clcs-pages.mjs made its pages small.
 
@@ -131,6 +131,35 @@ fn quicklisp_hyperspec(home: Option<PathBuf>) -> Option<PathBuf> {
     // The newest release sorts last.
     found.sort();
     found.pop()
+}
+
+/// What the Docs panel shows for a Common Lisp symbol: the Nova Spec's page
+/// when novaspec.org answers, else the spec on disk. `$ZPAREN_HYPERSPEC` names
+/// the spec on disk, and then only it is used.
+pub struct Lookup {
+    pub installed: bool,
+    pub page: Option<String>,
+    pub name: Option<&'static str>,
+}
+
+pub async fn lookup(symbol: &str) -> Lookup {
+    if std::env::var_os("ZPAREN_HYPERSPEC").is_none()
+        && let Some(page) = crate::novaspec::page(symbol).await
+    {
+        return Lookup { installed: true, page: Some(page), name: Some(crate::novaspec::NAME) };
+    }
+    match spec() {
+        Some(spec) => Lookup { installed: true, page: spec.page(symbol).map(String::from), name: Some(spec.kind.name()) },
+        None => Lookup { installed: false, page: None, name: None },
+    }
+}
+
+/// A file for the clhs: scheme: a Nova Spec page under `nova/`, or a file of the spec on disk.
+pub async fn read(path: &str) -> Option<(Vec<u8>, &'static str)> {
+    match path.trim_start_matches('/').strip_prefix("nova/") {
+        Some(rest) => crate::novaspec::read(rest).await,
+        None => spec()?.read(path),
+    }
 }
 
 static LOADED: OnceLock<std::sync::Mutex<Option<std::sync::Arc<Spec>>>> = OnceLock::new();
