@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as actions from "../actions";
 import { CODE_FONTS, installed, UI_FONTS } from "../fonts";
 import type { AssistantConfig } from "../protocol/AssistantConfig";
@@ -643,14 +643,22 @@ function McpRow() {
  */
 function Assistant() {
   const [status, setStatus] = useState<AssistantStatus | null>(null);
-  const refresh = () => actions.request({ type: "assistantStatus" }).then((r) => r.type === "assistant" && setStatus(r));
+  // Only the reply to the newest request shows. An older one, late, would undo a choice made since.
+  const latest = useRef(0);
+  const apply = (request: Promise<(AssistantStatus & { type: string }) | { type: string } | null>) => {
+    const n = ++latest.current;
+    return request.then((r) => {
+      if (n === latest.current && r?.type === "assistant") setStatus(r as AssistantStatus);
+    });
+  };
+  const refresh = () => apply(actions.request({ type: "assistantStatus" }));
   useEffect(() => void refresh(), []);
   if (!status) return null;
   // The choice shows at once, so a second change made before the reply builds on it.
   const configure = (change: Partial<AssistantConfig>) => {
     const config = { ...status.config, ...change };
     setStatus({ ...status, config });
-    return actions.request({ type: "assistantConfigure", config }).then((r) => r.type === "assistant" && setStatus(r));
+    return apply(actions.request({ type: "assistantConfigure", config }));
   };
   const provider = status.config.provider;
   const family = familyOf(provider);
@@ -667,7 +675,7 @@ function Assistant() {
         </select>
       </Row>
       {provider === "local" ? (
-        <ServerRow key={status.config.localUrl} status={status} onConnect={(url) => connectLocal(status.config, url).then((r) => r && setStatus(r))} />
+        <ServerRow key={status.config.localUrl} status={status} onConnect={(url) => apply(connectLocal(status.config, url).then((r) => r && { ...r, type: "assistant" }))} />
       ) : (
         <Row label="Sign in with" hint={METHOD_HINTS[provider]}>
           <select className="select" aria-label="Sign in with" value={method} onChange={(e) => void configure({ provider: providerOf(family, e.target.value as Method) })}>
